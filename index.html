@@ -170,9 +170,9 @@
   </div>
 
   <div class="relative z-10 flex flex-col items-center text-center px-6 pt-32 pb-40 max-w-7xl mx-auto">
-    <div class="inline-flex items-center gap-2 bg-black/5 rounded-full px-4 py-1.5 mb-8 animate-fade-rise">
-      <span class="w-2 h-2 rounded-full bg-black inline-block"></span>
-      <span class="text-xs font-label text-black/60 uppercase tracking-widest">Voice AI · Always On</span>
+    <div class="inline-flex items-center gap-2 bg-black/5 rounded-full px-5 py-2 mb-8 animate-fade-rise">
+      <span class="w-2 h-2 rounded-full bg-black inline-block shrink-0"></span>
+      <span class="text-xs font-label text-black/70 tracking-wide">Just raised $1.1M pre-seed to build the future of voice agents for customer support.</span>
     </div>
     <h1 class="animate-fade-rise text-5xl md:text-8xl font-normal leading-[0.95] tracking-[-2.46px] text-black max-w-6xl">
       Every call, <span class="font-headline italic text-[#6F6F6F]">answered.</span><br/>
@@ -185,7 +185,7 @@
       <button class="bg-black text-white rounded-full px-14 py-5 text-base font-medium transition-transform duration-300 hover:scale-[1.03] shadow-lg">
         Get Early Access
       </button>
-      <button class="text-black text-base font-label underline underline-offset-4 px-6 py-5 opacity-60 hover:opacity-100 transition-opacity duration-300">
+      <button onclick="document.getElementById('calendly-modal').classList.remove('hidden')" class="text-black text-base font-label underline underline-offset-4 px-6 py-5 opacity-60 hover:opacity-100 transition-opacity duration-300">
         See how it works →
       </button>
     </div>
@@ -214,26 +214,14 @@
 </main>
 
 <!-- ═══════════════════════════════════════════
-     STATS BAR
+     MISSION BAR
 ═══════════════════════════════════════════ -->
 <section class="bg-black text-white py-16 px-8">
-  <div class="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-12 text-center">
-    <div class="animate-on-scroll">
-      <p class="text-4xl md:text-5xl font-headline italic text-white/90">98%</p>
-      <p class="text-sm font-label text-white/40 mt-2 uppercase tracking-widest">Customer Satisfaction</p>
-    </div>
-    <div class="animate-on-scroll">
-      <p class="text-4xl md:text-5xl font-headline italic text-white/90">&lt;1s</p>
-      <p class="text-sm font-label text-white/40 mt-2 uppercase tracking-widest">Response Time</p>
-    </div>
-    <div class="animate-on-scroll">
-      <p class="text-4xl md:text-5xl font-headline italic text-white/90">24/7</p>
-      <p class="text-sm font-label text-white/40 mt-2 uppercase tracking-widest">Always Available</p>
-    </div>
-    <div class="animate-on-scroll">
-      <p class="text-4xl md:text-5xl font-headline italic text-white/90">10M+</p>
-      <p class="text-sm font-label text-white/40 mt-2 uppercase tracking-widest">Calls Handled</p>
-    </div>
+  <div class="max-w-4xl mx-auto text-center animate-on-scroll">
+    <p class="text-xl md:text-2xl font-headline italic text-white/70 leading-relaxed">
+      We're building the infrastructure for the next era of customer communication — where every call is answered, every time, without compromise.
+    </p>
+    <p class="mt-6 text-xs font-label text-white/20 uppercase tracking-widest">Alphy · Pre-Seed · 2025</p>
   </div>
 </section>
 
@@ -375,88 +363,28 @@
     <div class="animate-on-scroll grid grid-cols-2 gap-5">
       <div class="bg-white rounded-xl p-8 flex flex-col gap-3">
         <span class="material-symbols-outlined text-black/20" style="font-size:28px">language</span>
-        <p class="text-lg font-headline text-black">40+ Languages</p>
-        <p class="text-xs text-[#6F6F6F] font-light leading-relaxed">Natively multilingual — serve global customers in their own language without added complexity.</p>
+        <p class="text-lg font-headline text-black">Multilingual</p>
+        <p class="text-xs text-[#6F6F6F] font-light leading-relaxed">Built to serve customers across languages — no added complexity on your end.</p>
       </div>
       <div class="bg-black rounded-xl p-8 flex flex-col gap-3">
         <span class="material-symbols-outlined text-white/30" style="font-size:28px">verified</span>
-        <p class="text-lg font-headline text-white">SOC 2 Compliant</p>
-        <p class="text-xs text-white/40 font-light leading-relaxed">Enterprise-grade security and compliance baked in from day one.</p>
+        <p class="text-lg font-headline text-white">Security First</p>
+        <p class="text-xs text-white/40 font-light leading-relaxed">Designed with enterprise security in mind from the very first line of code.</p>
       </div>
       <div class="bg-black rounded-xl p-8 flex flex-col gap-3">
         <span class="material-symbols-outlined text-white/30" style="font-size:28px">bolt</span>
-        <p class="text-lg font-headline text-white">Real-Time Memory</p>
-        <p class="text-xs text-white/40 font-light leading-relaxed">Alphy remembers context across the full call — no repeating, no frustration.</p>
+        <p class="text-lg font-headline text-white">Contextual Memory</p>
+        <p class="text-xs text-white/40 font-light leading-relaxed">Agents that hold full context across a conversation — no repeating, ever.</p>
       </div>
       <div class="bg-white rounded-xl p-8 flex flex-col gap-3">
         <span class="material-symbols-outlined text-black/20" style="font-size:28px">analytics</span>
-        <p class="text-lg font-headline text-black">Live Analytics</p>
-        <p class="text-xs text-[#6F6F6F] font-light leading-relaxed">Track resolution rates, sentiment trends, and cost savings from a single dashboard.</p>
+        <p class="text-lg font-headline text-black">Insight Layer</p>
+        <p class="text-xs text-[#6F6F6F] font-light leading-relaxed">Every call surfaces signal. Know what your customers need before they ask again.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═══════════════════════════════════════════
-     TESTIMONIALS
-═══════════════════════════════════════════ -->
-<section class="py-32 px-8 bg-white">
-  <div class="max-w-7xl mx-auto">
-    <div class="mb-20 animate-on-scroll text-center">
-      <p class="text-[10px] uppercase tracking-[0.25em] font-label text-black/40 mb-4">What Our Partners Say</p>
-      <h2 class="text-4xl md:text-5xl font-normal leading-[1.05] tracking-tight text-black">
-        Trusted by teams <span class="font-headline italic text-[#6F6F6F]">who care about CX.</span>
-      </h2>
-    </div>
-
-    <div class="grid md:grid-cols-3 gap-8">
-      <div class="animate-on-scroll bg-[#f9f9f9] rounded-xl p-10 flex flex-col gap-6">
-        <p class="text-base font-headline italic text-black/80 leading-relaxed">
-          "Alphy resolved 74% of our inbound calls without any human intervention. Our NPS went up 18 points in the first quarter."
-        </p>
-        <div class="border-t border-black/10 pt-6 flex items-center gap-4">
-          <div class="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center">
-            <span class="text-xs font-label text-black/50">SR</span>
-          </div>
-          <div>
-            <p class="text-sm font-medium text-black">Sarah Reeves</p>
-            <p class="text-xs text-[#6F6F6F]">VP of Customer Experience, Meridian Health</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="animate-on-scroll bg-[#f9f9f9] rounded-xl p-10 flex flex-col gap-6">
-        <p class="text-base font-headline italic text-black/80 leading-relaxed">
-          "We plugged Alphy into our Zendesk in two days. It sounds so natural that some customers asked to speak with it again next time."
-        </p>
-        <div class="border-t border-black/10 pt-6 flex items-center gap-4">
-          <div class="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center">
-            <span class="text-xs font-label text-black/50">JL</span>
-          </div>
-          <div>
-            <p class="text-sm font-medium text-black">James Lin</p>
-            <p class="text-xs text-[#6F6F6F]">Head of Support, NovaPay</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="animate-on-scroll bg-[#f9f9f9] rounded-xl p-10 flex flex-col gap-6">
-        <p class="text-base font-headline italic text-black/80 leading-relaxed">
-          "We scaled from 200 to 2,000 daily calls overnight during a product launch. Alphy didn't flinch. Neither did our customers."
-        </p>
-        <div class="border-t border-black/10 pt-6 flex items-center gap-4">
-          <div class="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center">
-            <span class="text-xs font-label text-black/50">AM</span>
-          </div>
-          <div>
-            <p class="text-sm font-medium text-black">Anika Mehta</p>
-            <p class="text-xs text-[#6F6F6F]">CTO, ThreadCart</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
 
 <!-- ═══════════════════════════════════════════
      JOURNAL / BLOG
@@ -483,7 +411,7 @@
           Why sub-second latency is the new standard for voice AI in support
         </h3>
         <p class="mt-3 text-sm text-[#6F6F6F] font-light leading-relaxed">
-          We analyzed 4 million calls to understand exactly when customers disconnect. The threshold is earlier than you think.
+          Latency is no longer a technical footnote — it's the difference between a resolved call and a lost customer.
         </p>
       </article>
 
@@ -600,6 +528,47 @@
     </div>
   </div>
 </footer>
+
+<!-- ═══════════════════════════════════════════
+     CALENDLY MODAL
+═══════════════════════════════════════════ -->
+<div id="calendly-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center px-4">
+  <!-- Backdrop -->
+  <div onclick="document.getElementById('calendly-modal').classList.add('hidden')" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+  <!-- Modal card -->
+  <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg p-10 flex flex-col gap-6 z-10">
+    <button onclick="document.getElementById('calendly-modal').classList.add('hidden')" class="absolute top-5 right-5 text-black/30 hover:text-black transition-colors duration-200">
+      <span class="material-symbols-outlined" style="font-size:20px">close</span>
+    </button>
+    <div>
+      <p class="text-[10px] uppercase tracking-[0.25em] font-label text-black/40 mb-3">Book a Call</p>
+      <h3 class="text-3xl font-headline text-black leading-tight">See Alphy <span class="italic text-[#6F6F6F]">in action.</span></h3>
+      <p class="mt-3 text-sm text-[#6F6F6F] font-light leading-relaxed">
+        We'll walk you through what we're building and explore how it fits your team. No pitch deck, just a real conversation.
+      </p>
+    </div>
+    <div class="w-full h-px bg-black/10"></div>
+    <div class="flex flex-col gap-3">
+      <div class="flex items-center gap-3 text-sm text-[#6F6F6F]">
+        <span class="material-symbols-outlined text-black/20" style="font-size:18px">schedule</span>
+        30 minutes · Video call
+      </div>
+      <div class="flex items-center gap-3 text-sm text-[#6F6F6F]">
+        <span class="material-symbols-outlined text-black/20" style="font-size:18px">person</span>
+        With Pragyan, Founder of Alphy
+      </div>
+    </div>
+    <a
+      href="https://calendly.com/pragyan-alphard/first-call-with-pragyan?utm_source=schedule_from_linkedin"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="w-full bg-black text-white rounded-full py-4 text-sm font-medium text-center transition-transform duration-300 hover:scale-[1.02] shadow-lg"
+    >
+      Schedule a time →
+    </a>
+    <p class="text-xs text-black/20 text-center font-label">Opens Calendly in a new tab</p>
+  </div>
+</div>
 
 <!-- ═══════════════════════════════════════════
      SCROLL ANIMATION SCRIPT
