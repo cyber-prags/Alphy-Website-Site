@@ -69,7 +69,7 @@ export function DealDetailDrawer({ deal, onClose }: { deal: DealRow | null; onCl
     <>
       <div className="fixed inset-0 bg-ink/30 z-40 fade-in" onClick={onClose} />
       <aside
-        className="fixed top-0 right-0 h-screen w-full md:w-[min(1180px,86vw)] bg-bg z-50 drawer-anim shadow-[0_8px_32px_-12px_rgba(20,20,15,0.18)] border-l border-line flex flex-col"
+        className="fixed top-0 right-0 h-screen w-full md:w-[min(1180px,86vw)] bg-bg z-50 drawer-anim shadow-[0_8px_32px_-12px_rgba(28,40,64,0.18)] border-l border-line flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Drawer header */}

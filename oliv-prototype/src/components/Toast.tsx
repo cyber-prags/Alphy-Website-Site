@@ -25,7 +25,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           const Icon = t.tone === "error" ? AlertCircle : t.tone === "info" ? Info : CheckCircle2;
           const color = t.tone === "error" ? "var(--neg)" : t.tone === "info" ? "var(--info)" : "var(--pos)";
           return (
-            <div key={t.id} className="card p-3 flex items-start gap-2.5 fade-in shadow-[0_4px_16px_-4px_rgba(20,20,15,0.12)]">
+            <div key={t.id} className="card p-3 flex items-start gap-2.5 fade-in shadow-[0_4px_16px_-4px_rgba(28,40,64,0.12)]">
               <Icon size={14} strokeWidth={2} style={{ color, marginTop: 1 }} />
               <div className="flex-1 min-w-0">
                 <div className="text-[12.5px] font-semibold text-ink leading-snug">{t.title}</div>

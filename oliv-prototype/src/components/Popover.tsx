@@ -34,7 +34,7 @@ export function Popover({ trigger, children, align = "left", width = 240 }: Prop
       {trigger(open, () => setOpen((o) => !o))}
       {open && (
         <div
-          className="absolute top-full mt-1 z-40 card p-1 fade-in shadow-[0_8px_24px_-8px_rgba(20,20,15,0.16)]"
+          className="absolute top-full mt-1 z-40 card p-1 fade-in shadow-[0_8px_24px_-8px_rgba(28,40,64,0.16)]"
           style={{ width, [align === "right" ? "right" : "left"]: 0 }}
         >
           {typeof children === "function" ? (children as (c: () => void) => ReactNode)(close) : children}

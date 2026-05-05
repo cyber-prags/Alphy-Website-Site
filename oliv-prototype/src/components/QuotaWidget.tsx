@@ -106,9 +106,9 @@ function derive(persona: Persona, _target: number) {
   if (persona === "am") {
     const e = myNumber.am.expansion;
     return {
-      primary:  e.inMotion,
+      primary:  e.closed + e.inMotion,
       label:    `${myNumber.am.quarter} · EXPANSION`,
-      sub:      `${fmtMoney(e.drafted)} drafted`,
+      sub:      `${fmtMoney(e.closed)} closed · ${fmtMoney(e.inMotion)} in motion`,
       deltaPct: undefined,
     };
   }

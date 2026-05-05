@@ -3,9 +3,13 @@
 import { useState } from "react";
 import {
   X, Check, Phone, Sparkles, ChevronDown, ChevronUp, ArrowUp,
+  ListChecks, MessageSquare, FileText,
 } from "lucide-react";
-import { type QueueItem } from "@/lib/mock";
+import { type QueueItem, type Subtask, type TaskComment, taskTemplates } from "@/lib/mock";
 import { Logo } from "./Logo";
+import { SubtaskList } from "./SubtaskList";
+import { CommentThread } from "./CommentThread";
+import { Popover, MenuItem, MenuLabel } from "./Popover";
 
 // ---------------------------------------------------------------------
 // Per-account synthetic contacts
@@ -113,8 +117,22 @@ export function TaskDetailDrawer({
   const [whyOpen, setWhyOpen] = useState(true);
   const [q, setQ] = useState("");
   const [answers, setAnswers] = useState<{ q: string; a: string }[]>([]);
+  const [localSubtasks, setLocalSubtasks] = useState<Subtask[] | null>(null);
+  const [localComments, setLocalComments] = useState<TaskComment[] | null>(null);
 
   if (!item) return null;
+
+  const subtasks = localSubtasks ?? item.subtasks ?? [];
+  const comments = localComments ?? item.comments ?? [];
+  const setSubtasks = (s: Subtask[]) => setLocalSubtasks(s);
+  const addComment = (c: TaskComment) => setLocalComments([...comments, c]);
+  const applyTemplate = (tplId: string) => {
+    const tpl = taskTemplates.find((t) => t.id === tplId);
+    if (!tpl) return;
+    const newSubs = tpl.subtasks.map((label, i) => ({ id: `st-tpl-${Date.now()}-${i}`, label, done: false }));
+    setLocalSubtasks(newSubs);
+  };
+  const relevantTemplates = taskTemplates.filter((t) => t.kinds.includes(item.kind));
 
   const priority = priorityFor(item);
   const contact  = CONTACT_MAP[item.account] ?? { name: "Primary Contact", title: "Executive Sponsor" };
@@ -146,6 +164,26 @@ export function TaskDetailDrawer({
             <Phone size={13} strokeWidth={1.8} className="text-muted" />
           </div>
           <h2 className="flex-1 text-[13.5px] font-semibold text-ink truncate min-w-0">{item.headline}</h2>
+          {relevantTemplates.length > 0 && (
+            <Popover align="right" width={220}
+              trigger={(_, t) => (
+                <button onClick={t}
+                  className="h-8 px-3 rounded-md border border-line text-[12px] text-muted hover:text-ink hover:bg-surface-2 inline-flex items-center gap-1.5 shrink-0">
+                  <FileText size={11} strokeWidth={1.8} /> Template
+                </button>
+              )}>
+              {(close) => (
+                <>
+                  <MenuLabel>Apply template</MenuLabel>
+                  {relevantTemplates.map((tpl) => (
+                    <MenuItem key={tpl.id} onClick={() => { applyTemplate(tpl.id); close(); }}>
+                      {tpl.name}
+                    </MenuItem>
+                  ))}
+                </>
+              )}
+            </Popover>
+          )}
           <button onClick={() => { onDismiss(item.id); onClose(); }}
             className="h-8 px-3 rounded-md border border-line text-[12px] text-muted hover:text-ink hover:bg-surface-2 inline-flex items-center gap-1.5 shrink-0">
             <X size={11} strokeWidth={1.8} /> Dismiss
@@ -239,6 +277,36 @@ export function TaskDetailDrawer({
                     </li>
                   ))}
                 </ul>
+              </div>
+            </div>
+
+            {/* Subtasks */}
+            {subtasks.length > 0 && (
+              <div className="border border-line rounded-xl overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 bg-surface border-b border-line">
+                  <ListChecks size={12} strokeWidth={1.8} className="text-muted" />
+                  <span className="text-[13px] font-semibold text-ink">Subtasks</span>
+                  <span className="ml-auto text-[10.5px] font-mono tnum text-muted">
+                    {subtasks.filter((s) => s.done).length}/{subtasks.length}
+                  </span>
+                </div>
+                <div className="px-4 py-4">
+                  <SubtaskList subtasks={subtasks} onChange={setSubtasks} />
+                </div>
+              </div>
+            )}
+
+            {/* Comments */}
+            <div className="border border-line rounded-xl overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 bg-surface border-b border-line">
+                <MessageSquare size={12} strokeWidth={1.8} className="text-muted" />
+                <span className="text-[13px] font-semibold text-ink">Comments</span>
+                {comments.length > 0 && (
+                  <span className="ml-auto text-[10.5px] font-mono tnum text-muted">{comments.length}</span>
+                )}
+              </div>
+              <div className="px-4 py-4">
+                <CommentThread comments={comments} onAdd={addComment} />
               </div>
             </div>
           </div>

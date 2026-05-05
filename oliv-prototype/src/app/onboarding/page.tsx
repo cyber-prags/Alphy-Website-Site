@@ -329,7 +329,7 @@ function IntroStep({ onNext }: { onNext: () => void }) {
               filter: "blur(2px)",
             }}
           />
-          <div className="relative w-20 h-20 rounded-3xl bg-ink grid place-items-center shadow-[0_20px_60px_-20px_rgba(20,20,15,0.7)]">
+          <div className="relative w-20 h-20 rounded-3xl bg-ink grid place-items-center shadow-[0_20px_60px_-20px_rgba(28,40,64,0.7)]">
             <span className="orb" style={{ width: 14, height: 14 }} />
           </div>
         </div>
@@ -352,7 +352,7 @@ function IntroStep({ onNext }: { onNext: () => void }) {
         {FEATURES.map((f, i) => (
           <div
             key={f.label}
-            className="inline-flex items-center gap-2 h-8 px-3.5 rounded-full border border-line bg-surface/80 backdrop-blur-sm text-[12px] font-medium text-ink-2 shadow-[0_2px_8px_-4px_rgba(20,20,15,0.08)]"
+            className="inline-flex items-center gap-2 h-8 px-3.5 rounded-full border border-line bg-surface/80 backdrop-blur-sm text-[12px] font-medium text-ink-2 shadow-[0_2px_8px_-4px_rgba(28,40,64,0.08)]"
             style={{ animation: `fadeIn 600ms ${300 + i * 80}ms backwards ease-out` }}
           >
             <f.Icon size={13} strokeWidth={1.6} style={{ color: "var(--accent-deep)" }} />
@@ -770,7 +770,7 @@ function ReadyStep({ picked, agentCount, sourceCount, target, onFinish, onTour }
   return (
     <div className="fade-in">
       {/* HERO CARD */}
-      <div className="relative rounded-[28px] overflow-hidden mb-5 border border-line bg-gradient-to-br from-surface to-surface-2 shadow-[0_30px_80px_-30px_rgba(20,20,15,0.25)]">
+      <div className="relative rounded-[28px] overflow-hidden mb-5 border border-line bg-gradient-to-br from-surface to-surface-2 shadow-[0_30px_80px_-30px_rgba(28,40,64,0.25)]">
         {/* Decorative top gradient strip */}
         <div
           className="absolute inset-x-0 top-0 h-[180px] pointer-events-none"
@@ -863,7 +863,7 @@ function ReadyStep({ picked, agentCount, sourceCount, target, onFinish, onTour }
             </PrimaryButton>
             <button
               onClick={onTour}
-              className="h-10 px-5 rounded-xl inline-flex items-center gap-1.5 text-[13px] font-semibold border border-line bg-surface text-ink hover:bg-surface-2 hover:border-line-strong transition-colors shadow-[0_2px_8px_-4px_rgba(20,20,15,0.08)]"
+              className="h-10 px-5 rounded-xl inline-flex items-center gap-1.5 text-[13px] font-semibold border border-line bg-surface text-ink hover:bg-surface-2 hover:border-line-strong transition-colors shadow-[0_2px_8px_-4px_rgba(28,40,64,0.08)]"
             >
               <LineChart size={13} strokeWidth={1.8} /> Take the 60-second tour
             </button>

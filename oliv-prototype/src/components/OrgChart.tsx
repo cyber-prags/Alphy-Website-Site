@@ -190,7 +190,7 @@ export function OrgChart({ stakeholders, onEdit, onReportsToChange }: OrgChartPr
                   stroke={dropTarget === n.node.name ? "var(--accent-deep)" : isHover ? "var(--ink)" : "var(--line)"}
                   strokeWidth={dropTarget === n.node.name ? 2 : isHover ? 1.5 : 1}
                   strokeDasharray={dropTarget === n.node.name ? "4 3" : undefined}
-                  filter={isHover ? "drop-shadow(0 4px 12px rgba(20,20,15,0.15))" : undefined}
+                  filter={isHover ? "drop-shadow(0 4px 12px rgba(28,40,64,0.15))" : undefined}
                 />
                 {/* Initials avatar */}
                 <circle cx="20" cy={NODE_H / 2} r="14" fill="var(--ink)" />

@@ -17,23 +17,31 @@ import { AdoptionPanel } from "@/components/AdoptionPanel";
 import { accountAdoption } from "@/lib/mock";
 import { SourceChip } from "@/components/SourceChip";
 import { StakeholderEditor } from "@/components/StakeholderEditor";
+import { WhiteSpaceMatrix } from "@/components/WhiteSpaceMatrix";
+import { SuccessPlanBuilder } from "@/components/SuccessPlanBuilder";
 import { AppShell } from "@/components/AppShell";
 import { Logo, getBrand } from "@/components/Logo";
 import {
   accountDetails, accounts, outcomes, deals, workflows as allWorkflows, fmtMoney, fmtFullMoney, fmtDate, slugify,
+  activityComments, successPlans, accountPlans, accountDocs, type ActivityComment as ActivityCommentType,
   type AccountDetail, type Stakeholder, type AccountSignal, type WorkflowRow,
+  type AccountPlan, type PlanTask, type PlanMilestone, type TaskStatus, type DocNode,
 } from "@/lib/mock";
+import { MentionInput } from "@/components/MentionInput";
 import { useToast } from "@/components/Toast";
 
 const TABS = [
-  { id: "brief"     as const, label: "Brief" },
-  { id: "analytics" as const, label: "Analytics" },
-  { id: "journey"   as const, label: "Journey" },
-  { id: "outcomes"  as const, label: "Outcomes" },
-  { id: "people"    as const, label: "People" },
-  { id: "activity"  as const, label: "Activity" },
-  { id: "deals"     as const, label: "Deals" },
-  { id: "workflows" as const, label: "Workflows" },
+  { id: "brief"      as const, label: "Brief" },
+  { id: "analytics"  as const, label: "Analytics" },
+  { id: "whitespace" as const, label: "White Space" },
+  { id: "journey"    as const, label: "Journey" },
+  { id: "outcomes"   as const, label: "Outcomes" },
+  { id: "people"     as const, label: "People" },
+  { id: "activity"   as const, label: "Activity" },
+  { id: "deals"      as const, label: "Deals" },
+  { id: "plans"      as const, label: "Plans" },
+  { id: "docs"       as const, label: "Docs" },
+  { id: "workflows"  as const, label: "Workflows" },
 ];
 
 type TabId = typeof TABS[number]["id"];
@@ -140,17 +148,23 @@ function AccountWorkspace({ account, slug, backHref }: { account: AccountDetail;
             {t.id === "deals" && accountDeals.length > 0 && (
               <span className="ml-1 text-[10px] font-mono tnum text-muted">{accountDeals.length}</span>
             )}
+            {t.id === "plans" && accountPlans.filter(p => p.accountSlug === slug).length > 0 && (
+              <span className="ml-1 text-[10px] font-mono tnum text-muted">{accountPlans.filter(p => p.accountSlug === slug).length}</span>
+            )}
           </button>
         ))}
       </div>
 
-      {tab === "brief"     && <BriefPanel account={liveAccount} outcomes={accountOutcomes} deals={accountDeals} adoption={adoption} onJumpTab={setTab} />}
-      {tab === "analytics" && <AnalyticsPanel account={liveAccount} adoption={adoption} />}
-      {tab === "journey"   && <JourneyPanel account={liveAccount} />}
-      {tab === "outcomes"  && <OutcomesPanel account={liveAccount} outcomes={accountOutcomes} />}
+      {tab === "brief"      && <BriefPanel account={liveAccount} outcomes={accountOutcomes} deals={accountDeals} adoption={adoption} onJumpTab={setTab} />}
+      {tab === "analytics"  && <AnalyticsPanel account={liveAccount} adoption={adoption} />}
+      {tab === "whitespace" && <WhiteSpaceMatrix account={liveAccount} slug={slug} />}
+      {tab === "journey"    && <JourneyPanel account={liveAccount} />}
+      {tab === "outcomes"  && <OutcomesPanel account={liveAccount} outcomes={accountOutcomes} slug={slug} />}
       {tab === "people"    && <PeoplePanel account={liveAccount} onAdd={openAddStakeholder} onEdit={openEditStakeholder} />}
-      {tab === "activity"  && <ActivityPanel account={liveAccount} />}
+      {tab === "activity"  && <ActivityPanel account={liveAccount} slug={slug} />}
       {tab === "deals"     && <DealsPanel deals={accountDeals} account={liveAccount} />}
+      {tab === "plans"     && <PlansPanel slug={slug} />}
+      {tab === "docs"      && <DocumentsPanel slug={slug} />}
       {tab === "workflows" && <AccountWorkflowsPanel slug={slug} />}
 
       <DraftDeckModal open={deckOpen} account={liveAccount} template={deckTemplate} onClose={() => setDeckOpen(false)} />
@@ -656,7 +670,7 @@ function callsFor(account: AccountDetail): CallRecording[] {
       duration: "32m",
       when: "Yesterday",
       participants: [
-        { name: "Walid Qayoumi", initials: "WQ", bg: "#1A1B17", isHost: true },
+        { name: "Walid Qayoumi", initials: "WQ", bg: "#374151", isHost: true },
         { name: account.stakeholders[0]?.name ?? "Maya Chen", initials: (account.stakeholders[0]?.name ?? "Maya Chen").split(" ").map(p => p[0]).slice(0,2).join(""), bg: "#3B82F6" },
       ],
       summary: isHealthy
@@ -677,8 +691,8 @@ function callsFor(account: AccountDetail): CallRecording[] {
       duration: "45m",
       when: "1w ago",
       participants: [
-        { name: "Walid Qayoumi", initials: "WQ", bg: "#1A1B17", isHost: true },
-        { name: "Marcus Webb",    initials: "MW", bg: "#2A6B2A" },
+        { name: "Walid Qayoumi", initials: "WQ", bg: "#374151", isHost: true },
+        { name: "Marcus Webb",    initials: "MW", bg: "#1E40AF" },
         { name: account.stakeholders[1]?.name ?? "Lin Park", initials: (account.stakeholders[1]?.name ?? "Lin Park").split(" ").map(p => p[0]).slice(0,2).join(""), bg: "#10B981" },
       ],
       summary: "Reviewed adoption gaps, ROI from last quarter, and aligned on success plan for H2. Customer asked for cross-BU reference customers.",
@@ -696,7 +710,7 @@ function callsFor(account: AccountDetail): CallRecording[] {
       duration: "22m",
       when: "12d ago",
       participants: [
-        { name: "Rachel Kim",     initials: "RK", bg: "#6B2A6B", isHost: true },
+        { name: "Rachel Kim",     initials: "RK", bg: "#7C3AED", isHost: true },
         { name: account.stakeholders[2]?.name ?? "Tom Reilly", initials: (account.stakeholders[2]?.name ?? "Tom Reilly").split(" ").map(p => p[0]).slice(0,2).join(""), bg: "#F59E0B" },
       ],
       summary: isHealthy
@@ -980,7 +994,7 @@ function VideoPlayer({ call, accountName }: { call: CallRecording; accountName: 
     <div className="rounded-xl overflow-hidden border border-line">
       {/* Video area with participant thumbnails */}
       <div className="relative aspect-video max-h-[280px]"
-        style={{ background: `linear-gradient(135deg, ${brand?.bg ?? "#1A1B17"} 0%, #0A0A08 50%, ${brand?.bg ?? "#1A1B17"}40 100%)` }}>
+        style={{ background: `linear-gradient(135deg, ${brand?.bg ?? "#374151"} 0%, #111827 50%, ${brand?.bg ?? "#374151"}40 100%)` }}>
         {/* Grid of participant "video feeds" */}
         <div className="absolute inset-4 grid gap-2"
           style={{ gridTemplateColumns: call.participants.length <= 2 ? "1fr 1fr" : "1fr 1fr", gridTemplateRows: call.participants.length <= 2 ? "1fr" : "1fr 1fr" }}>
@@ -2050,225 +2064,244 @@ function JourneyPanel({ account }: { account: AccountDetail }) {
 
   type TouchpointType = "milestone" | "call" | "email" | "meeting" | "signal" | "deal" | "ticket" | "onboarding";
   type Touchpoint = {
-    id: string;
-    type: TouchpointType;
-    title: string;
-    description: string;
-    date: string;
-    isoDate: string;
-    actor?: string;
+    id: string; type: TouchpointType; title: string; description: string;
+    date: string; isoDate: string; actor?: string; phase: string;
     tone: "pos" | "warn" | "neg" | "info" | "neutral" | "accent";
   };
 
   const JOURNEY_ICON: Record<TouchpointType, typeof Milestone> = {
-    milestone: Flag,
-    call: Phone,
-    email: Mail,
-    meeting: Video,
-    signal: Zap,
-    deal: DollarSign,
-    ticket: AlertTriangle,
-    onboarding: Award,
+    milestone: Flag, call: Phone, email: Mail, meeting: Video,
+    signal: Zap, deal: DollarSign, ticket: AlertTriangle, onboarding: Award,
   };
 
-  const JOURNEY_TONE: Record<Touchpoint["tone"], { bg: string; color: string; line: string }> = {
-    pos:     { bg: "var(--pos-soft)",    color: "var(--pos)",        line: "var(--pos)" },
-    warn:    { bg: "var(--warn-soft)",   color: "var(--warn)",       line: "var(--warn)" },
-    neg:     { bg: "var(--neg-soft)",    color: "var(--neg)",        line: "var(--neg)" },
-    info:    { bg: "var(--info-soft)",   color: "var(--info)",       line: "var(--info)" },
-    neutral: { bg: "var(--bg-deep)",     color: "var(--muted)",      line: "var(--muted-2)" },
-    accent:  { bg: "var(--accent-soft)", color: "var(--accent-deep)", line: "var(--accent-deep)" },
+  const TONE: Record<Touchpoint["tone"], { bg: string; color: string; ring: string }> = {
+    pos:     { bg: "var(--pos-soft)",    color: "var(--pos)",        ring: "rgba(34,197,94,0.2)" },
+    warn:    { bg: "var(--warn-soft)",   color: "var(--warn)",       ring: "rgba(245,158,11,0.2)" },
+    neg:     { bg: "var(--neg-soft)",    color: "var(--neg)",        ring: "rgba(239,68,68,0.2)" },
+    info:    { bg: "var(--info-soft)",   color: "var(--info)",       ring: "rgba(59,130,246,0.2)" },
+    neutral: { bg: "var(--bg-deep)",     color: "var(--muted)",      ring: "rgba(128,128,128,0.1)" },
+    accent:  { bg: "var(--accent-soft)", color: "var(--accent-deep)", ring: "rgba(38,109,240,0.2)" },
   };
 
   const touchpoints: Touchpoint[] = [
-    { id: "j1",  type: "milestone",  title: "Account created",       description: `${account.name} added to the platform as a ${account.status.toLowerCase()}.`,  date: "Jan 2024", isoDate: "2024-01-08",  tone: "accent" },
-    { id: "j2",  type: "call",       title: "Discovery call",        description: "Initial needs assessment — mapped 3 core use cases and identified champion.",   date: "Jan 2024", isoDate: "2024-01-22",  actor: "Walid Qayoumi", tone: "pos" },
-    { id: "j3",  type: "email",      title: "Proposal sent",         description: "Sent commercial proposal covering Sales Cloud + CS Cloud bundle.",              date: "Feb 2024", isoDate: "2024-02-14",  actor: "Walid Qayoumi", tone: "info" },
-    { id: "j4",  type: "deal",       title: "Deal closed — Won",     description: `Signed ${account.arr ? fmtMoney(account.arr) : "—"} annual contract. Champion: ${account.stakeholders[0]?.name ?? "TBD"}.`, date: "Mar 2024", isoDate: "2024-03-05", tone: "pos" },
-    { id: "j5",  type: "onboarding", title: "Onboarding kicked off", description: "SSO configured, field mapping complete, sandbox provisioned. 3 training sessions scheduled.", date: "Mar 2024", isoDate: "2024-03-18", actor: "Rachel Kim", tone: "accent" },
-    { id: "j6",  type: "milestone",  title: "First value milestone", description: "Team reached 80% feature breadth within 45 days. Activation confirmed.",       date: "May 2024", isoDate: "2024-05-02",  tone: "pos" },
-    { id: "j7",  type: "meeting",    title: "Q1 QBR",                description: "Reviewed adoption metrics, ROI from first quarter. Customer requested cross-BU references.", date: "Jun 2024", isoDate: "2024-06-12", actor: "Walid Qayoumi", tone: "info" },
-    { id: "j8",  type: "signal",     title: h >= 75 ? "Expansion signal detected" : "Usage decline detected", description: h >= 75 ? "Networking team expressed interest in platform expansion. Budget confirmed by VP." : "WAU/MAU dropped below 0.5. Two key users went dormant.", date: "Aug 2024", isoDate: "2024-08-19", tone: h >= 75 ? "accent" : "warn" },
-    { id: "j9",  type: "ticket",     title: "P1 — Webhook retry SLA", description: "Events lost during failover window. Escalated to engineering. Resolved in 48h.", date: "Sep 2024", isoDate: "2024-09-10", tone: "warn" },
-    { id: "j10", type: "meeting",    title: "Q2 QBR",                description: "Presented ROI: 32% efficiency gain. Aligned on H2 success plan with 3 initiatives.", date: "Oct 2024", isoDate: "2024-10-08", actor: "Walid Qayoumi", tone: "pos" },
-    { id: "j11", type: "call",       title: h >= 75 ? "Expansion alignment" : "Re-engagement call", description: h >= 75 ? "Confirmed Q3 expansion budget. Finance Ops meeting set for next week." : "Champion responded after 14-day gap. Renewal still on track.", date: "Nov 2024", isoDate: "2024-11-15", actor: "Walid Qayoumi", tone: h >= 75 ? "pos" : "warn" },
-    { id: "j12", type: isCustomer ? "deal" : "signal", title: isCustomer ? `Renewal — ${account.renewalDays > 0 ? `${account.renewalDays}d out` : "Due"}` : "Prospect evaluation ongoing", description: isCustomer ? `Annual renewal for ${account.arr ? fmtMoney(account.arr) : "—"}. ${h >= 75 ? "On track — champion aligned." : "At risk — procurement shifting to legal."}` : "Multiple stakeholders engaged. Next step: technical deep-dive.", date: "May 2026", isoDate: "2026-05-04", tone: h >= 75 ? "pos" : "warn" },
+    { id: "j1",  type: "milestone",  phase: "Pre-sale", title: "Account created",       description: `${account.name} added to the platform as a ${account.status.toLowerCase()}.`,  date: "Jan 2024", isoDate: "2024-01-08",  tone: "accent" },
+    { id: "j2",  type: "call",       phase: "Pre-sale", title: "Discovery call",        description: "Initial needs assessment — mapped 3 core use cases and identified champion.",   date: "Jan 2024", isoDate: "2024-01-22",  actor: "Walid Qayoumi", tone: "pos" },
+    { id: "j3",  type: "email",      phase: "Pre-sale", title: "Proposal sent",         description: "Sent commercial proposal covering Sales Cloud + CS Cloud bundle.",              date: "Feb 2024", isoDate: "2024-02-14",  actor: "Walid Qayoumi", tone: "info" },
+    { id: "j4",  type: "deal",       phase: "Pre-sale", title: "Deal closed — Won",     description: `Signed ${account.arr ? fmtMoney(account.arr) : "—"} annual contract. Champion: ${account.stakeholders[0]?.name ?? "TBD"}.`, date: "Mar 2024", isoDate: "2024-03-05", tone: "pos" },
+    { id: "j5",  type: "onboarding", phase: "Onboarding", title: "Onboarding kicked off", description: "SSO configured, field mapping complete, sandbox provisioned. 3 training sessions scheduled.", date: "Mar 2024", isoDate: "2024-03-18", actor: "Rachel Kim", tone: "accent" },
+    { id: "j6",  type: "milestone",  phase: "Onboarding", title: "First value milestone", description: "Team reached 80% feature breadth within 45 days. Activation confirmed.",       date: "May 2024", isoDate: "2024-05-02",  tone: "pos" },
+    { id: "j7",  type: "meeting",    phase: "Adoption",   title: "Q1 QBR",                description: "Reviewed adoption metrics, ROI from first quarter. Customer requested cross-BU references.", date: "Jun 2024", isoDate: "2024-06-12", actor: "Walid Qayoumi", tone: "info" },
+    { id: "j8",  type: "signal",     phase: "Adoption",   title: h >= 75 ? "Expansion signal detected" : "Usage decline detected", description: h >= 75 ? "Networking team expressed interest in platform expansion. Budget confirmed by VP." : "WAU/MAU dropped below 0.5. Two key users went dormant.", date: "Aug 2024", isoDate: "2024-08-19", tone: h >= 75 ? "accent" : "warn" },
+    { id: "j9",  type: "ticket",     phase: "Adoption",   title: "P1 — Webhook retry SLA", description: "Events lost during failover window. Escalated to engineering. Resolved in 48h.", date: "Sep 2024", isoDate: "2024-09-10", tone: "warn" },
+    { id: "j10", type: "meeting",    phase: "Growth",     title: "Q2 QBR",                description: "Presented ROI: 32% efficiency gain. Aligned on H2 success plan with 3 initiatives.", date: "Oct 2024", isoDate: "2024-10-08", actor: "Walid Qayoumi", tone: "pos" },
+    { id: "j11", type: "call",       phase: "Growth",     title: h >= 75 ? "Expansion alignment" : "Re-engagement call", description: h >= 75 ? "Confirmed Q3 expansion budget. Finance Ops meeting set for next week." : "Champion responded after 14-day gap. Renewal still on track.", date: "Nov 2024", isoDate: "2024-11-15", actor: "Walid Qayoumi", tone: h >= 75 ? "pos" : "warn" },
+    { id: "j12", type: isCustomer ? "deal" : "signal", phase: "Renewal", title: isCustomer ? `Renewal — ${account.renewalDays > 0 ? `${account.renewalDays}d out` : "Due"}` : "Prospect evaluation ongoing", description: isCustomer ? `Annual renewal for ${account.arr ? fmtMoney(account.arr) : "—"}. ${h >= 75 ? "On track — champion aligned." : "At risk — procurement shifting to legal."}` : "Multiple stakeholders engaged. Next step: technical deep-dive.", date: "May 2026", isoDate: "2026-05-04", tone: h >= 75 ? "pos" : "warn" },
   ];
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<TouchpointType | "all">("all");
-  const selected = touchpoints.find(t => t.id === selectedId);
 
-  const filteredTouchpoints = typeFilter === "all"
-    ? touchpoints
-    : touchpoints.filter(t => t.type === typeFilter);
+  const filteredTouchpoints = typeFilter === "all" ? touchpoints : touchpoints.filter(t => t.type === typeFilter);
+  const phases = Array.from(new Set(filteredTouchpoints.map(t => t.phase)));
+  const PHASE_COLORS: Record<string, string> = { "Pre-sale": "var(--info)", "Onboarding": "var(--accent-deep)", "Adoption": "var(--pos)", "Growth": "var(--warn)", "Renewal": "var(--neg)" };
 
   const minTs = new Date(touchpoints[0].isoDate).getTime();
   const maxTs = new Date(touchpoints[touchpoints.length - 1].isoDate).getTime();
   const range = maxTs - minTs || 1;
   const pct = (iso: string) => ((new Date(iso).getTime() - minTs) / range) * 100;
 
-  const yearMarkers: { year: number; pct: number }[] = [];
-  for (let yr = 2024; yr <= 2026; yr++) {
-    const ts = new Date(`${yr}-01-01`).getTime();
-    if (ts >= minTs && ts <= maxTs) yearMarkers.push({ year: yr, pct: ((ts - minTs) / range) * 100 });
-  }
-
   return (
-    <div className="space-y-5">
-      {/* Header + filters */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+    <div className="space-y-6">
+      {/* Header row */}
+      <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
-          <div className="text-[13px] font-semibold text-ink">Account Journey</div>
-          <div className="text-[11.5px] text-muted">{filteredTouchpoints.length} of {touchpoints.length} touchpoints · {account.name}</div>
+          <h3 className="text-[15px] font-semibold text-ink">Account Journey</h3>
+          <p className="text-[12px] text-muted mt-0.5">{filteredTouchpoints.length} of {touchpoints.length} touchpoints · {account.name}</p>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
-          {(["all", "milestone", "call", "meeting", "email", "signal", "deal", "ticket", "onboarding"] as (TouchpointType | "all")[]).map((t) => {
+          {(["all", "milestone", "call", "meeting", "email", "signal", "deal", "ticket", "onboarding"] as (TouchpointType | "all")[]).map(t => {
             const Icon = t === "all" ? null : JOURNEY_ICON[t];
-            const isActive = typeFilter === t;
             const count = t === "all" ? touchpoints.length : touchpoints.filter(tp => tp.type === t).length;
             if (t !== "all" && count === 0) return null;
+            const active = typeFilter === t;
             return (
               <button key={t} onClick={() => setTypeFilter(t)}
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] capitalize transition-colors ${
-                  isActive ? "bg-accent/15 text-accent border border-accent/30" : "text-muted-2 hover:text-ink border border-transparent"
+                className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[10.5px] font-medium capitalize transition-all ${
+                  active ? "bg-ink text-white shadow-sm" : "text-muted hover:text-ink border border-line hover:border-ink/20"
                 }`}>
-                {Icon && <Icon size={10} strokeWidth={1.6} />} {t === "all" ? "All" : t}
-                <span className="text-[9px] opacity-60">{count}</span>
+                {Icon && <Icon size={10} strokeWidth={1.6} />}
+                {t === "all" ? "All" : t}
+                <span className={`text-[9px] ${active ? "opacity-70" : "opacity-50"}`}>{count}</span>
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Timeline strip */}
-      <div className="card px-6 py-5 overflow-hidden">
-        <div className="relative" style={{ height: 56 }}>
-          {/* Track line */}
-          <div className="absolute left-0 right-0 top-[22px] h-[2px] rounded-full" style={{ background: "var(--line)" }} />
-          <div className="absolute left-0 top-[22px] h-[2px] rounded-full" style={{ width: `${pct(filteredTouchpoints[filteredTouchpoints.length - 1]?.isoDate ?? touchpoints[0].isoDate)}%`, background: "var(--accent)", opacity: 0.5 }} />
+      {/* Horizontal timeline */}
+      <div className="card px-6 py-6">
+        <div className="relative" style={{ height: 72 }}>
+          {/* Phase segments */}
+          {phases.map((phase, pi) => {
+            const pts = filteredTouchpoints.filter(t => t.phase === phase);
+            if (pts.length === 0) return null;
+            const left = pct(pts[0].isoDate);
+            const right = pct(pts[pts.length - 1].isoDate);
+            const color = PHASE_COLORS[phase] ?? "var(--muted)";
+            return (
+              <div key={phase}>
+                <div className="absolute top-0 text-[9px] font-semibold uppercase tracking-wider" style={{ left: `${left}%`, color }}>{phase}</div>
+                <div className="absolute top-[28px] h-[3px] rounded-full" style={{ left: `${left}%`, width: `${Math.max(right - left, 1)}%`, background: color, opacity: 0.35 }} />
+              </div>
+            );
+          })}
+
+          {/* Base track */}
+          <div className="absolute left-0 right-0 top-[29px] h-[1px]" style={{ background: "var(--line)" }} />
+
+          {/* Dots */}
+          {filteredTouchpoints.map((tp) => {
+            const tone = TONE[tp.tone];
+            const Icon = JOURNEY_ICON[tp.type];
+            const isActive = expandedId === tp.id;
+            return (
+              <button key={tp.id} onClick={() => setExpandedId(isActive ? null : tp.id)}
+                className={`absolute -translate-x-1/2 transition-all duration-200 ${isActive ? "z-10 scale-[1.35]" : "hover:scale-[1.15]"}`}
+                style={{ left: `${pct(tp.isoDate)}%`, top: isActive ? 16 : 20 }}
+                title={`${tp.title} — ${tp.date}`}>
+                <div className="w-[20px] h-[20px] rounded-full grid place-items-center"
+                  style={{ background: tone.bg, border: `2px solid ${tone.color}`, boxShadow: isActive ? `0 0 0 4px ${tone.ring}` : "none" }}>
+                  <Icon size={8} strokeWidth={2.5} style={{ color: tone.color }} />
+                </div>
+              </button>
+            );
+          })}
 
           {/* Year markers */}
-          {yearMarkers.map(m => (
-            <div key={m.year} className="absolute top-[14px]" style={{ left: `${m.pct}%` }}>
-              <div className="w-[1px] h-[18px] bg-muted-2/30" />
-              <div className="text-[9px] text-muted-2 mt-1 -translate-x-1/2 whitespace-nowrap">{m.year}</div>
-            </div>
-          ))}
-
-          {/* Event dots */}
-          {filteredTouchpoints.map((tp) => {
-            const tone = JOURNEY_TONE[tp.tone];
-            const Icon = JOURNEY_ICON[tp.type];
-            const isActive = selectedId === tp.id;
-            const left = pct(tp.isoDate);
+          {[2025, 2026].map(yr => {
+            const ts = new Date(`${yr}-01-01`).getTime();
+            if (ts < minTs || ts > maxTs) return null;
+            const left = ((ts - minTs) / range) * 100;
             return (
-              <button
-                key={tp.id}
-                onClick={() => setSelectedId(tp.id)}
-                className={`absolute -translate-x-1/2 transition-all ${isActive ? "z-10 scale-125" : "hover:scale-110"}`}
-                style={{ left: `${left}%`, top: isActive ? 8 : 12 }}
-                title={`${tp.title} — ${tp.date}`}
-              >
-                <div
-                  className={`w-[22px] h-[22px] rounded-full grid place-items-center border-2 ${isActive ? "ring-2 ring-offset-1" : ""}`}
-                  style={{
-                    background: tone.bg,
-                    borderColor: tone.color,
-                    ...(isActive ? { ringColor: tone.color, "--tw-ring-color": tone.color, "--tw-ring-offset-color": "var(--bg)" } as React.CSSProperties : {}),
-                  }}
-                >
-                  <Icon size={9} strokeWidth={2.2} style={{ color: tone.color }} />
-                </div>
-              </button>
+              <div key={yr} className="absolute" style={{ left: `${left}%`, top: 44 }}>
+                <div className="w-px h-3" style={{ background: "var(--line)" }} />
+                <div className="text-[9px] text-muted-2 mt-0.5 -translate-x-1/2">{yr}</div>
+              </div>
             );
           })}
         </div>
       </div>
 
-      {/* Event cards grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        {filteredTouchpoints.map((tp, idx) => {
-          const Icon = JOURNEY_ICON[tp.type];
-          const tone = JOURNEY_TONE[tp.tone];
-          const isActive = selectedId === tp.id;
-          return (
-            <button
-              key={tp.id}
-              onClick={() => setSelectedId(isActive ? null : tp.id)}
-              className={`card text-left p-0 overflow-hidden transition-all ${
-                isActive ? "ring-1 ring-accent/40 shadow-lg shadow-accent/5" : "hover:bg-surface-2"
-              }`}
-            >
-              {/* Colored top bar */}
-              <div className="h-[3px]" style={{ background: tone.color }} />
-              <div className="p-3.5">
-                <div className="flex items-start gap-2.5">
-                  {/* Step number + icon */}
-                  <div className="relative shrink-0">
-                    <div className="w-8 h-8 rounded-lg grid place-items-center" style={{ background: tone.bg }}>
-                      <Icon size={13} strokeWidth={1.7} style={{ color: tone.color }} />
-                    </div>
-                    <div className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-surface grid place-items-center border border-line">
-                      <span className="text-[8px] font-bold text-muted tnum">{idx + 1}</span>
-                    </div>
+      {/* Vertical timeline with cards */}
+      <div className="relative pl-8">
+        {/* Vertical connector line */}
+        <div className="absolute left-[11px] top-2 bottom-2 w-px" style={{ background: "var(--line)" }} />
+
+        <div className="space-y-3">
+          {filteredTouchpoints.map((tp, idx) => {
+            const Icon = JOURNEY_ICON[tp.type];
+            const tone = TONE[tp.tone];
+            const isActive = expandedId === tp.id;
+            const showPhaseLabel = idx === 0 || tp.phase !== filteredTouchpoints[idx - 1].phase;
+
+            return (
+              <div key={tp.id}>
+                {showPhaseLabel && (
+                  <div className="flex items-center gap-2 mb-2 -ml-8 pl-8">
+                    <span className="text-[9.5px] font-bold uppercase tracking-wider" style={{ color: PHASE_COLORS[tp.phase] ?? "var(--muted)" }}>{tp.phase}</span>
+                    <div className="flex-1 h-px" style={{ background: "var(--line)" }} />
                   </div>
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[11.5px] font-semibold text-ink leading-snug">{tp.title}</div>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="text-[9.5px] text-muted">{tp.date}</span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-full capitalize" style={{ background: tone.bg, color: tone.color }}>{tp.type}</span>
-                    </div>
-                    {/* Expanded content when selected */}
-                    {isActive && (
-                      <div className="mt-2 pt-2 border-t border-line">
-                        <p className="text-[11px] text-ink-2 leading-relaxed">{tp.description}</p>
-                        {tp.actor && (
-                          <div className="flex items-center gap-1.5 mt-2">
-                            <div className="w-5 h-5 rounded-full bg-ink text-white grid place-items-center text-[7.5px] font-semibold">
-                              {tp.actor.split(" ").map(p => p[0]).join("").slice(0, 2)}
-                            </div>
-                            <span className="text-[10px] text-muted">{tp.actor}</span>
+                )}
+                <div className="relative">
+                  {/* Timeline dot */}
+                  <div className="absolute -left-8 top-3 w-[22px] h-[22px] rounded-full grid place-items-center z-10 transition-all"
+                    style={{ background: isActive ? tone.color : tone.bg, border: `2px solid ${tone.color}`, boxShadow: isActive ? `0 0 0 4px ${tone.ring}` : "none" }}>
+                    <Icon size={9} strokeWidth={2} style={{ color: isActive ? "#fff" : tone.color }} />
+                  </div>
+
+                  {/* Card */}
+                  <button onClick={() => setExpandedId(isActive ? null : tp.id)}
+                    className={`w-full text-left card p-0 overflow-hidden transition-all duration-200 ${isActive ? "shadow-md" : "hover:shadow-sm"}`}
+                    style={isActive ? { borderColor: tone.color, borderWidth: 1 } : undefined}>
+                    <div className="h-[2px]" style={{ background: tone.color }} />
+                    <div className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[12.5px] font-semibold text-ink">{tp.title}</span>
+                            <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full capitalize" style={{ background: tone.bg, color: tone.color }}>{tp.type}</span>
                           </div>
-                        )}
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10.5px] text-muted">{tp.date}</span>
+                            {tp.actor && (
+                              <>
+                                <span className="text-muted-2">·</span>
+                                <span className="text-[10.5px] text-muted">{tp.actor}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-surface grid place-items-center border border-line text-[8px] font-bold text-muted">{idx + 1}</span>
+                          <ChevronRight size={12} strokeWidth={2} className={`text-muted transition-transform duration-200 ${isActive ? "rotate-90" : ""}`} />
+                        </div>
                       </div>
-                    )}
-                  </div>
+
+                      {isActive && (
+                        <div className="mt-3 pt-3 border-t border-line">
+                          <p className="text-[11.5px] text-ink-2 leading-relaxed">{tp.description}</p>
+                          {tp.actor && (
+                            <div className="flex items-center gap-2 mt-3">
+                              <div className="w-6 h-6 rounded-full grid place-items-center text-[8px] font-bold" style={{ background: tone.bg, color: tone.color }}>
+                                {tp.actor.split(" ").map(p => p[0]).join("").slice(0, 2)}
+                              </div>
+                              <div>
+                                <div className="text-[10.5px] font-medium text-ink">{tp.actor}</div>
+                                <div className="text-[9px] text-muted capitalize">{tp.type === "call" ? "Call participant" : tp.type === "meeting" ? "Meeting host" : "Owner"}</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </button>
                 </div>
               </div>
-            </button>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
-      {/* Summary footer */}
-      <div className="flex items-center gap-4 text-[10px] text-muted-2 px-1">
-        <span className="flex items-center gap-1"><Calendar size={10} strokeWidth={1.5} /> {touchpoints[0].date} – {touchpoints[touchpoints.length - 1].date}</span>
-        <span>·</span>
-        <span>{touchpoints.filter(t => t.tone === "pos" || t.tone === "accent").length} positive</span>
-        <span>{touchpoints.filter(t => t.tone === "warn" || t.tone === "neg").length} needs attention</span>
+      {/* Summary */}
+      <div className="flex items-center gap-4 text-[10.5px] text-muted-2 px-1">
+        <span className="flex items-center gap-1.5"><Calendar size={11} strokeWidth={1.5} /> {touchpoints[0].date} – {touchpoints[touchpoints.length - 1].date}</span>
+        <span className="w-1 h-1 rounded-full bg-line" />
+        <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-pos" /> {touchpoints.filter(t => t.tone === "pos" || t.tone === "accent").length} positive</span>
+        <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-warn" /> {touchpoints.filter(t => t.tone === "warn" || t.tone === "neg").length} needs attention</span>
       </div>
     </div>
   );
 }
 
-function OutcomesPanel({ account, outcomes }: { account: AccountDetail; outcomes: any[] }) {
-  if (outcomes.length === 0) {
-    return (
-      <div className="card p-8 text-center">
-        <Target size={20} strokeWidth={1.5} className="mx-auto text-muted-2 mb-2" />
-        <div className="text-[13px] font-semibold text-ink">No customer outcomes yet</div>
-        <div className="text-[12px] text-muted mt-1">Define measurable success goals — TTFV, retention metrics, expansion targets.</div>
-        <button className="mt-4 text-[12px] font-medium h-8 px-3 rounded-md bg-ink text-white inline-flex items-center gap-1.5">
-          <Plus size={11} /> Add outcome
-        </button>
-      </div>
-    );
-  }
+function OutcomesPanel({ account, outcomes, slug }: { account: AccountDetail; outcomes: any[]; slug: string }) {
+  const plan = successPlans.find((p) => p.accountSlug === slug);
   return (
-    <div className="card p-4 space-y-2">
-      {outcomes.map((o) => <OutcomeRow key={o.id} outcome={o} />)}
+    <div>
+      {plan && <SuccessPlanBuilder plan={plan} />}
+      {outcomes.length === 0 && !plan ? (
+        <div className="card p-8 text-center">
+          <Target size={20} strokeWidth={1.5} className="mx-auto text-muted-2 mb-2" />
+          <div className="text-[13px] font-semibold text-ink">No customer outcomes yet</div>
+          <div className="text-[12px] text-muted mt-1">Define measurable success goals — TTFV, retention metrics, expansion targets.</div>
+          <button className="mt-4 text-[12px] font-medium h-8 px-3 rounded-md bg-ink text-white inline-flex items-center gap-1.5">
+            <Plus size={11} /> Add outcome
+          </button>
+        </div>
+      ) : outcomes.length > 0 ? (
+        <div className="card p-4 space-y-2">
+          {outcomes.map((o) => <OutcomeRow key={o.id} outcome={o} />)}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -2330,7 +2363,7 @@ function PeoplePanel({ account, onAdd, onEdit }: { account: AccountDetail; onAdd
           </button>
         </div>
         <button onClick={onAdd}
-          className="text-[11.5px] font-semibold h-8 px-3 rounded-md inline-flex items-center gap-1.5 bg-ink text-white hover:bg-ink-2 shadow-[0_4px_12px_-4px_rgba(20,20,15,0.3)]">
+          className="text-[11.5px] font-semibold h-8 px-3 rounded-md inline-flex items-center gap-1.5 bg-ink text-white hover:bg-ink-2 shadow-[0_4px_12px_-4px_rgba(28,40,64,0.3)]">
           <Plus size={11} strokeWidth={1.8} /> Add stakeholder
         </button>
       </div>
@@ -2608,24 +2641,36 @@ const ACCOUNT_EVENTS: ActivityEvent[] = [
   { type: "call",    source: "Gong",             title: "Outbound · Follow up on demo",          when: "10d ago",           body: "Champion confirmed sponsor sign-off; targeting Phase 1 kickoff in 2 weeks.", meta: "00:18:40" },
 ];
 
-function ActivityPanel({ account }: { account: AccountDetail }) {
-  const [filter, setFilter] = useState<ActivityEvent["type"] | "all" | "signal-ai">("all");
+function ActivityPanel({ account, slug }: { account: AccountDetail; slug: string }) {
+  const [filter, setFilter] = useState<ActivityEvent["type"] | "all" | "signal-ai" | "comments">("all");
+  const [localComments, setLocalComments] = useState<ActivityCommentType[]>(activityComments[slug] ?? []);
 
   // Account-level AI signals (account.signals) get woven into the activity feed
   // as type "signal-ai" so they share the same surface but stay filterable.
-  type Item = ActivityEvent & { _kind: "event" } | { _kind: "signal"; signal: AccountSignal };
+  type Item = ActivityEvent & { _kind: "event" } | { _kind: "signal"; signal: AccountSignal } | { _kind: "comment"; comment: ActivityCommentType };
   const aiSignalItems: Item[] = account.signals.map((s) => ({ _kind: "signal", signal: s }));
   const eventItems: Item[] = ACCOUNT_EVENTS.map((e) => ({ ...e, _kind: "event" }));
-  const all: Item[] = [...aiSignalItems, ...eventItems];
+  const commentItems: Item[] = localComments.map((c) => ({ _kind: "comment", comment: c }));
+  const all: Item[] = [...commentItems, ...aiSignalItems, ...eventItems];
 
   const filtered = all.filter((it) => {
     if (filter === "all") return true;
+    if (filter === "comments") return it._kind === "comment";
     if (filter === "signal-ai") return it._kind === "signal";
     return it._kind === "event" && it.type === filter;
   });
 
+  const handleAddComment = (text: string, mentions: string[]) => {
+    const c: ActivityCommentType = {
+      id: `ac-${Date.now()}`, accountSlug: slug, author: "Walid Qayoumi", authorInitials: "WQ",
+      text, at: new Date().toISOString(), mentions,
+    };
+    setLocalComments((prev) => [c, ...prev]);
+  };
+
   const FILTERS: { id: typeof filter; label: string; count: number }[] = [
     { id: "all",       label: "All",        count: all.length },
+    { id: "comments",  label: "Comments",   count: localComments.length },
     { id: "signal-ai", label: "AI signals", count: aiSignalItems.length },
     { id: "meeting",   label: "Meetings",   count: ACCOUNT_EVENTS.filter((e) => e.type === "meeting").length },
     { id: "call",      label: "Calls",      count: ACCOUNT_EVENTS.filter((e) => e.type === "call").length },
@@ -2653,6 +2698,32 @@ function ActivityPanel({ account }: { account: AccountDetail }) {
       <div className="card p-4">
         <div className="space-y-3">
           {filtered.map((it, i) => {
+            if (it._kind === "comment") {
+              const c = it.comment;
+              const renderText = (text: string) => {
+                const parts = text.split(/(@[A-Za-z]+ [A-Za-z]+)/g);
+                return parts.map((part, idx) =>
+                  part.startsWith("@") ? (
+                    <span key={idx} className="px-1 py-0.5 rounded text-[11px] font-semibold" style={{ background: "var(--accent-soft)", color: "var(--accent-ink)" }}>{part}</span>
+                  ) : <span key={idx}>{part}</span>
+                );
+              };
+              return (
+                <div key={c.id} className="flex items-start gap-2.5 p-2 rounded-md hover:bg-bg-deep">
+                  <div className="w-7 h-7 rounded-full grid place-items-center text-[9px] font-semibold shrink-0 mt-0.5"
+                    style={{ background: "var(--bg-deep)", color: "var(--ink)" }}>
+                    {c.authorInitials}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-[12px] font-semibold text-ink">{c.author}</span>
+                      <span className="text-[10px] text-muted-2">{new Date(c.at).toLocaleDateString()}</span>
+                    </div>
+                    <p className="text-[12px] text-ink-2 leading-relaxed mt-0.5">{renderText(c.text)}</p>
+                  </div>
+                </div>
+              );
+            }
             if (it._kind === "signal") {
               return <SignalRow key={`s-${it.signal.id}`} signal={it.signal} expanded />;
             }
@@ -2680,6 +2751,11 @@ function ActivityPanel({ account }: { account: AccountDetail }) {
           {filtered.length === 0 && (
             <div className="text-[12px] text-muted-2 py-6 text-center">No items match this filter.</div>
           )}
+        </div>
+
+        {/* Mention input */}
+        <div className="mt-4 pt-3 border-t border-line">
+          <MentionInput onSubmit={handleAddComment} />
         </div>
       </div>
     </div>
@@ -3363,6 +3439,417 @@ function OnbRow({ item, onSet, onRemind }: { item: OnbItem; onSet: (s: OnbItem["
           </>
         )}
       </Popover>
+    </div>
+  );
+}
+
+/* ─── Plans Panel ─── */
+
+const PRIORITY_STYLE: Record<string, { bg: string; color: string; label: string }> = {
+  high:   { bg: "var(--neg-soft)",  color: "var(--neg)",  label: "High" },
+  medium: { bg: "var(--warn-soft)", color: "var(--warn)", label: "Med" },
+  low:    { bg: "var(--bg-deep)",   color: "var(--muted)", label: "Low" },
+};
+
+type KanbanCol = "todo" | "in-progress" | "done" | "blocked";
+const KANBAN_COLS: { key: KanbanCol; label: string; color: string; softBg: string }[] = [
+  { key: "todo",        label: "To do",       color: "var(--muted)",  softBg: "var(--bg-deep)" },
+  { key: "in-progress", label: "In progress", color: "var(--warn)",   softBg: "var(--warn-soft)" },
+  { key: "done",        label: "Completed",   color: "var(--pos)",    softBg: "var(--pos-soft)" },
+  { key: "blocked",     label: "Blocked",     color: "var(--neg)",    softBg: "var(--neg-soft)" },
+];
+
+function PlansPanel({ slug }: { slug: string }) {
+  const plans = accountPlans.filter((p) => p.accountSlug === slug);
+  const accountName = plans[0]?.accountName ?? slug.replace(/-/g, " ");
+  const [tasks, setTasks] = useState<Record<string, TaskStatus>>({});
+  const toast = useToast();
+
+  const getStatus = (t: PlanTask): TaskStatus => tasks[t.id] ?? t.status;
+  const cycleStatus = (t: PlanTask) => {
+    const cur = getStatus(t);
+    const next: TaskStatus = cur === "todo" ? "in-progress" : cur === "in-progress" ? "done" : "todo";
+    setTasks((s) => ({ ...s, [t.id]: next }));
+  };
+
+  const allTasks = plans.flatMap((p) =>
+    p.milestones.flatMap((ms) =>
+      ms.tasks.map((t) => ({ ...t, planTitle: p.title, planKind: p.kind, milestoneTitle: ms.title }))
+    )
+  );
+
+  const doneCount = allTasks.filter((t) => getStatus(t) === "done").length;
+  const inProgCount = allTasks.filter((t) => getStatus(t) === "in-progress").length;
+
+  const grouped: Record<KanbanCol, typeof allTasks> = { todo: [], "in-progress": [], done: [], blocked: [] };
+  allTasks.forEach((t) => {
+    const s = getStatus(t);
+    if (s in grouped) grouped[s as KanbanCol].push(t);
+  });
+
+  if (plans.length === 0) {
+    return (
+      <div className="card p-8 text-center">
+        <div className="w-12 h-12 rounded-xl grid place-items-center mx-auto mb-3" style={{ background: "var(--accent-soft)" }}>
+          <Milestone size={20} strokeWidth={1.6} style={{ color: "var(--accent)" }} />
+        </div>
+        <h3 className="text-[15px] font-semibold text-ink mb-1">No plans yet</h3>
+        <p className="text-[12.5px] text-muted mb-4">Create an expansion or retention plan to track milestones and tasks for this account.</p>
+        <button className="btn-accent h-9 px-4 text-[12.5px]">
+          <Plus size={13} strokeWidth={2} /> Create Plan
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative" style={{ minHeight: 560 }}>
+      {/* Header */}
+      <div className="flex items-end justify-between gap-4 mb-4">
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-2 mb-1">
+            List · {accountName}
+          </div>
+          <div className="text-[22px] font-bold text-ink leading-tight">
+            {allTasks.length} tasks<span className="text-[14px] font-medium text-muted ml-1.5">· {doneCount} done, {inProgCount} in progress</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="h-8 px-3 rounded-lg border border-line text-[11.5px] font-medium text-ink hover:bg-bg-deep transition-colors">Filter</button>
+          <button className="h-8 px-3 rounded-lg border border-line text-[11.5px] font-medium text-ink hover:bg-bg-deep transition-colors">Rows: None</button>
+          <button onClick={() => toast({ tone: "info", title: "New task" })}
+            className="h-8 px-3 rounded-lg text-[11.5px] font-semibold inline-flex items-center gap-1.5"
+            style={{ background: "var(--accent)", color: "var(--accent-ink)" }}>
+            <Plus size={12} strokeWidth={2} /> New task
+          </button>
+        </div>
+      </div>
+
+      {/* Kanban board */}
+      <div className="grid grid-cols-4 gap-3" style={{ minHeight: 460 }}>
+        {KANBAN_COLS.map((col) => {
+          const items = grouped[col.key];
+          return (
+            <div key={col.key} className="flex flex-col rounded-xl border border-line overflow-hidden" style={{ background: "var(--surface)" }}>
+              {/* Column header */}
+              <div className="flex items-center justify-between px-3.5 py-3 border-b border-line">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-md grid place-items-center text-[10px] font-bold"
+                    style={{ background: col.softBg, color: col.color }}>
+                    {items.length}
+                  </span>
+                  <span className="text-[12.5px] font-semibold text-ink">{col.label}</span>
+                </div>
+                <button onClick={() => toast({ tone: "info", title: `Add ${col.label} task` })}
+                  className="w-5 h-5 rounded grid place-items-center text-muted hover:text-ink hover:bg-bg-deep transition-colors">
+                  <Plus size={12} strokeWidth={2} />
+                </button>
+              </div>
+
+              {/* Cards */}
+              <div className="flex-1 p-2 space-y-2 overflow-y-auto" style={{ maxHeight: 480 }}>
+                {items.length === 0 && (
+                  <div className="flex items-center justify-center h-24 text-[11.5px] text-muted-2 italic">Nothing {col.key === "blocked" ? "blocked" : "here"}</div>
+                )}
+                {items.map((t) => {
+                  const s = getStatus(t);
+                  const isOverdue = s !== "done" && new Date(t.dueDate) < new Date();
+                  const pri = PRIORITY_STYLE[t.priority];
+                  return (
+                    <div key={t.id}
+                      className="rounded-lg border border-line p-3 hover:border-line-strong transition-colors cursor-pointer"
+                      style={{ background: "var(--bg)" }}>
+                      <div className="flex items-start gap-2.5 mb-2">
+                        {/* Status indicator */}
+                        <button onClick={() => cycleStatus(t)} className="mt-0.5 shrink-0">
+                          {s === "done" ? (
+                            <div className="w-[18px] h-[18px] rounded-full grid place-items-center" style={{ background: "var(--pos)" }}>
+                              <Check size={10} strokeWidth={3} style={{ color: "white" }} />
+                            </div>
+                          ) : s === "in-progress" ? (
+                            <div className="w-[18px] h-[18px] rounded-full border-2 grid place-items-center" style={{ borderColor: "var(--warn)" }}>
+                              <div className="w-2 h-2 rounded-full" style={{ background: "var(--warn)" }} />
+                            </div>
+                          ) : (
+                            <div className="w-[18px] h-[18px] rounded-full border-2" style={{ borderColor: "var(--line-strong)" }} />
+                          )}
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <div className={`text-[12.5px] font-medium leading-snug ${s === "done" ? "text-muted line-through" : "text-ink"}`}>
+                            {t.title}
+                          </div>
+                          <div className="text-[10.5px] text-muted mt-0.5 truncate">{t.planTitle}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between mt-2.5">
+                        <div className="flex items-center -space-x-1.5">
+                          <div className="w-6 h-6 rounded-full text-white grid place-items-center text-[8px] font-bold ring-2 ring-bg shrink-0"
+                            style={{ background: t.assigneeBg }}>
+                            {t.assigneeInitials}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {t.priority === "high" && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: pri.bg, color: pri.color }}>
+                              {pri.label}
+                            </span>
+                          )}
+                          <span className={`text-[10.5px] font-mono tnum ${isOverdue ? "font-semibold" : ""}`}
+                            style={{ color: isOverdue ? "var(--neg)" : "var(--muted)" }}>
+                            {fmtDate(t.dueDate)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Floating Ask Signal bar */}
+      <div className="mt-5 flex items-center justify-center">
+        <div className="w-full max-w-[620px] flex items-center gap-2.5 h-11 px-5 rounded-full border border-line shadow-lg" style={{ background: "var(--surface)" }}>
+          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "var(--accent)" }} />
+          <input
+            placeholder={`Ask Signal — 'what changed at ${accountName} this week?'`}
+            className="flex-1 bg-transparent outline-none text-[12.5px] placeholder:text-muted-2"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.target as HTMLInputElement).value.trim()) {
+                toast({ tone: "info", title: "Signal query sent", body: (e.target as HTMLInputElement).value });
+                (e.target as HTMLInputElement).value = "";
+              }
+            }}
+          />
+          <button className="w-8 h-8 rounded-full grid place-items-center" style={{ background: "var(--accent)", color: "var(--accent-ink)" }}>
+            <Send size={13} strokeWidth={2} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Documents Panel ─── */
+
+function DocumentsPanel({ slug }: { slug: string }) {
+  const accountName = accounts.find(a => slugify(a.name) === slug)?.name ?? slug;
+  const docs = accountDocs[slug] ?? [];
+  const [openDoc, setOpenDoc] = useState<DocNode | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(docs.filter(d => d.kind === "folder").map(d => d.id)));
+  const [signalQuery, setSignalQuery] = useState("");
+  const toast = useToast();
+
+  const toggleFolder = (id: string) => {
+    setExpandedFolders(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  };
+
+  const findParentFolder = (target: DocNode, nodes: DocNode[]): DocNode | null => {
+    for (const n of nodes) {
+      if (n.children?.some(c => c.id === target.id)) return n;
+      if (n.children) { const found = findParentFolder(target, n.children); if (found) return found; }
+    }
+    return null;
+  };
+
+  const renderDocContent = (content: string) => {
+    const lines = content.split("\n");
+    const elements: React.ReactNode[] = [];
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      if (line.startsWith("|") && lines[i + 1]?.startsWith("|")) {
+        const tableLines: string[] = [];
+        while (i < lines.length && lines[i].startsWith("|")) { tableLines.push(lines[i]); i++; }
+        const headers = tableLines[0].split("|").filter(Boolean).map(s => s.trim());
+        const rows = tableLines.slice(1).map(r => r.split("|").filter(Boolean).map(s => s.trim()));
+        elements.push(
+          <div key={`tbl-${i}`} className="my-4 border border-line rounded-lg overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-bg-deep">
+                  {headers.map((h, hi) => (
+                    <th key={hi} className="text-left px-4 py-2.5 text-[11px] font-semibold text-muted uppercase tracking-wider">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, ri) => (
+                  <tr key={ri} className="border-t border-line">
+                    {row.map((cell, ci) => (
+                      <td key={ci} className="px-4 py-2.5 text-[13px] text-ink">{cell}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+        continue;
+      }
+      if (line.startsWith("# ")) { elements.push(<h1 key={i} className="text-[24px] font-bold text-ink mt-6 mb-2 first:mt-0">{line.slice(2)}</h1>); }
+      else if (line.startsWith("## ")) { elements.push(<h2 key={i} className="text-[18px] font-semibold text-ink mt-6 mb-2">{line.slice(3)}</h2>); }
+      else if (line.startsWith("- ")) { elements.push(<div key={i} className="flex gap-2.5 ml-1 py-0.5"><span className="text-muted mt-0.5">•</span><span className="text-[14px] text-ink leading-relaxed">{line.slice(2)}</span></div>); }
+      else if (line.match(/^\d+\./)) { elements.push(<div key={i} className="ml-1 py-0.5 text-[14px] text-ink leading-relaxed">{line}</div>); }
+      else if (line.trim() === "") { elements.push(<div key={i} className="h-4" />); }
+      else { elements.push(<p key={i} className="text-[14px] text-ink leading-relaxed">{line}</p>); }
+      i++;
+    }
+    return elements;
+  };
+
+  const renderSidebarNode = (node: DocNode, depth: number = 0) => {
+    const isFolder = node.kind === "folder";
+    const isOpen = expandedFolders.has(node.id);
+    const isSelected = openDoc?.id === node.id;
+    const childCount = node.children?.length ?? 0;
+
+    return (
+      <div key={node.id}>
+        <div
+          className={`flex items-center gap-2 py-1.5 px-2 rounded-md cursor-pointer transition-colors ${
+            isSelected ? "bg-bg-deep" : "hover:bg-bg-deep/60"
+          }`}
+          style={{ paddingLeft: `${8 + depth * 16}px` }}
+          onClick={() => {
+            if (isFolder) toggleFolder(node.id);
+            else { setOpenDoc(node); setEditContent(node.content ?? ""); setEditing(false); }
+          }}>
+          {isFolder ? (
+            <ChevronRight size={12} strokeWidth={2} className={`text-muted shrink-0 transition-transform duration-150 ${isOpen ? "rotate-90" : ""}`} />
+          ) : (
+            <FileText size={13} strokeWidth={1.6} className="text-muted shrink-0" />
+          )}
+          <span className={`flex-1 min-w-0 truncate text-[12.5px] ${isFolder ? "font-semibold text-ink" : isSelected ? "font-medium text-ink" : "text-ink-2"}`}>
+            {node.title}
+          </span>
+          {isFolder && <span className="text-[10px] font-mono text-muted">{childCount}</span>}
+        </div>
+        {isFolder && isOpen && node.children && (
+          <div>
+            {node.children.map(child => {
+              const isChildSelected = openDoc?.id === child.id;
+              const dateStr = new Date(child.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+              const kindLabel = child.kind === "doc" ? "Strategy" : child.kind === "template" ? "Template" : "Meeting prep";
+              return (
+                <div key={child.id}
+                  className={`flex items-start gap-2 py-2 px-2 rounded-md cursor-pointer transition-colors ${
+                    isChildSelected ? "bg-bg-deep" : "hover:bg-bg-deep/60"
+                  }`}
+                  style={{ paddingLeft: `${24 + depth * 16}px` }}
+                  onClick={() => { setOpenDoc(child); setEditContent(child.content ?? ""); setEditing(false); }}>
+                  <FileText size={13} strokeWidth={1.6} className="text-muted shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-[12px] truncate ${isChildSelected ? "font-medium text-ink" : "text-ink-2"}`}>{child.title}</div>
+                    <div className="text-[10px] text-muted font-mono">{kindLabel} · {dateStr}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const parentFolder = openDoc ? findParentFolder(openDoc, docs) : null;
+  const breadcrumb = parentFolder ? `${accountName} / Spaces / ${openDoc?.title}` : openDoc ? `${accountName} / ${openDoc.title}` : "";
+  const lastEdited = openDoc ? new Date(openDoc.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase() : "";
+
+  return (
+    <div className="grid grid-cols-12 gap-0 -mx-4 md:-mx-8" style={{ height: 620 }}>
+      {/* Sidebar */}
+      <div className="col-span-3 border-r border-line px-3 py-3 overflow-y-auto">
+        <div className="flex items-center justify-between mb-3 px-2">
+          <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-2">Pages</span>
+          <div className="flex items-center gap-1">
+            <button onClick={() => toast({ tone: "info", title: "Import document" })}
+              className="w-6 h-6 rounded grid place-items-center text-muted hover:text-ink hover:bg-bg-deep">
+              <Download size={12} strokeWidth={1.8} />
+            </button>
+            <button onClick={() => toast({ tone: "info", title: "New page" })}
+              className="w-6 h-6 rounded grid place-items-center text-muted hover:text-ink hover:bg-bg-deep">
+              <Plus size={13} strokeWidth={2} />
+            </button>
+          </div>
+        </div>
+        <div className="space-y-0.5">
+          {docs.map(node => renderSidebarNode(node))}
+        </div>
+      </div>
+
+      {/* Document viewer */}
+      <div className="col-span-9 flex flex-col relative min-h-0">
+        {openDoc ? (
+          <>
+            <div className="flex items-center justify-between px-6 py-2.5 border-b border-line">
+              <div className="text-[11px] text-muted font-mono truncate">{breadcrumb}</div>
+              <div className="flex items-center gap-2.5 shrink-0">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-2">Last edited {lastEdited}</span>
+                {!editing ? (
+                  <button onClick={() => setEditing(true)}
+                    className="text-[12px] font-medium h-7 px-3 rounded-md bg-ink text-white hover:bg-ink-2 transition-colors">
+                    Edit
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={() => { setEditing(false); toast({ tone: "success", title: "Document saved" }); }}
+                      className="text-[12px] font-semibold h-7 px-3 rounded-md inline-flex items-center gap-1.5"
+                      style={{ background: "var(--accent)", color: "var(--accent-ink)" }}>
+                      <Check size={11} strokeWidth={2} /> Save
+                    </button>
+                    <button onClick={() => { setEditing(false); setEditContent(openDoc.content ?? ""); }}
+                      className="text-[12px] font-medium h-7 px-3 rounded-md border border-line hover:bg-bg-deep transition-colors">
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto px-8 py-6 pb-24">
+              {editing ? (
+                <textarea value={editContent} onChange={e => setEditContent(e.target.value)}
+                  className="w-full min-h-[400px] bg-transparent outline-none text-[14px] text-ink leading-relaxed resize-none font-mono"
+                  style={{ tabSize: 2 }} />
+              ) : (
+                <div className="max-w-[720px]">
+                  <h1 className="text-[28px] font-bold text-ink mb-4 leading-tight">{openDoc.title}</h1>
+                  {renderDocContent(editContent || openDoc.content || "")}
+                </div>
+              )}
+            </div>
+            {/* Floating Signal input */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-[90%] max-w-[600px]">
+              <div className="flex items-center gap-2 h-10 px-4 rounded-full bg-surface border border-line shadow-lg">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "var(--accent)" }} />
+                <input value={signalQuery} onChange={e => setSignalQuery(e.target.value)}
+                  placeholder={`Ask Signal — 'what changed at ${accountName} this week?'`}
+                  onKeyDown={e => { if (e.key === "Enter" && signalQuery.trim()) { toast({ tone: "info", title: "Signal query sent", body: signalQuery }); setSignalQuery(""); } }}
+                  className="flex-1 bg-transparent outline-none text-[12.5px] placeholder:text-muted-2" />
+                <button onClick={() => { if (signalQuery.trim()) { toast({ tone: "info", title: "Signal query sent" }); setSignalQuery(""); } }}
+                  className="w-7 h-7 rounded-full grid place-items-center hover:bg-bg-deep transition-colors"
+                  style={{ background: signalQuery.trim() ? "var(--accent)" : "transparent", color: signalQuery.trim() ? "var(--accent-ink)" : "var(--muted)" }}>
+                  <Send size={12} strokeWidth={2} />
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-2xl grid place-items-center mx-auto mb-3" style={{ background: "var(--bg-deep)" }}>
+                <FileText size={20} strokeWidth={1.4} className="text-muted" />
+              </div>
+              <div className="text-[14px] font-medium text-ink mb-1">Select a page</div>
+              <div className="text-[12px] text-muted">Choose from the sidebar or create a new page</div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

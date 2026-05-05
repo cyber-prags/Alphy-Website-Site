@@ -96,25 +96,36 @@ export default function ForecastPage() {
         </div>
       </div>
 
-      {/* VP-level KPI strip */}
-      <div className="card p-5 mb-4">
-        <div className="grid grid-cols-[260px_1fr] items-center gap-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-ink text-white grid place-items-center text-[12px] font-semibold">AS</div>
-            <div>
-              <div className="text-[13.5px] font-semibold text-ink">Adriana Smith</div>
-              <div className="text-[11px] text-muted">VP of Sales</div>
+      {/* VP-level KPI strip — derived from manager rows */}
+      {(() => {
+        const totalAttainment = managers.reduce((s, m) => s + m.attainment, 0);
+        const totalTarget = managers.reduce((s, m) => s + m.target, 0);
+        const totalCommit = managers.reduce((s, m) => s + m.commit, 0);
+        const totalMostLikely = managers.reduce((s, m) => s + m.mostLikely, 0);
+        const totalBestCase = managers.reduce((s, m) => s + m.bestCase, 0);
+        const avgCoverage = managers.reduce((s, m) => s + m.coverage, 0) / managers.length;
+        const pct = Math.round((totalAttainment / totalTarget) * 100);
+        return (
+          <div className="card p-5 mb-4">
+            <div className="grid grid-cols-[260px_1fr] items-center gap-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-ink text-white grid place-items-center text-[12px] font-semibold">AS</div>
+                <div>
+                  <div className="text-[13.5px] font-semibold text-ink">Adriana Smith</div>
+                  <div className="text-[11px] text-muted">VP of Sales</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-5 gap-3">
+                <Stat label="Target Attainment" head={fmtMoney(totalAttainment)} sub={`Target: ${fmtMoney(totalTarget)}`} pct={pct} />
+                <Stat label="Pipeline Coverage" head={`${avgCoverage.toFixed(2)}x`} delta={1} />
+                <Stat label="Commit Forecast"   head={fmtMoney(totalCommit)}  delta={3} />
+                <Stat label="Most Likely"       head={fmtMoney(totalMostLikely)} delta={2} />
+                <Stat label="Best Case"         head={fmtMoney(totalBestCase)} delta={3} />
+              </div>
             </div>
           </div>
-          <div className="grid grid-cols-5 gap-3">
-            <Stat label="Target Attainment" head="$5.3M" sub="Target: $9.6M" pct={56} />
-            <Stat label="Pipeline Coverage" head="3.36x" delta={1} />
-            <Stat label="Commit Forecast"   head="$9.3M"  delta={3} />
-            <Stat label="Most Likely"       head="$10.3M" delta={2} />
-            <Stat label="Best Case"         head="$11.7M" delta={3} />
-          </div>
-        </div>
-      </div>
+        );
+      })()}
 
       <div className="card overflow-hidden">
         <table className="w-full">

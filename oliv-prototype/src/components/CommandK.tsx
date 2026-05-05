@@ -58,7 +58,7 @@ export function CommandK({ open, onClose }: { open: boolean; onClose: () => void
     <>
       <div className="fixed inset-0 bg-ink/30 z-[90] fade-in" onClick={onClose} />
       <div className="fixed inset-x-0 top-[15vh] z-[100] grid place-items-start justify-center p-4 pointer-events-none">
-        <div className="card w-full max-w-xl pointer-events-auto fade-in shadow-[0_16px_48px_-16px_rgba(20,20,15,0.18)]"
+        <div className="card w-full max-w-xl pointer-events-auto fade-in shadow-[0_16px_48px_-16px_rgba(28,40,64,0.18)]"
              style={{ animation: "drawerIn 180ms cubic-bezier(0.32, 0.72, 0, 1)" }}>
           <div className="flex items-center gap-2 px-3 h-11 border-b border-line">
             <Search size={14} strokeWidth={1.6} className="text-muted-2" />

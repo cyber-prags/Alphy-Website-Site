@@ -88,11 +88,11 @@ export function TodayQueue({ persona }: { persona: Persona }) {
   };
 
   return (
-    <section className="card p-5 mb-5">
-      <div className="flex items-end justify-between mb-4 flex-wrap gap-3">
+    <section className="card p-5 mb-6">
+      <div className="flex items-end justify-between mb-5 flex-wrap gap-3">
         <div>
-          <div className="mono-label mb-1.5">Today · your queue</div>
-          <h2 className="text-ink" style={{ fontFamily: "var(--font-serif)", fontSize: 22, fontWeight: 600 }}>
+          <div className="mono-label mb-2">Today · your queue</div>
+          <h2 className="text-ink" style={{ fontFamily: "var(--font-serif)", fontSize: 24, fontWeight: 600 }}>
             {visibleAll.length} action{visibleAll.length === 1 ? "" : "s"}
             {overdue > 0 && (
               <span className="text-muted font-normal"> · <span style={{ color: "var(--neg)" }}>{overdue} overdue</span></span>
@@ -104,11 +104,11 @@ export function TodayQueue({ persona }: { persona: Persona }) {
         <div className="recessed flex items-center p-0.5 gap-0.5">
           {FILTERS.map((f) => (
             <button key={f.key} onClick={() => setFilter(f.key)}
-              className={`text-[11px] font-medium px-2.5 py-1 rounded-full inline-flex items-center gap-1.5 transition-colors ${
+              className={`text-[11.5px] font-medium px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 transition-colors ${
                 filter === f.key ? "bg-ink text-white" : "text-muted hover:text-ink"
               }`}>
               {f.label}
-              <span className="text-[10px] font-mono tnum" style={{ opacity: filter === f.key ? 0.7 : 0.5 }}>
+              <span className="text-[10.5px] font-mono tnum" style={{ opacity: filter === f.key ? 0.7 : 0.5 }}>
                 {counts[f.key]}
               </span>
             </button>
@@ -175,23 +175,23 @@ function KanbanColumn({
 
   return (
     <div
-      className="shrink-0 flex flex-col gap-2 rounded-2xl p-2.5"
+      className="shrink-0 flex flex-col gap-2.5 rounded-2xl p-3"
       style={{
-        width: 280,
+        width: 310,
         scrollSnapAlign: "start",
         background: "var(--bg-deep)",
         border: "1px solid var(--line)",
       }}
     >
       {/* Column header */}
-      <div className="flex items-center justify-between px-1 pt-1 pb-1 border-b border-line/70">
-        <div className="inline-flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full" style={{ background: m.tone }} />
-          <span className="text-[11px] font-semibold text-ink uppercase tracking-wider" style={{ letterSpacing: "0.06em" }}>
+      <div className="flex items-center justify-between px-1.5 pt-1 pb-1.5 border-b border-line/70">
+        <div className="inline-flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full" style={{ background: m.tone }} />
+          <span className="text-[11.5px] font-semibold text-ink uppercase tracking-wider" style={{ letterSpacing: "0.06em" }}>
             {m.label}
           </span>
         </div>
-        <span className="text-[10.5px] font-mono tnum text-muted">{items.length}</span>
+        <span className="text-[11px] font-mono tnum text-muted bg-surface px-1.5 py-0.5 rounded">{items.length}</span>
       </div>
 
       {/* Cards */}
@@ -244,60 +244,74 @@ function KanbanCard({
   return (
     <div
       onMouseEnter={markSeenOnHover}
-      className="rounded-xl bg-surface border border-line hover:border-line-strong hover:shadow-[0_8px_20px_-12px_rgba(20,20,15,0.12)] transition-all p-3 flex flex-col gap-2"
-      style={{ borderTop: `2px solid ${kindMeta.tone}` }}
+      className="rounded-xl bg-surface border border-line hover:border-line-strong hover:shadow-[0_4px_16px_-6px_rgba(28,40,64,0.10)] transition-all p-3.5 flex flex-col gap-2.5"
+      style={{ borderLeft: `3px solid ${kindMeta.tone}` }}
     >
       {/* Top row — account + meta */}
       <div className="flex items-center gap-2 min-w-0">
-        <button onClick={openTarget} className="flex items-center gap-1.5 hover:underline min-w-0">
-          <Logo name={item.account} size={16} rounded={4} />
-          <span className="text-[12px] font-semibold text-ink truncate">{item.account}</span>
+        <button onClick={openTarget} className="flex items-center gap-2 hover:underline min-w-0">
+          <Logo name={item.account} size={18} rounded={5} />
+          <span className="text-[12.5px] font-semibold text-ink truncate">{item.account}</span>
         </button>
-        <span className="text-[9.5px] font-mono text-muted-2 ml-auto shrink-0">{item.ago}</span>
+        <span className="text-[10px] font-mono text-muted-2 ml-auto shrink-0">{item.ago}</span>
       </div>
 
       {/* Headline — opens detail drawer */}
       <button
         onClick={onOpenTask}
-        className="text-left text-[12.5px] font-semibold text-ink leading-snug hover:underline line-clamp-2"
+        className="text-left text-[13px] font-semibold text-ink leading-snug hover:underline line-clamp-2"
       >
         {item.headline}
       </button>
 
       {/* Why */}
-      <p className="text-[10.5px] text-muted leading-relaxed line-clamp-2">{item.why}</p>
+      <p className="text-[11px] text-muted leading-relaxed line-clamp-2">{item.why}</p>
+
+      {/* Subtask progress */}
+      {item.subtasks && item.subtasks.length > 0 && (() => {
+        const done = item.subtasks.filter((s) => s.done).length;
+        const pct = Math.round((done / item.subtasks.length) * 100);
+        return (
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: "var(--bg-deep)" }}>
+              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "var(--accent)" }} />
+            </div>
+            <span className="text-[9.5px] font-mono tnum text-muted">{done}/{item.subtasks.length}</span>
+          </div>
+        );
+      })()}
 
       {/* Status row */}
       <div className="flex items-center gap-1.5 flex-wrap">
         <ClosureBadge status={status} size="xs" />
         {item.overdue && (
-          <span className="text-[9px] font-mono uppercase tracking-[0.06em] px-1 py-px rounded"
+          <span className="text-[9.5px] font-mono uppercase tracking-[0.06em] px-1.5 py-0.5 rounded"
             style={{ background: "var(--neg-soft)", color: "var(--neg)" }}>
             Overdue
           </span>
         )}
         {item.due && !item.overdue && (
-          <span className="text-[9.5px] font-mono text-muted-2">due {item.due}</span>
+          <span className="text-[10px] font-mono text-muted-2">due {item.due}</span>
         )}
       </div>
 
       {/* Footer — primary action + more */}
-      <div className="flex items-center gap-1.5 mt-1 pt-2 border-t border-line/70">
+      <div className="flex items-center gap-1.5 mt-0.5 pt-2.5 border-t border-line/70">
         {status === "acted" || status === "resolved" ? (
           <button
             onClick={() => closure.resolve(item.id, ME, "Confirmed closed")}
-            className="flex-1 text-[10.5px] font-medium px-2.5 py-1.5 rounded-lg inline-flex items-center justify-center gap-1 transition-colors border border-line bg-surface text-ink hover:bg-bg-deep"
+            className="flex-1 text-[11px] font-medium px-3 py-2 rounded-lg inline-flex items-center justify-center gap-1.5 transition-colors border border-line bg-surface text-ink hover:bg-bg-deep"
           >
-            <CheckCircle2 size={11} strokeWidth={1.8} style={{ color: "var(--pos)" }} />
+            <CheckCircle2 size={12} strokeWidth={1.8} style={{ color: "var(--pos)" }} />
             {status === "acted" ? "Mark resolved" : "Resolved"}
           </button>
         ) : (
           <button
             onClick={fire}
-            className="flex-1 text-[10.5px] font-medium px-2.5 py-1.5 rounded-lg inline-flex items-center justify-center gap-1 transition-colors bg-ink text-white hover:bg-ink-2"
+            className="flex-1 text-[11px] font-medium px-3 py-2 rounded-lg inline-flex items-center justify-center gap-1.5 transition-colors bg-ink text-white hover:bg-ink-2"
           >
             {item.primary}
-            <ChevronRight size={11} strokeWidth={1.8} />
+            <ChevronRight size={12} strokeWidth={1.8} />
           </button>
         )}
         <Popover align="right" width={200}

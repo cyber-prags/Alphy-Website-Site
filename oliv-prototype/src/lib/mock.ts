@@ -578,6 +578,29 @@ export type Persona = "ae" | "am" | "csm" | "manager";
 // =====================================================================
 export type QueueKind = "risk" | "renewal" | "expansion" | "adoption" | "prep" | "deal";
 
+export type Subtask = { id: string; label: string; done: boolean };
+export type TaskComment = { id: string; author: string; authorInitials: string; text: string; at: string };
+export type TaskTemplate = { id: string; name: string; kinds: QueueKind[]; subtasks: string[] };
+
+export const taskTemplates: TaskTemplate[] = [
+  { id: "tpl-renewal", name: "Renewal Outreach", kinds: ["renewal", "risk"], subtasks: [
+    "Review health score & usage trends", "Check contract terms & pricing history", "Draft re-engagement email",
+    "Identify backup champion", "Schedule internal sync with AE",
+  ]},
+  { id: "tpl-qbr", name: "QBR Prep", kinds: ["prep"], subtasks: [
+    "Pull usage metrics for last 90 days", "Prepare success highlights deck", "Draft proposed success plan for next quarter",
+    "Collect internal feedback from support team", "Schedule dry-run with manager",
+  ]},
+  { id: "tpl-expansion", name: "Expansion Play", kinds: ["expansion", "deal"], subtasks: [
+    "Validate expansion signal with champion", "Build ROI model with comparables", "Draft business case one-pager",
+    "Identify procurement stakeholders", "Loop in AE for joint proposal",
+  ]},
+  { id: "tpl-risk", name: "At-Risk Recovery", kinds: ["risk", "adoption"], subtasks: [
+    "Diagnose root cause (usage, sentiment, competition)", "Draft recovery action plan", "Schedule executive sponsor call",
+    "Prepare competitive displacement defence", "Set 14-day re-check milestone",
+  ]},
+];
+
 export type QueueItem = {
   id: string;
   kind: QueueKind;
@@ -593,6 +616,8 @@ export type QueueItem = {
   overdue?: boolean;
   /** which personas should see this item */
   personas: Persona[];
+  subtasks?: Subtask[];
+  comments?: TaskComment[];
 };
 
 export const slugify = (n: string) => n.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -608,7 +633,19 @@ export const queueItems: QueueItem[] = [
   // AM-facing (account-shaped)
   // Retention / health / risk → CSM-primary, AM secondary, manager visibility
   { id: "q-redwood",      kind: "renewal",   account: "Snowflake",        target: { type: "account", slug: slugify("Snowflake Inc.") }, headline: "Snowflake renewal in 47 days — sponsor silent",
-    why: "Champion hasn't replied to your last 3 emails. Health score 41. Re-engagement note drafted.", primary: "Send re-engage", secondary: "Snooze 1d", ago: "1h", due: "Today", overdue: true, personas: ["csm", "am", "manager"] },
+    why: "Champion hasn't replied to your last 3 emails. Health score 41. Re-engagement note drafted.", primary: "Send re-engage", secondary: "Snooze 1d", ago: "1h", due: "Today", overdue: true, personas: ["csm", "am", "manager"],
+    subtasks: [
+      { id: "st-r1", label: "Review health score & usage trends", done: true },
+      { id: "st-r2", label: "Check contract terms & pricing history", done: true },
+      { id: "st-r3", label: "Draft re-engagement email", done: true },
+      { id: "st-r4", label: "Identify backup champion", done: false },
+      { id: "st-r5", label: "Schedule internal sync with AE", done: false },
+    ],
+    comments: [
+      { id: "tc-r1", author: "Sarah Chen", authorInitials: "SC", text: "Reached out to Brad Wallace on LinkedIn — no response yet. May need exec-to-exec outreach.", at: "2026-05-04T14:30:00Z" },
+      { id: "tc-r2", author: "Walid Qayoumi", authorInitials: "WQ", text: "Escalating to VP Sales for sponsor call. Let's sync tomorrow AM.", at: "2026-05-05T09:15:00Z" },
+    ],
+  },
   { id: "q-gitlab",       kind: "adoption",  account: "GitLab Inc.",       target: { type: "account", slug: "gitlab-inc" },         headline: "GitLab: WAU/MAU dropped 0.62 → 0.48 in 14 days",
     why: "Three teams stopped using AI features last week. Renewal in 64 days. Health dropped 9 points.", primary: "Open usage drill-down", secondary: "Draft note", ago: "1h", personas: ["csm", "manager"] },
   { id: "q-edge-qbr",     kind: "prep",      account: "Akamai",        target: { type: "account", slug: "akamai-technologies" },      headline: "Akamai QBR is 14 days overdue",
@@ -616,7 +653,17 @@ export const queueItems: QueueItem[] = [
 
   // Pure expansion → AM only (with manager visibility)
   { id: "q-cloudflare",    kind: "expansion", account: "Cloudflare, Inc.",   target: { type: "account", slug: "cloudflare-inc" },     headline: "Cloudflare: VP Eng promoted — expansion door opens",
-    why: "Maya Chen promoted to VP Eng. Budget now spans Networking + Security where adoption is 0%. Pattern matches 3 prior $180K avg expansions.", primary: "Build case", secondary: "Loop in AE", ago: "12m", personas: ["am", "manager"] },
+    why: "Maya Chen promoted to VP Eng. Budget now spans Networking + Security where adoption is 0%. Pattern matches 3 prior $180K avg expansions.", primary: "Build case", secondary: "Loop in AE", ago: "12m", personas: ["am", "manager"],
+    subtasks: [
+      { id: "st-c1", label: "Validate expansion signal with champion", done: true },
+      { id: "st-c2", label: "Build ROI model with comparables", done: false },
+      { id: "st-c3", label: "Draft business case one-pager", done: false },
+      { id: "st-c4", label: "Identify procurement stakeholders", done: false },
+    ],
+    comments: [
+      { id: "tc-c1", author: "Brad Allen", authorInitials: "BA", text: "Maya confirmed interest in Revenue Intel for the Security org. Let's prioritise the ROI model this week.", at: "2026-05-05T11:00:00Z" },
+    ],
+  },
   { id: "q-synergy",      kind: "expansion", account: "Tableau Software",    target: { type: "account", slug: "tableau-software" },      headline: "Tableau hiring 4 ML engineers — governance gap flagged",
     why: "Last call surfaced a governance need. Pattern matches 3 prior conversions. Drafted business case ready for review.", primary: "Validate case", secondary: "Loop in AE", ago: "yesterday", personas: ["am", "manager"] },
 ];
@@ -680,7 +727,7 @@ export type Stakeholder = {
 
 export type AccountSignal = {
   id: string;
-  category: "Hiring & Org" | "Usage" | "Renewal" | "Expansion" | "Competitive";
+  category: "Hiring & Org" | "Usage" | "Renewal" | "Expansion" | "Competitive" | "Champion Change";
   tone: "pos" | "warn" | "neg" | "info";
   body: string;
   ago: string;
@@ -767,6 +814,11 @@ export const accountDetails: Record<string, AccountDetail> = {
         evidence: [{ kind: "email", title: "Re: Q2 health check", meta: "no reply 24d" }] },
       { id: "s2", category: "Usage",   tone: "warn", body: "Active seat count down 18% MoM.", ago: "1d",
         evidence: [{ kind: "internal", title: "usage dashboard", meta: "Apr 29 snapshot" }] },
+      { id: "s3", category: "Champion Change", tone: "neg", body: "James Whitfield (VP Sales Ops) left company — succession recovery needed before renewal.", ago: "2d",
+        evidence: [
+          { kind: "linkedin", title: "LinkedIn: James Whitfield changed to 'Open to work'", meta: "May 3" },
+          { kind: "internal", title: "CRM: contact marked as departed", meta: "May 4" },
+        ] },
     ],
   }),
   [slugify("Cloudflare, Inc.")]: baseAccountDetail({
@@ -787,6 +839,11 @@ export const accountDetails: Record<string, AccountDetail> = {
         ] },
       { id: "s2", category: "Expansion",   tone: "info", body: "Pattern matches 3 prior expansions where champion got VP-promoted: avg $180K.",
         ago: "12m", evidence: [{ kind: "internal", title: "Expansion playbook · pattern 4b", meta: "internal note" }] },
+      { id: "s3", category: "Champion Change", tone: "pos", body: "Maya Chen promoted to VP Engineering — budget authority now spans Networking + Security.", ago: "12h",
+        evidence: [
+          { kind: "linkedin", title: "LinkedIn: 'Excited to share I'm now VP Eng…'", meta: "May 4" },
+          { kind: "transcript", title: "Last QBR mention: 'we'll own security too'", meta: "00:14:12" },
+        ] },
     ],
   }),
   [slugify("GitLab Inc.")]: baseAccountDetail({
@@ -801,6 +858,10 @@ export const accountDetails: Record<string, AccountDetail> = {
     signals: [
       { id: "s1", category: "Usage", tone: "warn", body: "WAU/MAU dropped 0.62 → 0.48 in 14 days. Three teams stopped using AI features.", ago: "1h",
         evidence: [{ kind: "internal", title: "usage dashboard", meta: "Apr 29" }] },
+      { id: "s2", category: "Champion Change", tone: "pos", body: "Alex Rivera promoted from Sales Manager to Director of Sales Enablement — AI Copilot aligns with new mandate.", ago: "5d",
+        evidence: [
+          { kind: "linkedin", title: "LinkedIn: Alex Rivera updated title to Director of Sales Enablement", meta: "Apr 30" },
+        ] },
     ],
   }),
   [slugify("Akamai Technologies")]: baseAccountDetail({
@@ -833,6 +894,10 @@ export const accountDetails: Record<string, AccountDetail> = {
           { kind: "linkedin",   title: "Job post: Senior ML Engineer (×4)", meta: "Apr 28" },
           { kind: "transcript", title: "Aria: 'we don't have governance for these new agents'", meta: "00:18:21" },
         ] },
+      { id: "s2", category: "Champion Change", tone: "info", body: "New hire: Priya Sharma joined as Head of Revenue Operations — likely evaluating tooling.", ago: "3d",
+        evidence: [
+          { kind: "linkedin", title: "LinkedIn: Priya Sharma started as Head of Revenue Operations at Tableau", meta: "May 2" },
+        ] },
     ],
   }),
 };
@@ -841,6 +906,8 @@ export const accountDetails: Record<string, AccountDetail> = {
 // Customer Outcomes — measurable customer-facing goals (not stage exit criteria)
 // =====================================================================
 export type OutcomeStatus = "ahead" | "on-track" | "watch" | "at-risk";
+export type OutcomePriority = "high" | "medium" | "low";
+export type OutcomeAction = { id: string; label: string; done: boolean; assignee: string; assigneeInitials: string; dueDate?: string };
 
 export type CustomerOutcome = {
   id: string;
@@ -848,21 +915,79 @@ export type CustomerOutcome = {
   title: string;
   current: string;
   target: string;
-  progress: number; // 0-100
+  progress: number;
   status: OutcomeStatus;
   due: string;
   metric: string;
+  owner: string;
+  ownerInitials: string;
+  priority: OutcomePriority;
+  actions: OutcomeAction[];
 };
 
 export const outcomes: CustomerOutcome[] = [
-  { id: "o1", account: "Cloudflare",     title: "Reduce time-to-first-value to under 14 days",       current: "11 days", target: "14 days", progress: 100, status: "ahead",    due: "Q2",      metric: "Days to first activated user" },
-  { id: "o2", account: "Cloudflare",     title: "Land Connect rollout across 3 BUs by Q3",            current: "1 of 3",  target: "3 of 3",   progress: 33,  status: "on-track", due: "Sep 30",  metric: "BUs live on Connect" },
-  { id: "o3", account: "Tableau Software", title: "Convert agent governance pilot into production", current: "Pilot",   target: "GA",       progress: 70,  status: "on-track", due: "Jun 30",  metric: "Phase" },
-  { id: "o4", account: "Tableau Software", title: "Onboard 4 incoming ML engineers within 21 days", current: "2 of 4",  target: "4 of 4",   progress: 50,  status: "on-track", due: "May 15",  metric: "Activated seats" },
-  { id: "o5", account: "GitLab Inc.",   title: "Reverse WAU/MAU decline (0.62 → 0.65)",          current: "0.48",    target: "0.65",     progress: 25,  status: "at-risk",  due: "Jun 15",  metric: "WAU/MAU rolling 4w" },
-  { id: "o6", account: "Snowflake",     title: "Recover sponsor engagement after 24-day gap",     current: "24d",     target: "0d",       progress: 5,   status: "at-risk",  due: "Apr 30",  metric: "Days since last touch" },
-  { id: "o7", account: "Akamai",    title: "Open a second BU within 90 days",                 current: "Lead",    target: "Won",      progress: 45,  status: "on-track", due: "Q3",      metric: "Stage" },
-  { id: "o8", account: "Snowflake", title: "Deliver health recovery plan after sponsor re-engagement", current: "Draft", target: "Signed off", progress: 20, status: "watch", due: "May 15", metric: "Recovery plan status" },
+  { id: "o1", account: "Cloudflare", title: "Reduce time-to-first-value to under 14 days", current: "11 days", target: "14 days", progress: 100, status: "ahead", due: "Q2", metric: "Days to first activated user",
+    owner: "Sarah Chen", ownerInitials: "SC", priority: "high",
+    actions: [
+      { id: "a1-1", label: "Define activation criteria with product team", done: true, assignee: "Sarah Chen", assigneeInitials: "SC" },
+      { id: "a1-2", label: "Set up Mixpanel funnel for activation tracking", done: true, assignee: "Brad Allen", assigneeInitials: "BA", dueDate: "Apr 15" },
+      { id: "a1-3", label: "Run first cohort analysis", done: true, assignee: "Sarah Chen", assigneeInitials: "SC", dueDate: "Apr 22" },
+    ] },
+  { id: "o2", account: "Cloudflare", title: "Land Connect rollout across 3 BUs by Q3", current: "1 of 3", target: "3 of 3", progress: 33, status: "on-track", due: "Sep 30", metric: "BUs live on Connect",
+    owner: "Sarah Chen", ownerInitials: "SC", priority: "high",
+    actions: [
+      { id: "a2-1", label: "Schedule kickoff with Networking BU lead", done: true, assignee: "Sarah Chen", assigneeInitials: "SC" },
+      { id: "a2-2", label: "Draft BU-specific onboarding plan", done: false, assignee: "Brad Allen", assigneeInitials: "BA", dueDate: "May 20" },
+      { id: "a2-3", label: "Technical integration review for Security BU", done: false, assignee: "Mike Torres", assigneeInitials: "MT", dueDate: "Jun 10" },
+      { id: "a2-4", label: "Executive alignment meeting with VP Eng", done: false, assignee: "Sarah Chen", assigneeInitials: "SC", dueDate: "Jun 30" },
+    ] },
+  { id: "o3", account: "Tableau Software", title: "Convert agent governance pilot into production", current: "Pilot", target: "GA", progress: 70, status: "on-track", due: "Jun 30", metric: "Phase",
+    owner: "Paul Acker", ownerInitials: "PA", priority: "medium",
+    actions: [
+      { id: "a3-1", label: "Complete pilot success metrics review", done: true, assignee: "Paul Acker", assigneeInitials: "PA" },
+      { id: "a3-2", label: "Get sign-off from compliance team", done: true, assignee: "Paul Acker", assigneeInitials: "PA" },
+      { id: "a3-3", label: "Migrate pilot config to production environment", done: false, assignee: "Mike Torres", assigneeInitials: "MT", dueDate: "May 25" },
+      { id: "a3-4", label: "Run load test on production cluster", done: false, assignee: "Brad Allen", assigneeInitials: "BA", dueDate: "Jun 15" },
+      { id: "a3-5", label: "Publish GA rollout comms to stakeholders", done: false, assignee: "Paul Acker", assigneeInitials: "PA", dueDate: "Jun 28" },
+    ] },
+  { id: "o4", account: "Tableau Software", title: "Onboard 4 incoming ML engineers within 21 days", current: "2 of 4", target: "4 of 4", progress: 50, status: "on-track", due: "May 15", metric: "Activated seats",
+    owner: "Paul Acker", ownerInitials: "PA", priority: "medium",
+    actions: [
+      { id: "a4-1", label: "Send onboarding invitations to all 4 engineers", done: true, assignee: "Paul Acker", assigneeInitials: "PA" },
+      { id: "a4-2", label: "Conduct live walkthrough session #1", done: true, assignee: "Mike Torres", assigneeInitials: "MT" },
+      { id: "a4-3", label: "Conduct live walkthrough session #2", done: false, assignee: "Mike Torres", assigneeInitials: "MT", dueDate: "May 10" },
+      { id: "a4-4", label: "Verify all seats activated in admin portal", done: false, assignee: "Paul Acker", assigneeInitials: "PA", dueDate: "May 14" },
+    ] },
+  { id: "o5", account: "GitLab Inc.", title: "Reverse WAU/MAU decline (0.62 → 0.65)", current: "0.48", target: "0.65", progress: 25, status: "at-risk", due: "Jun 15", metric: "WAU/MAU rolling 4w",
+    owner: "Sarah Chen", ownerInitials: "SC", priority: "high",
+    actions: [
+      { id: "a5-1", label: "Identify top 3 drop-off points in user funnel", done: true, assignee: "Sarah Chen", assigneeInitials: "SC" },
+      { id: "a5-2", label: "Run targeted re-engagement campaign for dormant users", done: false, assignee: "Brad Allen", assigneeInitials: "BA", dueDate: "May 12" },
+      { id: "a5-3", label: "Ship in-app nudge for underused features", done: false, assignee: "Mike Torres", assigneeInitials: "MT", dueDate: "May 20" },
+      { id: "a5-4", label: "Review 2-week WAU/MAU trend after interventions", done: false, assignee: "Sarah Chen", assigneeInitials: "SC", dueDate: "Jun 5" },
+    ] },
+  { id: "o6", account: "Snowflake", title: "Recover sponsor engagement after 24-day gap", current: "24d", target: "0d", progress: 5, status: "at-risk", due: "Apr 30", metric: "Days since last touch",
+    owner: "Brad Allen", ownerInitials: "BA", priority: "high",
+    actions: [
+      { id: "a6-1", label: "Send personalized check-in email to sponsor", done: true, assignee: "Brad Allen", assigneeInitials: "BA" },
+      { id: "a6-2", label: "Escalate to VP with context brief", done: false, assignee: "Brad Allen", assigneeInitials: "BA", dueDate: "Apr 28" },
+      { id: "a6-3", label: "Schedule 1:1 recovery call", done: false, assignee: "Sarah Chen", assigneeInitials: "SC", dueDate: "Apr 30" },
+    ] },
+  { id: "o7", account: "Akamai", title: "Open a second BU within 90 days", current: "Lead", target: "Won", progress: 45, status: "on-track", due: "Q3", metric: "Stage",
+    owner: "Mike Torres", ownerInitials: "MT", priority: "medium",
+    actions: [
+      { id: "a7-1", label: "Map org chart for target BU", done: true, assignee: "Mike Torres", assigneeInitials: "MT" },
+      { id: "a7-2", label: "Get warm intro from existing champion", done: true, assignee: "Mike Torres", assigneeInitials: "MT" },
+      { id: "a7-3", label: "Deliver tailored value prop deck", done: false, assignee: "Paul Acker", assigneeInitials: "PA", dueDate: "May 30" },
+      { id: "a7-4", label: "Schedule technical discovery with BU stakeholders", done: false, assignee: "Mike Torres", assigneeInitials: "MT", dueDate: "Jun 15" },
+    ] },
+  { id: "o8", account: "Snowflake", title: "Deliver health recovery plan after sponsor re-engagement", current: "Draft", target: "Signed off", progress: 20, status: "watch", due: "May 15", metric: "Recovery plan status",
+    owner: "Brad Allen", ownerInitials: "BA", priority: "low",
+    actions: [
+      { id: "a8-1", label: "Draft recovery plan document", done: true, assignee: "Brad Allen", assigneeInitials: "BA" },
+      { id: "a8-2", label: "Review plan with internal leadership", done: false, assignee: "Sarah Chen", assigneeInitials: "SC", dueDate: "May 8" },
+      { id: "a8-3", label: "Present plan to customer sponsor for sign-off", done: false, assignee: "Brad Allen", assigneeInitials: "BA", dueDate: "May 13" },
+    ] },
 ];
 
 // =====================================================================
@@ -1570,3 +1695,912 @@ export const workflowRuns: WorkflowRun[] = [
   { id: "wr9",  workflowId: "wf4", status: "Completed", startedAt: "2026-05-04T07:30:00Z", duration: 18,  recordsProcessed: 12  },
   { id: "wr10", workflowId: "wf6", status: "Completed", startedAt: "2026-04-30T11:00:00Z", duration: 65,  recordsProcessed: 34  },
 ];
+
+// =====================================================================
+// White Space / Product Penetration — Phase 1 Expansion Engine
+// =====================================================================
+
+export type ProductLine = {
+  id: string;
+  name: string;
+  description: string;
+  category: "Core" | "Analytics" | "AI" | "Platform" | "Add-on";
+};
+
+export const productCatalog: ProductLine[] = [
+  { id: "sales",        name: "Alphard · Sales Cloud",     description: "Pipeline, forecast, deal hygiene",                 category: "Core" },
+  { id: "cs",           name: "Alphard · CS Cloud",        description: "Health, outcomes, adoption tracking",              category: "Core" },
+  { id: "insights",     name: "Alphard · Insights",        description: "Cross-tenant benchmarks & analytics",             category: "Analytics" },
+  { id: "ai-copilot",   name: "Alphard · AI Copilot",      description: "Autonomous meeting prep, follow-ups, coaching",   category: "AI" },
+  { id: "workflows",    name: "Alphard · Workflows",       description: "Automated playbooks & orchestration",             category: "Platform" },
+  { id: "data-hub",     name: "Alphard · Data Hub",        description: "Integrations, enrichment, CRM sync",              category: "Platform" },
+  { id: "rev-intel",    name: "Alphard · Revenue Intel",   description: "Call recording, conversation analytics",          category: "Analytics" },
+  { id: "forecasting",  name: "Alphard · Forecasting",     description: "AI-driven forecast modeling & scenarios",          category: "AI" },
+];
+
+export type WhiteSpaceCellStatus = "active" | "trial" | "expansion-target" | "not-sold";
+
+export type WhiteSpaceCell = {
+  productId: string;
+  department: string;
+  status: WhiteSpaceCellStatus;
+  seats?: number;
+  arr?: number;
+  confidence?: number;     // 0-100, how confident we are expansion would land
+  estimatedArr?: number;   // potential ARR from expanding into this cell
+  patternMatches?: number; // how many similar accounts converted this cell
+};
+
+export type WhiteSpaceAnalysis = {
+  accountSlug: string;
+  cells: WhiteSpaceCell[];
+  totalWhiteSpace: number;    // sum of estimatedArr for not-sold + expansion-target
+  adoptionPct: number;        // % of catalog adopted
+  topOpportunity: string;     // product name of biggest gap
+};
+
+const departments = ["Sales", "Engineering", "Product", "Finance", "Operations", "Executive"];
+
+export const whiteSpaceData: Record<string, WhiteSpaceAnalysis> = {
+  [slugify("Cloudflare, Inc.")]: {
+    accountSlug: slugify("Cloudflare, Inc."),
+    cells: [
+      { productId: "sales",       department: "Sales",       status: "active",           seats: 120, arr: 396_000 },
+      { productId: "sales",       department: "Engineering", status: "not-sold",          estimatedArr: 80_000, confidence: 45, patternMatches: 2 },
+      { productId: "cs",          department: "Sales",       status: "active",           seats: 18,  arr: 216_000 },
+      { productId: "cs",          department: "Product",     status: "expansion-target",  estimatedArr: 60_000, confidence: 72, patternMatches: 3 },
+      { productId: "insights",    department: "Executive",   status: "active",           seats: 6,   arr: 108_000 },
+      { productId: "ai-copilot",  department: "Sales",       status: "trial",            seats: 10 },
+      { productId: "ai-copilot",  department: "Engineering", status: "not-sold",          estimatedArr: 95_000, confidence: 60, patternMatches: 2 },
+      { productId: "workflows",   department: "Operations",  status: "active",           seats: 8,   arr: 0 },
+      { productId: "data-hub",    department: "Engineering", status: "not-sold",          estimatedArr: 55_000, confidence: 38, patternMatches: 1 },
+      { productId: "rev-intel",   department: "Sales",       status: "expansion-target",  estimatedArr: 120_000, confidence: 82, patternMatches: 4 },
+      { productId: "forecasting", department: "Finance",     status: "not-sold",          estimatedArr: 70_000, confidence: 55, patternMatches: 2 },
+    ],
+    totalWhiteSpace: 480_000,
+    adoptionPct: 50,
+    topOpportunity: "Alphard · Revenue Intel",
+  },
+  [slugify("Tableau Software")]: {
+    accountSlug: slugify("Tableau Software"),
+    cells: [
+      { productId: "sales",       department: "Sales",       status: "active",           seats: 40,  arr: 198_000 },
+      { productId: "cs",          department: "Sales",       status: "expansion-target",  estimatedArr: 72_000, confidence: 68, patternMatches: 3 },
+      { productId: "insights",    department: "Executive",   status: "not-sold",          estimatedArr: 54_000, confidence: 42, patternMatches: 1 },
+      { productId: "ai-copilot",  department: "Sales",       status: "not-sold",          estimatedArr: 85_000, confidence: 75, patternMatches: 3 },
+      { productId: "ai-copilot",  department: "Engineering", status: "not-sold",          estimatedArr: 65_000, confidence: 50, patternMatches: 2 },
+      { productId: "workflows",   department: "Operations",  status: "trial",            seats: 5 },
+      { productId: "rev-intel",   department: "Sales",       status: "expansion-target",  estimatedArr: 90_000, confidence: 80, patternMatches: 4 },
+      { productId: "forecasting", department: "Finance",     status: "not-sold",          estimatedArr: 48_000, confidence: 35, patternMatches: 1 },
+    ],
+    totalWhiteSpace: 414_000,
+    adoptionPct: 25,
+    topOpportunity: "Alphard · Revenue Intel",
+  },
+  [slugify("Snowflake Inc.")]: {
+    accountSlug: slugify("Snowflake Inc."),
+    cells: [
+      { productId: "sales",       department: "Sales",       status: "active",           seats: 85,  arr: 264_000 },
+      { productId: "cs",          department: "Sales",       status: "active",           seats: 14,  arr: 144_000 },
+      { productId: "insights",    department: "Executive",   status: "expansion-target",  estimatedArr: 72_000, confidence: 58, patternMatches: 2 },
+      { productId: "ai-copilot",  department: "Sales",       status: "not-sold",          estimatedArr: 90_000, confidence: 40, patternMatches: 1 },
+      { productId: "workflows",   department: "Operations",  status: "not-sold",          estimatedArr: 45_000, confidence: 30, patternMatches: 1 },
+      { productId: "data-hub",    department: "Engineering", status: "active",           seats: 3,   arr: 72_000 },
+      { productId: "rev-intel",   department: "Sales",       status: "not-sold",          estimatedArr: 80_000, confidence: 55, patternMatches: 2 },
+      { productId: "forecasting", department: "Finance",     status: "not-sold",          estimatedArr: 60_000, confidence: 45, patternMatches: 1 },
+    ],
+    totalWhiteSpace: 347_000,
+    adoptionPct: 38,
+    topOpportunity: "Alphard · AI Copilot",
+  },
+  [slugify("GitLab Inc.")]: {
+    accountSlug: slugify("GitLab Inc."),
+    cells: [
+      { productId: "sales",       department: "Sales",       status: "active",           seats: 35,  arr: 154_000 },
+      { productId: "cs",          department: "Sales",       status: "active",           seats: 8,   arr: 84_000 },
+      { productId: "insights",    department: "Executive",   status: "not-sold",          estimatedArr: 42_000, confidence: 35, patternMatches: 1 },
+      { productId: "ai-copilot",  department: "Sales",       status: "expansion-target",  estimatedArr: 60_000, confidence: 65, patternMatches: 2 },
+      { productId: "workflows",   department: "Operations",  status: "active",           seats: 6,   arr: 42_000 },
+      { productId: "rev-intel",   department: "Sales",       status: "not-sold",          estimatedArr: 55_000, confidence: 48, patternMatches: 1 },
+      { productId: "forecasting", department: "Finance",     status: "not-sold",          estimatedArr: 38_000, confidence: 30, patternMatches: 0 },
+    ],
+    totalWhiteSpace: 195_000,
+    adoptionPct: 38,
+    topOpportunity: "Alphard · AI Copilot",
+  },
+  [slugify("Akamai Technologies")]: {
+    accountSlug: slugify("Akamai Technologies"),
+    cells: [
+      { productId: "sales",       department: "Sales",       status: "active",           seats: 95,  arr: 297_000 },
+      { productId: "cs",          department: "Sales",       status: "active",           seats: 16,  arr: 162_000 },
+      { productId: "insights",    department: "Executive",   status: "active",           seats: 5,   arr: 81_000 },
+      { productId: "ai-copilot",  department: "Sales",       status: "trial",            seats: 8 },
+      { productId: "ai-copilot",  department: "Product",     status: "not-sold",          estimatedArr: 70_000, confidence: 58, patternMatches: 2 },
+      { productId: "workflows",   department: "Operations",  status: "not-sold",          estimatedArr: 50_000, confidence: 42, patternMatches: 1 },
+      { productId: "data-hub",    department: "Engineering", status: "expansion-target",  estimatedArr: 65_000, confidence: 70, patternMatches: 3 },
+      { productId: "rev-intel",   department: "Sales",       status: "active",           seats: 12,  arr: 0 },
+      { productId: "forecasting", department: "Finance",     status: "expansion-target",  estimatedArr: 55_000, confidence: 62, patternMatches: 2 },
+    ],
+    totalWhiteSpace: 240_000,
+    adoptionPct: 63,
+    topOpportunity: "Alphard · AI Copilot",
+  },
+};
+
+// =====================================================================
+// Expansion Opportunity Scoring — ranked by composite score
+// =====================================================================
+
+export type ExpansionFactor = {
+  label: string;
+  score: number;  // 0-100
+  weight: number; // 0-1
+};
+
+export type ExpansionOpportunity = {
+  id: string;
+  accountSlug: string;
+  accountName: string;
+  productId: string;
+  productName: string;
+  estimatedArr: number;
+  score: number;          // composite 0-100
+  factors: ExpansionFactor[];
+  play: string;           // recommended next action
+  evidence: string;       // supporting signal
+};
+
+export const expansionOpportunities: ExpansionOpportunity[] = [
+  {
+    id: "eo1", accountSlug: slugify("Cloudflare, Inc."), accountName: "Cloudflare", productId: "rev-intel",
+    productName: "Revenue Intel", estimatedArr: 120_000, score: 88,
+    factors: [
+      { label: "Usage signals",     score: 92, weight: 0.3 },
+      { label: "Champion strength", score: 95, weight: 0.25 },
+      { label: "Budget signals",    score: 80, weight: 0.2 },
+      { label: "Timing",            score: 85, weight: 0.15 },
+      { label: "Comparables",       score: 90, weight: 0.1 },
+    ],
+    play: "Schedule Revenue Intel demo with VP Sales",
+    evidence: "4 similar accounts converted at avg $110K. Champion Maya Chen just promoted to VP Eng.",
+  },
+  {
+    id: "eo2", accountSlug: slugify("Tableau Software"), accountName: "Tableau", productId: "rev-intel",
+    productName: "Revenue Intel", estimatedArr: 90_000, score: 82,
+    factors: [
+      { label: "Usage signals",     score: 78, weight: 0.3 },
+      { label: "Champion strength", score: 85, weight: 0.25 },
+      { label: "Budget signals",    score: 88, weight: 0.2 },
+      { label: "Timing",            score: 80, weight: 0.15 },
+      { label: "Comparables",       score: 82, weight: 0.1 },
+    ],
+    play: "Share governance gap analysis with ML team lead",
+    evidence: "Hiring 4 ML engineers — governance gap flagged in last call. 3 pattern matches.",
+  },
+  {
+    id: "eo3", accountSlug: slugify("Tableau Software"), accountName: "Tableau", productId: "ai-copilot",
+    productName: "AI Copilot", estimatedArr: 85_000, score: 78,
+    factors: [
+      { label: "Usage signals",     score: 72, weight: 0.3 },
+      { label: "Champion strength", score: 80, weight: 0.25 },
+      { label: "Budget signals",    score: 82, weight: 0.2 },
+      { label: "Timing",            score: 78, weight: 0.15 },
+      { label: "Comparables",       score: 75, weight: 0.1 },
+    ],
+    play: "Propose AI Copilot pilot to Sales Director",
+    evidence: "High engagement with manual meeting prep. 3 comparable conversions at avg $80K.",
+  },
+  {
+    id: "eo4", accountSlug: slugify("Cloudflare, Inc."), accountName: "Cloudflare", productId: "ai-copilot",
+    productName: "AI Copilot", estimatedArr: 95_000, score: 75,
+    factors: [
+      { label: "Usage signals",     score: 70, weight: 0.3 },
+      { label: "Champion strength", score: 85, weight: 0.25 },
+      { label: "Budget signals",    score: 68, weight: 0.2 },
+      { label: "Timing",            score: 78, weight: 0.15 },
+      { label: "Comparables",       score: 72, weight: 0.1 },
+    ],
+    play: "Convert AI Copilot trial to paid — 10 seats active",
+    evidence: "Trial active with 10 seats in Sales. 60% weekly engagement rate.",
+  },
+  {
+    id: "eo5", accountSlug: slugify("Akamai Technologies"), accountName: "Akamai", productId: "data-hub",
+    productName: "Data Hub", estimatedArr: 65_000, score: 72,
+    factors: [
+      { label: "Usage signals",     score: 65, weight: 0.3 },
+      { label: "Champion strength", score: 78, weight: 0.25 },
+      { label: "Budget signals",    score: 75, weight: 0.2 },
+      { label: "Timing",            score: 70, weight: 0.15 },
+      { label: "Comparables",       score: 68, weight: 0.1 },
+    ],
+    play: "Present Data Hub integration roadmap to Engineering lead",
+    evidence: "3 comparable accounts adopted Data Hub post-Insights. Eng team evaluating enrichment tools.",
+  },
+  {
+    id: "eo6", accountSlug: slugify("Snowflake Inc."), accountName: "Snowflake", productId: "insights",
+    productName: "Insights", estimatedArr: 72_000, score: 65,
+    factors: [
+      { label: "Usage signals",     score: 60, weight: 0.3 },
+      { label: "Champion strength", score: 50, weight: 0.25 },
+      { label: "Budget signals",    score: 70, weight: 0.2 },
+      { label: "Timing",            score: 72, weight: 0.15 },
+      { label: "Comparables",       score: 68, weight: 0.1 },
+    ],
+    play: "Include Insights demo in next QBR deck",
+    evidence: "Renewal in 47 days — positioning as value-add to strengthen retention.",
+  },
+  {
+    id: "eo7", accountSlug: slugify("GitLab Inc."), accountName: "GitLab", productId: "ai-copilot",
+    productName: "AI Copilot", estimatedArr: 60_000, score: 62,
+    factors: [
+      { label: "Usage signals",     score: 55, weight: 0.3 },
+      { label: "Champion strength", score: 68, weight: 0.25 },
+      { label: "Budget signals",    score: 60, weight: 0.2 },
+      { label: "Timing",            score: 65, weight: 0.15 },
+      { label: "Comparables",       score: 62, weight: 0.1 },
+    ],
+    play: "Propose AI Copilot to reduce meeting prep overhead",
+    evidence: "WAU/MAU dropping — AI Copilot could boost engagement. 2 comparables at avg $55K.",
+  },
+  {
+    id: "eo8", accountSlug: slugify("Akamai Technologies"), accountName: "Akamai", productId: "forecasting",
+    productName: "Forecasting", estimatedArr: 55_000, score: 58,
+    factors: [
+      { label: "Usage signals",     score: 52, weight: 0.3 },
+      { label: "Champion strength", score: 65, weight: 0.25 },
+      { label: "Budget signals",    score: 58, weight: 0.2 },
+      { label: "Timing",            score: 55, weight: 0.15 },
+      { label: "Comparables",       score: 60, weight: 0.1 },
+    ],
+    play: "Bundle Forecasting add-on into renewal proposal",
+    evidence: "Finance team manually pulling reports from Insights. Natural upsell path.",
+  },
+];
+
+// =====================================================================
+// Champion Change Detection
+// =====================================================================
+
+export type ChampionChange = {
+  id: string;
+  accountSlug: string;
+  accountName: string;
+  personName: string;
+  changeType: "promotion" | "departure" | "role-change" | "new-hire";
+  oldTitle: string;
+  newTitle: string;
+  detectedAgo: string;
+  tone: "pos" | "warn" | "neg" | "info";
+  recommendedPlay: string;
+  impact: "high" | "medium" | "low";
+};
+
+export const championChanges: ChampionChange[] = [
+  {
+    id: "cc1", accountSlug: slugify("Cloudflare, Inc."), accountName: "Cloudflare",
+    personName: "Maya Chen", changeType: "promotion",
+    oldTitle: "Sr. Director Engineering", newTitle: "VP Engineering",
+    detectedAgo: "12h", tone: "pos",
+    recommendedPlay: "Expansion outreach — budget scope now spans Networking + Security",
+    impact: "high",
+  },
+  {
+    id: "cc2", accountSlug: slugify("Snowflake Inc."), accountName: "Snowflake",
+    personName: "James Whitfield", changeType: "departure",
+    oldTitle: "VP Sales Operations", newTitle: "Left company",
+    detectedAgo: "2d", tone: "neg",
+    recommendedPlay: "Succession recovery — identify new sponsor before renewal in 47 days",
+    impact: "high",
+  },
+  {
+    id: "cc3", accountSlug: slugify("Tableau Software"), accountName: "Tableau",
+    personName: "Priya Sharma", changeType: "new-hire",
+    oldTitle: "N/A", newTitle: "Head of Revenue Operations",
+    detectedAgo: "3d", tone: "info",
+    recommendedPlay: "Introductory outreach — new RevOps leader likely evaluating tooling",
+    impact: "medium",
+  },
+  {
+    id: "cc4", accountSlug: slugify("GitLab Inc."), accountName: "GitLab",
+    personName: "Alex Rivera", changeType: "role-change",
+    oldTitle: "Sales Manager", newTitle: "Director of Sales Enablement",
+    detectedAgo: "5d", tone: "pos",
+    recommendedPlay: "Re-engage with enablement pitch — AI Copilot aligns with new mandate",
+    impact: "medium",
+  },
+];
+
+// =====================================================================
+// Cross-sell / Upsell Recommendations
+// =====================================================================
+
+export type CrossSellRecommendation = {
+  id: string;
+  accountSlug: string;
+  accountName: string;
+  productId: string;
+  productName: string;
+  estimatedArr: number;
+  confidence: number;     // 0-100
+  evidence: string[];
+  suggestedPlay: string;
+};
+
+// =====================================================================
+// Customer Portal / Success Plans
+// =====================================================================
+
+export type SuccessMilestone = {
+  id: string;
+  title: string;
+  dueDate: string;
+  status: "completed" | "in-progress" | "upcoming" | "at-risk";
+  owner: string;
+  ownerName: string;
+};
+
+export type SuccessPlan = {
+  id: string;
+  accountSlug: string;
+  accountName: string;
+  goals: string[];
+  milestones: SuccessMilestone[];
+  sharedWithCustomer: boolean;
+  lastUpdated: string;
+};
+
+export const successPlans: SuccessPlan[] = [
+  {
+    id: "sp1", accountSlug: "cloudflare-inc", accountName: "Cloudflare",
+    goals: ["Achieve 80% team adoption by end of Q2", "Expand to Security org by Q3", "Reduce meeting prep time by 50%"],
+    sharedWithCustomer: true, lastUpdated: "2026-05-01",
+    milestones: [
+      { id: "m1", title: "Complete onboarding for Sales team", dueDate: "2026-03-15", status: "completed", owner: "WQ", ownerName: "Walid Qayoumi" },
+      { id: "m2", title: "Deliver first QBR with usage metrics", dueDate: "2026-04-01", status: "completed", owner: "WQ", ownerName: "Walid Qayoumi" },
+      { id: "m3", title: "Pilot AI Copilot with 10 users", dueDate: "2026-04-15", status: "completed", owner: "BA", ownerName: "Brad Allen" },
+      { id: "m4", title: "Present expansion business case", dueDate: "2026-05-15", status: "in-progress", owner: "BA", ownerName: "Brad Allen" },
+      { id: "m5", title: "Security org kickoff meeting", dueDate: "2026-06-01", status: "upcoming", owner: "WQ", ownerName: "Walid Qayoumi" },
+      { id: "m6", title: "Full rollout to 50 seats", dueDate: "2026-06-30", status: "upcoming", owner: "WQ", ownerName: "Walid Qayoumi" },
+    ],
+  },
+  {
+    id: "sp2", accountSlug: slugify("Snowflake Inc."), accountName: "Snowflake",
+    goals: ["Stabilise health score above 60", "Identify new champion before renewal", "Re-engage dormant teams"],
+    sharedWithCustomer: false, lastUpdated: "2026-04-28",
+    milestones: [
+      { id: "m7", title: "Root cause analysis on usage drop", dueDate: "2026-05-05", status: "completed", owner: "WQ", ownerName: "Walid Qayoumi" },
+      { id: "m8", title: "Executive sponsor outreach", dueDate: "2026-05-10", status: "at-risk", owner: "DE", ownerName: "Derek Evans" },
+      { id: "m9", title: "Re-engagement campaign launch", dueDate: "2026-05-20", status: "upcoming", owner: "WQ", ownerName: "Walid Qayoumi" },
+      { id: "m10", title: "Renewal decision meeting", dueDate: "2026-06-15", status: "upcoming", owner: "WQ", ownerName: "Walid Qayoumi" },
+    ],
+  },
+];
+
+// =====================================================================
+// CSM Capacity Planning
+// =====================================================================
+
+export type CSMWorkload = {
+  id: string;
+  name: string;
+  initials: string;
+  accounts: number;
+  totalArr: number;
+  healthMix: { healthy: number; watch: number; atRisk: number };
+  renewalsNext90: number;
+  workloadScore: number;
+  weeklyHeatmap: number[];
+};
+
+export const csmWorkloads: CSMWorkload[] = [
+  { id: "csm1", name: "Brad Allen", initials: "BA", accounts: 12, totalArr: 2_400_000, healthMix: { healthy: 7, watch: 3, atRisk: 2 }, renewalsNext90: 5, workloadScore: 82, weeklyHeatmap: [75, 82, 78, 85, 80, 82] },
+  { id: "csm2", name: "Sarah Chen", initials: "SC", accounts: 10, totalArr: 1_800_000, healthMix: { healthy: 6, watch: 3, atRisk: 1 }, renewalsNext90: 3, workloadScore: 68, weeklyHeatmap: [60, 65, 70, 68, 72, 68] },
+  { id: "csm3", name: "Paul Acker", initials: "PA", accounts: 8, totalArr: 1_500_000, healthMix: { healthy: 5, watch: 2, atRisk: 1 }, renewalsNext90: 4, workloadScore: 72, weeklyHeatmap: [68, 72, 75, 70, 74, 72] },
+  { id: "csm4", name: "Lisa Park", initials: "LP", accounts: 9, totalArr: 1_600_000, healthMix: { healthy: 6, watch: 2, atRisk: 1 }, renewalsNext90: 2, workloadScore: 55, weeklyHeatmap: [50, 55, 52, 58, 54, 55] },
+  { id: "csm5", name: "Rachel Kim", initials: "RK", accounts: 7, totalArr: 1_200_000, healthMix: { healthy: 5, watch: 1, atRisk: 1 }, renewalsNext90: 2, workloadScore: 45, weeklyHeatmap: [42, 45, 48, 44, 46, 45] },
+  { id: "csm6", name: "Derek Evans", initials: "DE", accounts: 5, totalArr: 900_000, healthMix: { healthy: 4, watch: 1, atRisk: 0 }, renewalsNext90: 1, workloadScore: 35, weeklyHeatmap: [30, 35, 32, 38, 34, 35] },
+];
+
+// =====================================================================
+// Email Campaigns / Journey Orchestration
+// =====================================================================
+
+export type JourneyStepKind = "email" | "wait" | "condition" | "goal";
+
+export type JourneyStep = {
+  id: string;
+  kind: JourneyStepKind;
+  label: string;
+  metrics?: { sent?: number; opened?: number; clicked?: number; replied?: number };
+};
+
+export type Campaign = {
+  id: string;
+  name: string;
+  kind: "nurture" | "onboarding" | "re-engagement" | "expansion";
+  status: "active" | "paused" | "draft";
+  steps: JourneyStep[];
+  enrolled: number;
+  completed: number;
+  metrics: { openRate: number; replyRate: number };
+};
+
+export const campaigns: Campaign[] = [
+  {
+    id: "camp1", name: "Adoption Re-engagement", kind: "re-engagement", status: "active",
+    enrolled: 42, completed: 18,
+    metrics: { openRate: 64, replyRate: 22 },
+    steps: [
+      { id: "s1", kind: "email", label: "Usage drop alert", metrics: { sent: 42, opened: 28, clicked: 12, replied: 6 } },
+      { id: "s2", kind: "wait", label: "Wait 3 days" },
+      { id: "s3", kind: "condition", label: "If no login" },
+      { id: "s4", kind: "email", label: "Value reminder", metrics: { sent: 30, opened: 18, clicked: 8, replied: 4 } },
+      { id: "s5", kind: "wait", label: "Wait 5 days" },
+      { id: "s6", kind: "email", label: "CSM outreach", metrics: { sent: 22, opened: 14, clicked: 6, replied: 3 } },
+      { id: "s7", kind: "goal", label: "Re-activated" },
+    ],
+  },
+  {
+    id: "camp2", name: "Onboarding Journey", kind: "onboarding", status: "active",
+    enrolled: 28, completed: 12,
+    metrics: { openRate: 72, replyRate: 31 },
+    steps: [
+      { id: "s8", kind: "email", label: "Welcome", metrics: { sent: 28, opened: 24, clicked: 18, replied: 8 } },
+      { id: "s9", kind: "wait", label: "Wait 1 day" },
+      { id: "s10", kind: "email", label: "Setup guide", metrics: { sent: 28, opened: 20, clicked: 14, replied: 5 } },
+      { id: "s11", kind: "wait", label: "Wait 3 days" },
+      { id: "s12", kind: "condition", label: "If setup complete" },
+      { id: "s13", kind: "email", label: "Advanced features", metrics: { sent: 18, opened: 12, clicked: 8, replied: 4 } },
+      { id: "s14", kind: "goal", label: "Fully onboarded" },
+    ],
+  },
+  {
+    id: "camp3", name: "Expansion Nurture", kind: "expansion", status: "draft",
+    enrolled: 0, completed: 0,
+    metrics: { openRate: 0, replyRate: 0 },
+    steps: [
+      { id: "s15", kind: "email", label: "ROI summary" },
+      { id: "s16", kind: "wait", label: "Wait 7 days" },
+      { id: "s17", kind: "email", label: "Case study" },
+      { id: "s18", kind: "condition", label: "If engaged" },
+      { id: "s19", kind: "email", label: "Proposal intro" },
+      { id: "s20", kind: "goal", label: "Meeting booked" },
+    ],
+  },
+];
+
+// =====================================================================
+// @Mentions & Internal Comments
+// =====================================================================
+
+export type ActivityComment = {
+  id: string;
+  accountSlug: string;
+  author: string;
+  authorInitials: string;
+  text: string;
+  at: string;
+  mentions: string[];
+};
+
+export const activityComments: Record<string, ActivityComment[]> = {
+  "cloudflare-inc": [
+    { id: "ac1", accountSlug: "cloudflare-inc", author: "Brad Allen", authorInitials: "BA", text: "Just spoke with @Maya Chen — she's interested in Revenue Intel for the Security org. Let's get @Sarah Chen on the next call.", at: "2026-05-04T10:30:00Z", mentions: ["Maya Chen", "Sarah Chen"] },
+    { id: "ac2", accountSlug: "cloudflare-inc", author: "Sarah Chen", authorInitials: "SC", text: "Thanks @Brad Allen — I'll prep the demo deck and send calendar invite for Thursday.", at: "2026-05-04T14:15:00Z", mentions: ["Brad Allen"] },
+    { id: "ac3", accountSlug: "cloudflare-inc", author: "Walid Qayoumi", authorInitials: "WQ", text: "Great momentum here. @Brad Allen can you also loop in the VP Sales from their side?", at: "2026-05-05T09:00:00Z", mentions: ["Brad Allen"] },
+  ],
+  [slugify("Snowflake Inc.")]: [
+    { id: "ac4", accountSlug: slugify("Snowflake Inc."), author: "Walid Qayoumi", authorInitials: "WQ", text: "Champion gone silent — @Derek Evans please try the exec-to-exec approach we discussed.", at: "2026-05-03T16:00:00Z", mentions: ["Derek Evans"] },
+    { id: "ac5", accountSlug: slugify("Snowflake Inc."), author: "Derek Evans", authorInitials: "DE", text: "On it. Will have VP reach out to their CRO by EOD tomorrow.", at: "2026-05-04T08:30:00Z", mentions: [] },
+  ],
+};
+
+export const teamMembers = [
+  { name: "Walid Qayoumi", initials: "WQ" },
+  { name: "Sarah Chen", initials: "SC" },
+  { name: "Brad Allen", initials: "BA" },
+  { name: "Paul Acker", initials: "PA" },
+  { name: "Mike Torres", initials: "MT" },
+  { name: "Lisa Park", initials: "LP" },
+  { name: "Derek Evans", initials: "DE" },
+  { name: "Rachel Kim", initials: "RK" },
+  { name: "Tom Walker", initials: "TW" },
+];
+
+// =====================================================================
+// NPS/CSAT Survey Engine
+// =====================================================================
+
+export type SurveyResponse = {
+  id: string;
+  accountSlug: string;
+  accountName: string;
+  respondent: string;
+  score: number;
+  comment?: string;
+  at: string;
+};
+
+export type Survey = {
+  id: string;
+  kind: "nps" | "csat" | "ces";
+  title: string;
+  status: "active" | "closed" | "draft";
+  sentCount: number;
+  responseCount: number;
+  responses: SurveyResponse[];
+  createdAt: string;
+};
+
+export const surveys: Survey[] = [
+  {
+    id: "sv1", kind: "nps", title: "Q2 NPS Pulse", status: "active",
+    sentCount: 42, responseCount: 28, createdAt: "2026-04-15",
+    responses: [
+      { id: "sr1", accountSlug: "cloudflare-inc", accountName: "Cloudflare", respondent: "Maya Chen", score: 9, comment: "Excellent product — team loves the AI features.", at: "2026-04-20" },
+      { id: "sr2", accountSlug: slugify("Snowflake Inc."), accountName: "Snowflake", respondent: "Brad Wallace", score: 5, comment: "Support response time has been slow.", at: "2026-04-21" },
+      { id: "sr3", accountSlug: "akamai-technologies", accountName: "Akamai", respondent: "Lin Park", score: 8, at: "2026-04-22" },
+      { id: "sr4", accountSlug: "tableau-software", accountName: "Tableau", respondent: "Jordan Lee", score: 9, comment: "Great onboarding experience.", at: "2026-04-23" },
+      { id: "sr5", accountSlug: "gitlab-inc", accountName: "GitLab", respondent: "Priya Anand", score: 6, comment: "Feature gaps compared to previous tool.", at: "2026-04-24" },
+    ],
+  },
+  {
+    id: "sv2", kind: "csat", title: "Onboarding CSAT", status: "closed",
+    sentCount: 18, responseCount: 15, createdAt: "2026-03-01",
+    responses: [
+      { id: "sr6", accountSlug: "cloudflare-inc", accountName: "Cloudflare", respondent: "Maya Chen", score: 5, at: "2026-03-10" },
+      { id: "sr7", accountSlug: "tableau-software", accountName: "Tableau", respondent: "Jordan Lee", score: 4, comment: "Documentation could be better.", at: "2026-03-12" },
+    ],
+  },
+  {
+    id: "sv3", kind: "nps", title: "Q3 NPS Pulse", status: "draft",
+    sentCount: 0, responseCount: 0, createdAt: "2026-05-01", responses: [],
+  },
+];
+
+// =====================================================================
+// Revenue Waterfall / Movement
+// =====================================================================
+
+export type WaterfallPeriod = {
+  period: string;
+  startArr: number;
+  newBusiness: number;
+  expansion: number;
+  contraction: number;
+  churn: number;
+  endArr: number;
+};
+
+export const waterfallData: WaterfallPeriod[] = [
+  { period: "Q1 '26", startArr: 2_100_000, newBusiness: 340_000, expansion: 180_000, contraction: -60_000, churn: -120_000, endArr: 2_440_000 },
+  { period: "Q2 '26", startArr: 2_440_000, newBusiness: 280_000, expansion: 220_000, contraction: -45_000, churn: -85_000, endArr: 2_810_000 },
+];
+
+export type AccountMovement = {
+  account: string;
+  slug: string;
+  months: ("expansion" | "contraction" | "churn" | "flat" | "new")[];
+  arr: number;
+};
+
+export const accountMovements: AccountMovement[] = [
+  { account: "Cloudflare", slug: "cloudflare-inc", months: ["flat", "expansion", "expansion", "flat", "expansion", "flat"], arr: 720_000 },
+  { account: "Snowflake", slug: slugify("Snowflake Inc."), months: ["flat", "flat", "contraction", "flat", "contraction", "flat"], arr: 480_000 },
+  { account: "Akamai", slug: "akamai-technologies", months: ["flat", "flat", "flat", "expansion", "flat", "expansion"], arr: 540_000 },
+  { account: "Tableau", slug: "tableau-software", months: ["new", "flat", "flat", "expansion", "flat", "flat"], arr: 360_000 },
+  { account: "GitLab", slug: "gitlab-inc", months: ["flat", "flat", "flat", "flat", "contraction", "flat"], arr: 280_000 },
+];
+
+// =====================================================================
+// Report Builder
+// =====================================================================
+
+export type ChartType = "bar" | "line" | "donut" | "table";
+export type DataSource = "Deals" | "Accounts" | "Calls" | "Outcomes" | "Usage";
+
+export type ReportConfig = {
+  id: string;
+  title: string;
+  dataSource: DataSource;
+  dimensions: string[];
+  metrics: string[];
+  chartType: ChartType;
+  filters: { field: string; op: string; value: string }[];
+};
+
+export const savedReportConfigs: ReportConfig[] = [
+  {
+    id: "rc1", title: "Pipeline by Stage", dataSource: "Deals",
+    dimensions: ["Stage"], metrics: ["Count", "Total Amount"],
+    chartType: "bar", filters: [],
+  },
+  {
+    id: "rc2", title: "Health by Segment", dataSource: "Accounts",
+    dimensions: ["Segment", "Health"], metrics: ["Count", "ARR"],
+    chartType: "donut", filters: [],
+  },
+  {
+    id: "rc3", title: "Win Rate Trend", dataSource: "Deals",
+    dimensions: ["Month"], metrics: ["Win Rate"],
+    chartType: "line", filters: [{ field: "Stage", op: "in", value: "Closed Won,Closed Lost" }],
+  },
+];
+
+export const reportDimensions: Record<DataSource, string[]> = {
+  Deals: ["Stage", "Owner", "Segment", "Pipeline", "Month", "Quarter"],
+  Accounts: ["Segment", "Health", "Owner", "Industry", "Tier"],
+  Calls: ["Type", "Outcome", "Week", "Rep"],
+  Outcomes: ["Category", "Quarter", "Account", "Status"],
+  Usage: ["Product", "Department", "Week", "Tier"],
+};
+
+export const reportMetrics: Record<DataSource, string[]> = {
+  Deals: ["Count", "Total Amount", "Avg Amount", "Win Rate", "Cycle Time"],
+  Accounts: ["Count", "ARR", "NRR", "Health Score", "Avg Engagement"],
+  Calls: ["Count", "Duration", "Talk Ratio", "Sentiment"],
+  Outcomes: ["Count", "Completion Rate", "Time to Complete"],
+  Usage: ["MAU", "WAU", "DAU", "Adoption %", "Feature Usage"],
+};
+
+export const crossSellRecommendations: CrossSellRecommendation[] = [
+  {
+    id: "csr1", accountSlug: slugify("Cloudflare, Inc."), accountName: "Cloudflare",
+    productId: "rev-intel", productName: "Revenue Intel", estimatedArr: 120_000, confidence: 88,
+    evidence: [
+      "4 comparable accounts converted at avg $110K ARR",
+      "Sales team records 40+ calls/week — ideal Revenue Intel profile",
+      "Champion (Maya Chen, VP Eng) verbally confirmed interest in call analytics",
+    ],
+    suggestedPlay: "Build ROI case showing call volume savings + deal velocity improvement",
+  },
+  {
+    id: "csr2", accountSlug: slugify("Tableau Software"), accountName: "Tableau",
+    productId: "ai-copilot", productName: "AI Copilot", estimatedArr: 85_000, confidence: 75,
+    evidence: [
+      "Sales team spends 4+ hrs/week on manual meeting prep",
+      "3 comparable accounts reduced prep time by 62%",
+      "New Head of RevOps (Priya Sharma) evaluating AI tooling",
+    ],
+    suggestedPlay: "Propose 30-day pilot with Sales team — measure prep time reduction",
+  },
+  {
+    id: "csr3", accountSlug: slugify("Akamai Technologies"), accountName: "Akamai",
+    productId: "data-hub", productName: "Data Hub", estimatedArr: 65_000, confidence: 70,
+    evidence: [
+      "Engineering team evaluating enrichment tools per LinkedIn activity",
+      "3 comparable accounts adopted Data Hub post-Insights deployment",
+      "Current CRM sync is manual — Data Hub automates 80% of enrichment",
+    ],
+    suggestedPlay: "Present integration roadmap showing CRM auto-sync capabilities",
+  },
+  {
+    id: "csr4", accountSlug: slugify("Snowflake Inc."), accountName: "Snowflake",
+    productId: "insights", productName: "Insights", estimatedArr: 72_000, confidence: 58,
+    evidence: [
+      "Executive team lacks cross-tenant visibility",
+      "Renewal in 47 days — value-add could strengthen retention case",
+      "2 comparable accounts bundled Insights into renewal at 15% premium",
+    ],
+    suggestedPlay: "Include Insights demo in QBR deck — position as renewal sweetener",
+  },
+  {
+    id: "csr5", accountSlug: slugify("GitLab Inc."), accountName: "GitLab",
+    productId: "ai-copilot", productName: "AI Copilot", estimatedArr: 60_000, confidence: 62,
+    evidence: [
+      "WAU/MAU dropped 0.62 → 0.48 — AI features could re-engage teams",
+      "New Director of Sales Enablement (Alex Rivera) has enablement budget",
+      "2 comparable accounts saw +18% engagement after AI Copilot rollout",
+    ],
+    suggestedPlay: "Position AI Copilot as engagement recovery tool in enablement pitch",
+  },
+];
+
+// =====================================================================
+// Account Plans — expansion / retention project plans with tasks
+// =====================================================================
+
+export type TaskStatus = "todo" | "in-progress" | "done";
+export type TaskPriority = "low" | "medium" | "high";
+
+export type PlanTask = {
+  id: string;
+  title: string;
+  assignee: string;
+  assigneeInitials: string;
+  assigneeBg: string;
+  dueDate: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  notes?: string;
+};
+
+export type PlanMilestone = {
+  id: string;
+  title: string;
+  dueDate: string;
+  status: "upcoming" | "in-progress" | "completed";
+  tasks: PlanTask[];
+};
+
+export type AccountPlan = {
+  id: string;
+  accountSlug: string;
+  accountName: string;
+  title: string;
+  goal: string;
+  kind: "expansion" | "retention" | "onboarding" | "adoption";
+  status: "active" | "completed" | "draft";
+  createdAt: string;
+  milestones: PlanMilestone[];
+};
+
+export const accountPlans: AccountPlan[] = [
+  {
+    id: "plan-cf-1",
+    accountSlug: "cloudflare-inc",
+    accountName: "Cloudflare",
+    title: "Networking + Security Expansion",
+    goal: "Expand Cloudflare into Networking and Security BUs — target $180K incremental ARR by end of Q3",
+    kind: "expansion",
+    status: "active",
+    createdAt: "2025-04-10",
+    milestones: [
+      {
+        id: "ms-cf-1",
+        title: "Discovery & Validation",
+        dueDate: "2025-05-16",
+        status: "in-progress",
+        tasks: [
+          { id: "t-cf-1", title: "Map Networking BU stakeholders and budget owners", assignee: "Walid Qayoumi", assigneeInitials: "WQ", assigneeBg: "#374151", dueDate: "2025-05-08", status: "done", priority: "high" },
+          { id: "t-cf-2", title: "Schedule discovery call with VP Engineering (Maya Chen)", assignee: "Walid Qayoumi", assigneeInitials: "WQ", assigneeBg: "#374151", dueDate: "2025-05-10", status: "done", priority: "high" },
+          { id: "t-cf-3", title: "Validate use case fit with Security team lead", assignee: "Marcus Webb", assigneeInitials: "MW", assigneeBg: "#1E40AF", dueDate: "2025-05-14", status: "in-progress", priority: "medium" },
+          { id: "t-cf-4", title: "Pull comparable account success stories for pitch", assignee: "Rachel Kim", assigneeInitials: "RK", assigneeBg: "#7C3AED", dueDate: "2025-05-16", status: "todo", priority: "medium" },
+        ],
+      },
+      {
+        id: "ms-cf-2",
+        title: "Business Case & Proposal",
+        dueDate: "2025-06-06",
+        status: "upcoming",
+        tasks: [
+          { id: "t-cf-5", title: "Build ROI model with customer usage data", assignee: "Walid Qayoumi", assigneeInitials: "WQ", assigneeBg: "#374151", dueDate: "2025-05-22", status: "todo", priority: "high" },
+          { id: "t-cf-6", title: "Draft expansion proposal deck", assignee: "Walid Qayoumi", assigneeInitials: "WQ", assigneeBg: "#374151", dueDate: "2025-05-28", status: "todo", priority: "high" },
+          { id: "t-cf-7", title: "Internal review with Sales leadership", assignee: "Marcus Webb", assigneeInitials: "MW", assigneeBg: "#1E40AF", dueDate: "2025-06-02", status: "todo", priority: "medium" },
+          { id: "t-cf-8", title: "Present proposal to Maya Chen + Finance Ops", assignee: "Walid Qayoumi", assigneeInitials: "WQ", assigneeBg: "#374151", dueDate: "2025-06-06", status: "todo", priority: "high" },
+        ],
+      },
+      {
+        id: "ms-cf-3",
+        title: "Negotiation & Close",
+        dueDate: "2025-07-15",
+        status: "upcoming",
+        tasks: [
+          { id: "t-cf-9", title: "Negotiate contract terms with procurement", assignee: "Walid Qayoumi", assigneeInitials: "WQ", assigneeBg: "#374151", dueDate: "2025-06-20", status: "todo", priority: "high" },
+          { id: "t-cf-10", title: "Legal review and redlines", assignee: "Rachel Kim", assigneeInitials: "RK", assigneeBg: "#7C3AED", dueDate: "2025-07-01", status: "todo", priority: "medium" },
+          { id: "t-cf-11", title: "Executive sign-off and close", assignee: "Walid Qayoumi", assigneeInitials: "WQ", assigneeBg: "#374151", dueDate: "2025-07-15", status: "todo", priority: "high" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "plan-sf-1",
+    accountSlug: "snowflake-inc",
+    accountName: "Snowflake",
+    title: "Renewal Risk Mitigation",
+    goal: "Secure Snowflake renewal ($480K ARR) — re-engage champion, demonstrate value, close before day-47 deadline",
+    kind: "retention",
+    status: "active",
+    createdAt: "2025-04-18",
+    milestones: [
+      {
+        id: "ms-sf-1",
+        title: "Re-engagement",
+        dueDate: "2025-05-12",
+        status: "in-progress",
+        tasks: [
+          { id: "t-sf-1", title: "Send personalized outreach to Brad Wallace", assignee: "Walid Qayoumi", assigneeInitials: "WQ", assigneeBg: "#374151", dueDate: "2025-05-06", status: "done", priority: "high" },
+          { id: "t-sf-2", title: "Identify backup champion if Brad remains silent", assignee: "Rachel Kim", assigneeInitials: "RK", assigneeBg: "#7C3AED", dueDate: "2025-05-09", status: "in-progress", priority: "high" },
+          { id: "t-sf-3", title: "Schedule executive sponsor call", assignee: "Walid Qayoumi", assigneeInitials: "WQ", assigneeBg: "#374151", dueDate: "2025-05-12", status: "todo", priority: "high" },
+        ],
+      },
+      {
+        id: "ms-sf-2",
+        title: "Value Demonstration",
+        dueDate: "2025-05-26",
+        status: "upcoming",
+        tasks: [
+          { id: "t-sf-4", title: "Prepare health score recovery deck", assignee: "Walid Qayoumi", assigneeInitials: "WQ", assigneeBg: "#374151", dueDate: "2025-05-16", status: "todo", priority: "medium" },
+          { id: "t-sf-5", title: "Run QBR with updated ROI metrics", assignee: "Walid Qayoumi", assigneeInitials: "WQ", assigneeBg: "#374151", dueDate: "2025-05-22", status: "todo", priority: "high" },
+          { id: "t-sf-6", title: "Secure verbal renewal commitment", assignee: "Walid Qayoumi", assigneeInitials: "WQ", assigneeBg: "#374151", dueDate: "2025-05-26", status: "todo", priority: "high" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "plan-tb-1",
+    accountSlug: "tableau-software",
+    accountName: "Tableau",
+    title: "ML Governance Expansion",
+    goal: "Land AI Copilot + Revenue Intel cross-sell — target $175K incremental ARR",
+    kind: "expansion",
+    status: "active",
+    createdAt: "2025-04-22",
+    milestones: [
+      {
+        id: "ms-tb-1",
+        title: "Stakeholder Alignment",
+        dueDate: "2025-05-20",
+        status: "in-progress",
+        tasks: [
+          { id: "t-tb-1", title: "Intro call with new Head of RevOps (Priya Sharma)", assignee: "Marcus Webb", assigneeInitials: "MW", assigneeBg: "#1E40AF", dueDate: "2025-05-09", status: "done", priority: "high" },
+          { id: "t-tb-2", title: "Map governance gap analysis to product capabilities", assignee: "Marcus Webb", assigneeInitials: "MW", assigneeBg: "#1E40AF", dueDate: "2025-05-14", status: "in-progress", priority: "medium" },
+          { id: "t-tb-3", title: "Get Sales Director buy-in for AI Copilot pilot", assignee: "Walid Qayoumi", assigneeInitials: "WQ", assigneeBg: "#374151", dueDate: "2025-05-20", status: "todo", priority: "high" },
+        ],
+      },
+      {
+        id: "ms-tb-2",
+        title: "Pilot & Proposal",
+        dueDate: "2025-06-15",
+        status: "upcoming",
+        tasks: [
+          { id: "t-tb-4", title: "Launch 30-day AI Copilot pilot with Sales team", assignee: "Marcus Webb", assigneeInitials: "MW", assigneeBg: "#1E40AF", dueDate: "2025-05-28", status: "todo", priority: "high" },
+          { id: "t-tb-5", title: "Collect pilot metrics and build business case", assignee: "Walid Qayoumi", assigneeInitials: "WQ", assigneeBg: "#374151", dueDate: "2025-06-10", status: "todo", priority: "medium" },
+          { id: "t-tb-6", title: "Present expansion proposal to leadership", assignee: "Walid Qayoumi", assigneeInitials: "WQ", assigneeBg: "#374151", dueDate: "2025-06-15", status: "todo", priority: "high" },
+        ],
+      },
+    ],
+  },
+];
+
+// =====================================================================
+// Account Documents — tree structure for notes, docs, files
+// =====================================================================
+export type DocNode = {
+  id: string;
+  title: string;
+  kind: "folder" | "note" | "doc" | "template";
+  updatedAt: string;
+  updatedBy: string;
+  content?: string;
+  children?: DocNode[];
+};
+
+export const accountDocs: Record<string, DocNode[]> = {
+  "cloudflare-inc": [
+    {
+      id: "d-cf-1", title: "Meeting Notes", kind: "folder", updatedAt: "2025-05-04", updatedBy: "Walid Qayoumi",
+      children: [
+        { id: "d-cf-1a", title: "Discovery Call — Maya Chen (May 10)", kind: "note", updatedAt: "2025-05-10", updatedBy: "Walid Qayoumi", content: "Met with Maya Chen (newly promoted VP Eng). She confirmed budget authority now spans Networking + Security BUs.\n\nKey takeaways:\n- Open to expansion into Security monitoring\n- Budget approval cycle is ~3 weeks\n- Wants ROI model before presenting to Finance Ops\n- Mentioned competitor evaluation is not active — we have first-mover advantage\n\nNext: Build ROI model with usage data by May 22." },
+        { id: "d-cf-1b", title: "QBR Prep Notes (Q1)", kind: "note", updatedAt: "2025-04-15", updatedBy: "Marcus Webb", content: "QBR scheduled for April 20. Agenda:\n1. Usage metrics review (WAU/MAU at 0.74)\n2. ROI narrative — 284 MAU across 12 teams\n3. Expansion opportunity: Networking + Security BUs\n4. Customer reference request for case study\n\nChampion prep: Maya aligned on expansion narrative. Rachel pulling success stories." },
+        { id: "d-cf-1c", title: "Executive Sponsor Check-in", kind: "note", updatedAt: "2025-03-28", updatedBy: "Walid Qayoumi", content: "Brief sync with CTO office. No blockers. They see us as strategic, not just tactical.\n\nAction: Invite to annual customer summit in June." },
+      ],
+    },
+    {
+      id: "d-cf-2", title: "Strategy Documents", kind: "folder", updatedAt: "2025-05-02", updatedBy: "Walid Qayoumi",
+      children: [
+        { id: "d-cf-2a", title: "Expansion Business Case — Draft", kind: "doc", updatedAt: "2025-05-02", updatedBy: "Walid Qayoumi", content: "# Cloudflare Expansion Business Case\n\nClosed April 18, 2026 following two discovery calls and a signed Statement of Work. Scope covers 14 additional seats across two BUs, full CRM integration, and migration of existing pipeline data.\n\n## Key stakeholders\n\n|Name|Title|Role|\n|Maya Chen|VP, Engineering|Executive Sponsor|\n|Jason Park|Director, Security Ops|Contract Signatory|\n|Li Wei|Lead, Network Analytics|Primary POC|\n|Sarah Okafor|IT & Data Governance|Technical Approver|\n|Tom Reilly|Trust & Safety Ops|Reviewer Owner|\n\n## What we're expanding\n\nCloudflare currently runs two BUs with no coverage in Security and Networking. Expansion order:\n\n- Revenue Intel for Security team (8 reps across 3 regions)\n- AI Copilot for Networking team (6 reps)\n- 1 SOC-2-validated workflow that must round-trip through V7 with no audit drift\n\n## Sales commitments\n\nThese were explicitly promised during the sales cycle. Account team aware before kickoff:\n\n|Commitment|Owner|Deadline|Status|\n|Full CRM bidirectional sync operational|Li Wei|May 15|On track|\n|Security team onboarded with custom playbooks|Sarah Okafor|Jun 1|Pending|\n|ROI report delivered to Finance Ops|Walid Qayoumi|Jun 15|Draft|\n|Executive business review with VP Eng|Maya Chen|Jul 1|Scheduled|\n\n## ROI Projection\n- Based on comparable accounts: 2.1x pipeline lift in first 90 days\n- Projected close rate improvement: 12% → 18%\n\n## Timeline\n- Discovery & Validation: Apr–May\n- Business Case & Proposal: May–Jun\n- Negotiation & Close: Jun–Jul" },
+        { id: "d-cf-2b", title: "Competitive Positioning Notes", kind: "note", updatedAt: "2025-04-20", updatedBy: "Marcus Webb", content: "No active competitive evaluation. Gong was mentioned in passing but no RFP. Our advantages:\n- Deeper CRM integration (bidirectional Salesforce sync)\n- Autonomous action capabilities\n- Better pricing for multi-BU deals\n\nRisk: If they evaluate, Gong's brand recognition could slow our expansion timeline." },
+      ],
+    },
+    { id: "d-cf-3", title: "Account Overview Template", kind: "template", updatedAt: "2025-04-01", updatedBy: "System", content: "# Account Overview\n\n## Company Profile\n[Company name, industry, size]\n\n## Relationship Summary\n[Key stakeholders, champion, executive sponsor]\n\n## Current Usage\n[Products, seats, adoption metrics]\n\n## Opportunities\n[Expansion, cross-sell, upsell]\n\n## Risks\n[Churn risk, competitive threats, stakeholder changes]\n\n## Action Items\n[Next steps, owners, due dates]" },
+  ],
+  "snowflake-inc": [
+    {
+      id: "d-sf-1", title: "Meeting Notes", kind: "folder", updatedAt: "2025-05-01", updatedBy: "Walid Qayoumi",
+      children: [
+        { id: "d-sf-1a", title: "Re-engagement Outreach Plan", kind: "note", updatedAt: "2025-05-06", updatedBy: "Walid Qayoumi", content: "Brad Wallace silent 14 days. Sent personalized outreach May 6.\n\nBackup plan:\n- Rachel identifying alternate champion\n- If no response by May 12, escalate to exec sponsor\n- Prepare health score recovery deck as value demonstration" },
+        { id: "d-sf-1b", title: "Renewal Risk Assessment", kind: "doc", updatedAt: "2025-04-28", updatedBy: "Walid Qayoumi", content: "# Snowflake Renewal Risk Assessment\n\n## Status: HIGH RISK\n- Renewal: 47 days out ($480K ARR)\n- Health score: 41/100\n- Champion: Brad Wallace — silent 24 days\n\n## Risk Factors\n1. No exec engagement in 95 days\n2. Support tickets up 40%\n3. Usage declining in 2 of 4 teams\n\n## Mitigation Plan\n1. Re-engage Brad with personalized value narrative\n2. Identify backup champion via Rachel\n3. Schedule exec sponsor call by May 12\n4. Deliver QBR with updated ROI metrics by May 22" },
+      ],
+    },
+  ],
+  "tableau-software": [
+    {
+      id: "d-tb-1", title: "Meeting Notes", kind: "folder", updatedAt: "2025-05-09", updatedBy: "Marcus Webb",
+      children: [
+        { id: "d-tb-1a", title: "Intro Call — Priya Sharma", kind: "note", updatedAt: "2025-05-09", updatedBy: "Marcus Webb", content: "First call with Priya Sharma (new Head of RevOps, joined 3 weeks ago).\n\nShe's evaluating their entire revenue tooling stack. Key interests:\n- AI-powered coaching for the sales team\n- Revenue intelligence / forecasting\n- Governance and compliance for ML models\n\nShe wants a pilot proposal for AI Copilot within 2 weeks. Very engaged — this is a strong signal." },
+      ],
+    },
+    { id: "d-tb-2", title: "Pilot Proposal — AI Copilot", kind: "doc", updatedAt: "2025-05-14", updatedBy: "Marcus Webb", content: "# AI Copilot Pilot Proposal — Tableau\n\n## Objective\n30-day pilot with Sales team (12 reps) to demonstrate AI Copilot value.\n\n## Success Metrics\n- Rep productivity lift (target: 2x)\n- Pipeline accuracy improvement\n- Time saved on admin tasks\n\n## Timeline\n- Week 1: Setup & onboarding\n- Week 2-3: Active pilot\n- Week 4: Results collection & business case\n\n## Investment\nPilot: $0 (proof of value)\nFull rollout: $175K ARR (AI Copilot + Revenue Intel)" },
+  ],
+};

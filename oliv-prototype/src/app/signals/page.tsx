@@ -55,7 +55,10 @@ function suggestedPlayFor(s: AccountSignal): { label: string; cta: string } {
   if (category === "Usage"        && tone === "neg")  return { label: "Open adoption drill-down",  cta: "Investigate" };
   if (category === "Usage"        && tone === "warn") return { label: "Schedule training session", cta: "Schedule" };
   if (category === "Usage"        && tone === "pos")  return { label: "Surface success in QBR",    cta: "Add to QBR" };
-  if (category === "Competitive")                     return { label: "Run competitive battle card", cta: "Run play" };
+  if (category === "Competitive")                         return { label: "Run competitive battle card",   cta: "Run play" };
+  if (category === "Champion Change" && tone === "pos")   return { label: "Expansion outreach",             cta: "Build case" };
+  if (category === "Champion Change" && tone === "neg")   return { label: "Succession recovery",            cta: "Run play" };
+  if (category === "Champion Change" && tone === "info")  return { label: "Introductory outreach",          cta: "Draft outreach" };
   return { label: "Capture in brief", cta: "Pin to account" };
 }
 

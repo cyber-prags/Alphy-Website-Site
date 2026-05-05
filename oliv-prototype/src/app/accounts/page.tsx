@@ -115,7 +115,7 @@ export default function AccountsPage() {
           </div>
         </div>
         <button onClick={() => setNewOpen(true)}
-          className="text-[12.5px] font-semibold h-9 px-4 rounded-lg bg-ink text-white inline-flex items-center gap-1.5 hover:bg-ink-2 shadow-[0_4px_12px_-4px_rgba(20,20,15,0.3)]">
+          className="text-[12.5px] font-semibold h-9 px-4 rounded-lg bg-ink text-white inline-flex items-center gap-1.5 hover:bg-ink-2 shadow-[0_4px_12px_-4px_rgba(28,40,64,0.3)]">
           <Plus size={13} strokeWidth={2} /> New account
         </button>
       </div>

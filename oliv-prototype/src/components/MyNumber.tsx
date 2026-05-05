@@ -1,10 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import {
   Shield, Activity, Mail, Calendar, Check, Sparkles, BarChart3,
   Users, Heart, FileBarChart2, MessageSquareText, ArrowUp, ArrowDown, Minus, Headphones, Rocket,
+  Target, TrendingUp, ChevronRight, Zap, ExternalLink, X,
 } from "lucide-react";
-import { myNumber, fmtMoney, type Persona } from "@/lib/mock";
+import Link from "next/link";
+import { myNumber, fmtMoney, expansionOpportunities, type Persona, type ExpansionOpportunity } from "@/lib/mock";
+import { Logo } from "./Logo";
 
 export function MyNumber({ persona }: { persona: Persona }) {
   if (persona === "ae")      return <AEScoreboard />;
@@ -40,30 +44,157 @@ function AEScoreboard() {
 }
 
 // ---------------------------------------------------------------------
-// AM: expansion-primary scoreboard
+// AM: expansion-primary scoreboard — top 5 ranked by score
 // ---------------------------------------------------------------------
+function expansionSummary(opp: ExpansionOpportunity): string {
+  const top = [...opp.factors].sort((a, b) => b.score - a.score).slice(0, 2);
+  const strong = top.map((f) => f.label.toLowerCase()).join(" and ");
+  return `${opp.accountName} shows strong expansion potential for ${opp.productName} (score ${opp.score}/100). The strongest signals are ${strong}. ${opp.evidence}`;
+}
+
+function scoreGradient(score: number): [string, string] {
+  if (score >= 80) return ["#266DF0", "#1A5AD4"];
+  if (score >= 70) return ["#538BF3", "#266DF0"];
+  return ["#F5B900", "#E5A800"];
+}
+
 function AMScoreboard() {
-  const e = myNumber.am.expansion;
-  const w = myNumber.am.thisWeek;
-  const lw = myNumber.am.lastWeek;
-  const motionPct = Math.round((e.inMotion / e.target) * 100);
+  const a = myNumber.am;
+  const top5 = expansionOpportunities.slice(0, 5);
+  const totalPipeline = top5.reduce((s, o) => s + o.estimatedArr, 0);
+  const [expanded, setExpanded] = useState<string | null>(null);
+
   return (
-    <ActivityBar
-      eyebrow="this week · expansion motion"
-      summary={
-        <>
-          <strong>{fmtMoney(e.inMotion)}</strong> in motion of <strong>{fmtMoney(e.target)}</strong>
-          <span className="mx-1.5 text-muted-2">·</span>
-          <strong style={{ color: "var(--accent-deep)" }}>{motionPct}%</strong> of expansion target
-        </>
-      }
-      stats={[
-        { Icon: Rocket,     label: "Plays opened",      value: w.expansionPlaysOpened, prev: lw.expansionPlaysOpened, accent: "var(--accent-deep)" },
-        { Icon: FileBarChart2, label: "Cases built",    value: w.casesBuilt,           prev: lw.casesBuilt,           accent: "var(--info)"        },
-        { Icon: Users,      label: "Champions advocated", value: w.championsAdvocated, prev: lw.championsAdvocated,   accent: "var(--pos)"         },
-        { Icon: Check,      label: "Deals advanced",    value: w.dealsAdvanced,        prev: lw.dealsAdvanced,        accent: "var(--ink)"         },
-      ]}
-    />
+    <section className="mb-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <TrendingUp size={14} strokeWidth={1.8} style={{ color: "var(--accent)" }} />
+          <span className="text-[13px] font-semibold text-ink">Expansion Opportunities</span>
+        </div>
+        <div className="flex items-center gap-4 text-[11px] text-muted">
+          <span><span className="tnum font-semibold" style={{ color: "var(--pos)" }}>{fmtMoney(a.expansion.closed)}</span> closed</span>
+          <span><span className="tnum font-semibold text-ink">{fmtMoney(a.expansion.inMotion)}</span> in motion</span>
+          <span><span className="tnum font-semibold" style={{ color: "var(--accent)" }}>{fmtMoney(totalPipeline)}</span> pipeline</span>
+        </div>
+      </div>
+
+      {/* Cards */}
+      <div className="space-y-2">
+        {top5.map((opp, i) => {
+          const [g1, g2] = scoreGradient(opp.score);
+          const isExpanded = expanded === opp.id;
+          const C = 2 * Math.PI * 18;
+          const offset = C - (opp.score / 100) * C;
+
+          return (
+            <div key={opp.id} className="group">
+              <button
+                onClick={() => setExpanded(isExpanded ? null : opp.id)}
+                className="w-full text-left relative overflow-hidden rounded-xl transition-all duration-200"
+                style={{
+                  background: "var(--bg)",
+                  border: `1px solid ${isExpanded ? g1 + "60" : "var(--line)"}`,
+                  boxShadow: isExpanded ? `0 0 24px ${g1}12, 0 1px 3px rgba(0,0,0,0.04)` : "0 1px 3px rgba(0,0,0,0.03)",
+                }}
+              >
+                {/* Colored left accent */}
+                <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl" style={{ background: `linear-gradient(180deg, ${g1}, ${g2})` }} />
+
+                <div className="flex items-center gap-4 py-3.5 pl-5 pr-4">
+                  {/* Rank */}
+                  <span className="text-[10px] font-mono font-bold w-3 text-center shrink-0" style={{ color: i === 0 ? g1 : "var(--muted)" }}>{i + 1}</span>
+
+                  {/* Logo */}
+                  <Logo name={opp.accountName} size={32} rounded={10} />
+
+                  {/* Score ring */}
+                  <div className="relative shrink-0" style={{ filter: `drop-shadow(0 0 4px ${g1}40)` }}>
+                    <svg width="42" height="42" viewBox="0 0 42 42" style={{ transform: "rotate(-90deg)" }}>
+                      <defs>
+                        <linearGradient id={`sg-${opp.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor={g1} />
+                          <stop offset="100%" stopColor={g2} />
+                        </linearGradient>
+                      </defs>
+                      <circle cx="21" cy="21" r="18" fill="none" stroke="var(--line)" strokeWidth="2.5" opacity="0.4" />
+                      <circle cx="21" cy="21" r="18" fill="none" stroke={`url(#sg-${opp.id})`} strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeDasharray={C}
+                        strokeDashoffset={offset}
+                        style={{ transition: "stroke-dashoffset 800ms cubic-bezier(0.4, 0, 0.2, 1)" }} />
+                    </svg>
+                    <span className="absolute inset-0 flex items-center justify-center text-[12px] font-bold tnum" style={{ color: g1 }}>{opp.score}</span>
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13px] font-semibold text-ink">{opp.accountName}</span>
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md" style={{ background: "var(--bg-deep)", color: "var(--muted)" }}>{opp.productName}</span>
+                    </div>
+                    <div className="text-[11px] text-muted mt-0.5 truncate">{opp.play}</div>
+                  </div>
+
+                  {/* ARR */}
+                  <div className="text-right shrink-0 mr-1">
+                    <div className="text-[17px] font-bold tnum text-ink leading-none">{fmtMoney(opp.estimatedArr)}</div>
+                    <div className="text-[9px] text-muted mt-0.5 uppercase tracking-wider">est. ARR</div>
+                  </div>
+
+                  <ChevronRight size={13} strokeWidth={1.8} className={`text-muted shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`} />
+                </div>
+              </button>
+
+              {/* Expanded detail panel */}
+              {isExpanded && (
+                <div className="mx-3 mt-0 rounded-b-xl border border-t-0 px-5 py-4 overflow-hidden"
+                  style={{
+                    borderColor: g1 + "40",
+                    background: `linear-gradient(135deg, var(--bg) 0%, color-mix(in srgb, ${g1} 3%, var(--bg)) 100%)`,
+                  }}>
+                  {/* AI summary */}
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="w-6 h-6 rounded-lg grid place-items-center shrink-0 mt-0.5" style={{ background: g1 + "18" }}>
+                      <Sparkles size={12} strokeWidth={1.8} style={{ color: g1 }} />
+                    </div>
+                    <p className="text-[12px] text-ink leading-relaxed">{expansionSummary(opp)}</p>
+                  </div>
+
+                  {/* Signal bars */}
+                  <div className="grid grid-cols-5 gap-3 mb-4">
+                    {opp.factors.map((f) => {
+                      const barColor = f.score >= 80 ? "var(--pos)" : f.score >= 60 ? "var(--warn)" : "var(--muted)";
+                      return (
+                        <div key={f.label}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[9px] text-muted truncate">{f.label}</span>
+                            <span className="text-[9px] font-bold tnum ml-1" style={{ color: barColor }}>{f.score}</span>
+                          </div>
+                          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--line)" }}>
+                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${f.score}%`, background: barColor }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* CTA */}
+                  <Link
+                    href={`/accounts/${opp.accountSlug}`}
+                    className="inline-flex items-center gap-2 text-[11px] font-semibold px-4 py-2 rounded-lg transition-all duration-200 hover:brightness-110"
+                    style={{ background: g1, color: "#fff" }}
+                  >
+                    View Account Details
+                    <ExternalLink size={11} strokeWidth={2} />
+                  </Link>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -86,14 +217,16 @@ function CSMScoreboard() {
   const healthDelta = +3;
 
   return (
-    <section className="card p-4 mb-5">
+    <section className="card p-5 mb-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <div className="flex items-center gap-1.5">
-          <Heart size={11} strokeWidth={1.8} style={{ color: "var(--pos)" }} />
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg grid place-items-center" style={{ background: "var(--pos-soft)" }}>
+            <Heart size={13} strokeWidth={1.8} style={{ color: "var(--pos)" }} />
+          </div>
           <div className="mono-label" style={{ color: "var(--pos)" }}>portfolio health</div>
         </div>
-        <div className="text-[11px] text-muted [&_strong]:tnum [&_strong]:text-ink [&_strong]:font-semibold">
+        <div className="text-[11.5px] text-muted [&_strong]:tnum [&_strong]:text-ink [&_strong]:font-semibold">
           <strong>{fmtMoney(r.target)}</strong> total ARR
           <span className="mx-1.5 text-muted-2">·</span>
           <strong>{totalAccounts}</strong> customers
@@ -234,14 +367,14 @@ function ActivityBar({
   stats: ActivityStat[];
 }) {
   return (
-    <section className="card p-4 mb-5">
-      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+    <section className="card p-5 mb-6">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <Header eyebrow={eyebrow} tone="var(--info)" Icon={Activity} />
-        <div className="text-[11px] text-muted [&_strong]:tnum [&_strong]:text-ink [&_strong]:font-semibold">
+        <div className="text-[11.5px] text-muted [&_strong]:tnum [&_strong]:text-ink [&_strong]:font-semibold">
           {summary}
         </div>
       </div>
-      <div className={`grid gap-x-4 gap-y-3 ${stats.length === 5 ? "grid-cols-2 md:grid-cols-5" : "grid-cols-2 md:grid-cols-4"}`}>
+      <div className={`grid gap-3 ${stats.length === 5 ? "grid-cols-2 md:grid-cols-5" : "grid-cols-2 md:grid-cols-4"}`}>
         {stats.map((s) => <ActivityStat key={s.label} {...s} />)}
       </div>
     </section>
@@ -255,17 +388,16 @@ function ActivityStat({ Icon, label, value, prev, accent }: ActivityStat) {
   const TrendIcon = direction === "up" ? ArrowUp : direction === "down" ? ArrowDown : Minus;
   const trendColor = direction === "up" ? "var(--pos)" : direction === "down" ? "var(--neg)" : "var(--muted)";
 
-  // Inline sparkline — derive 7 stops from prev → value
   const points = sparkline(prev, value);
 
   return (
-    <div className="flex items-center gap-3">
-      <div className="w-8 h-8 rounded-lg grid place-items-center shrink-0" style={{ background: "var(--bg-deep)" }}>
-        <Icon size={14} strokeWidth={1.7} style={{ color: accent }} />
+    <div className="rounded-xl border border-line p-3.5 flex items-center gap-3" style={{ background: "var(--surface)" }}>
+      <div className="w-9 h-9 rounded-lg grid place-items-center shrink-0" style={{ background: "var(--bg-deep)" }}>
+        <Icon size={15} strokeWidth={1.7} style={{ color: accent }} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-1.5">
-          <span className="text-[18px] font-bold text-ink tnum leading-none">{value}</span>
+          <span className="text-[22px] font-bold text-ink tnum leading-none">{value}</span>
           <span
             className="inline-flex items-center gap-0.5 text-[10px] font-mono font-semibold tnum"
             style={{ color: trendColor }}
@@ -274,14 +406,14 @@ function ActivityStat({ Icon, label, value, prev, accent }: ActivityStat) {
             {direction === "flat" ? "—" : `${trendPct >= 0 ? "+" : ""}${trendPct}%`}
           </span>
         </div>
-        <div className="text-[10.5px] text-muted truncate leading-tight mt-0.5">{label}</div>
+        <div className="text-[11px] text-muted truncate leading-tight mt-1">{label}</div>
       </div>
-      <svg width={36} height={18} className="shrink-0" aria-hidden>
+      <svg width={40} height={20} className="shrink-0" aria-hidden>
         <polyline
           points={points}
           fill="none"
           stroke={accent}
-          strokeWidth={1.2}
+          strokeWidth={1.4}
           strokeLinecap="round"
           strokeLinejoin="round"
           opacity={0.7}
@@ -293,7 +425,7 @@ function ActivityStat({ Icon, label, value, prev, accent }: ActivityStat) {
 
 // Deterministic 7-point spark line bridging prev → value.
 function sparkline(prev: number, value: number): string {
-  const w = 36, h = 18, n = 7;
+  const w = 40, h = 20, n = 7;
   const arr: number[] = [];
   for (let i = 0; i < n; i++) {
     const t = i / (n - 1);

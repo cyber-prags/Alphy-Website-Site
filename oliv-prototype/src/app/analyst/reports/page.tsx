@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Search, Plus, Calendar, Users2, Lock, Play, MoreHorizontal } from "lucide-react";
+import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { reports as initialReports, fmtDate, type SavedReport } from "@/lib/mock";
 import { useToast } from "@/components/Toast";
@@ -45,10 +46,10 @@ export default function ReportsPage() {
           <h1 className="display" style={{ fontSize: 22 }}>Saved reports</h1>
           <div className="text-[12.5px] text-muted mt-1">Run on demand or on a schedule.</div>
         </div>
-        <button onClick={() => setNewOpen(true)}
+        <Link href="/analyst/reports/builder"
           className="text-[12px] font-medium h-8 px-3 rounded-md bg-ink text-white inline-flex items-center gap-1.5 hover:bg-ink-2">
           <Plus size={12} strokeWidth={2} /> New report
-        </button>
+        </Link>
       </div>
 
       <div className="flex items-center gap-2 mb-3 flex-wrap">

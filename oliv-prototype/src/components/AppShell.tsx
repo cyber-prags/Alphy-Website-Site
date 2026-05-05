@@ -5,8 +5,8 @@ import {
   Database, Activity, Telescope, Bot, TrendingUp, Users, LineChart, BookOpen,
   ChevronsLeft, ChevronsRight, ChevronRight, ChevronDown, Settings, Search, Sparkles,
   Bell, X, ArrowUp, LogOut, CircleUser, KeyRound, MessageSquare, Check, Briefcase,
-  Building2, Phone, Library, FileBarChart2, Rocket, Home, Target, Radio, Pin, UserCog,
-  Inbox as InboxIcon, Plug, RefreshCw, MessageSquarePlus, Sun, Moon, Workflow,
+  Building2, Phone, Library, FileBarChart2, Rocket, Home, Target, Radio, UserCog,
+  Inbox as InboxIcon, Plug, RefreshCw, MessageSquarePlus, Sun, Moon, Workflow, Mail, Send, BarChart3, Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -17,7 +17,6 @@ import { CommandK } from "./CommandK";
 import { usePersona, PERSONA_LABEL } from "./PersonaContext";
 import { OnboardingTour } from "./OnboardingTour";
 import { ClosureBadge, useClosure } from "./ClosureContext";
-import { pinnedAccounts } from "@/lib/mock";
 import { Logo } from "./Logo";
 import { useTheme } from "./ThemeContext";
 import { QuotaWidget } from "./QuotaWidget";
@@ -52,6 +51,7 @@ const sections: { label: string; items: NavItem[]; personas?: Persona[] }[] = [
 
       // Outcome owners — CSM owns adoption, AM monitors expansion outcomes
       { icon: Target,            label: "Outcomes", href: "/outcomes", personas: ["csm", "am", "manager"] },
+      { icon: FileBarChart2,     label: "Surveys",  href: "/surveys", personas: ["csm", "manager"] },
 
       // Selling motion — AE primary, AM expansion deals, manager visibility
       { icon: Briefcase,         label: "Deals",    href: "/deals",    personas: ["ae", "am", "manager"] },
@@ -61,6 +61,7 @@ const sections: { label: string; items: NavItem[]; personas?: Persona[] }[] = [
 
       // Utility — universal
       { icon: Bot,               label: "Agents",   href: "/agents", accent: true },
+      { icon: Mail,              label: "Campaigns", href: "/campaigns", personas: ["csm", "am", "manager"] },
     ],
   },
   {
@@ -69,8 +70,9 @@ const sections: { label: string; items: NavItem[]; personas?: Persona[] }[] = [
       { icon: TrendingUp, label: "Revenue",  href: "/revenue",  personas: ["manager"] },
       { icon: Users,      label: "People",   href: "/people",   personas: ["manager"] },
       { icon: LineChart,  label: "Forecast", href: "/forecast", personas: ["ae", "am", "manager"] },
+      { icon: UserCog,    label: "Capacity", href: "/capacity", personas: ["manager"] },
     ],
-    personas: ["ae", "am", "manager"], // CSMs don't need this whole section
+    personas: ["ae", "am", "manager"],
   },
   {
     label: "Configure",
@@ -186,23 +188,22 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
       <aside
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        className="border-r border-line bg-bg fixed h-screen z-30 flex flex-col shadow-[0_8px_32px_-16px_rgba(0,0,0,0.5)]"
+        className="border-r border-line bg-surface fixed h-screen z-30 flex flex-col"
         style={{ width: sidebarWidth, transition: "width 220ms cubic-bezier(0.32, 0.72, 0, 1)" }}
       >
         {/* Workspace switcher */}
         {collapsed ? (
           <div className="flex items-center justify-center px-3 pt-4 pb-3">
             <Link href="/home" className="flex items-center" title="Alphard · Sandbox">
-              <AlphardLogo variant="mark" size={32} />
+              <AlphardLogo variant="icon" size={26} />
             </Link>
           </div>
         ) : (
           <div className="px-3 pt-4 pb-2">
             <div className="flex items-center gap-2">
               <Link href="/home" className="ws-switcher flex-1 min-w-0">
-                <AlphardLogo variant="mark" size={26} />
+                <AlphardLogo variant="full" size={14} />
                 <div className="flex-1 min-w-0 text-left">
-                  <div className="text-[12.5px] font-semibold text-ink truncate leading-tight">Alphard</div>
                   <div className="text-[10px] text-muted truncate leading-tight">Sandbox · CSM</div>
                 </div>
                 <ChevronDown size={12} strokeWidth={1.8} className="text-muted-2 shrink-0" />
@@ -220,21 +221,21 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
 
         {/* Search */}
         {!collapsed && (
-          <div className="px-3 pt-1 pb-3">
+          <div className="px-2.5 pt-1 pb-2.5">
             <button onClick={() => setCmdkOpen(true)}
-              className="flex items-center gap-2 w-full h-9 px-3 rounded-lg border border-line bg-surface text-[12px] text-muted hover:bg-surface-2 hover:border-line-strong transition-colors">
-              <Search size={13} strokeWidth={1.6} />
+              className="flex items-center gap-2 w-full h-8 px-2.5 rounded-lg border border-line bg-bg-deep/50 text-[12px] text-muted hover:bg-bg-deep hover:border-line-strong transition-colors">
+              <Search size={12} strokeWidth={1.6} />
               <span className="flex-1 text-left">Search</span>
-              <kbd className="text-[9.5px] text-muted-2 font-mono px-1.5 py-0.5 rounded bg-bg-deep">⌘K</kbd>
+              <kbd className="text-[9px] text-muted-2 font-mono px-1.5 py-0.5 rounded bg-surface border border-line">⌘K</kbd>
             </button>
           </div>
         )}
 
         {/* Tree nav */}
-        <nav className="flex-1 overflow-y-auto px-3 pb-2">
+        <nav className="flex-1 overflow-y-auto px-2.5 pb-2">
           {visibleSections(persona).map((section, sIdx) => (
-            <div key={section.label} className={sIdx > 0 ? "mt-5" : ""}>
-              {!collapsed && <div className="section-label pb-2">{section.label}</div>}
+            <div key={section.label} className={sIdx > 0 ? "mt-4" : ""}>
+              {!collapsed && <div className="section-label pb-1.5">{section.label}</div>}
               <div className="flex flex-col gap-0.5">
                 {section.items.map((item) => (
                   <NavRow key={item.label}
@@ -250,28 +251,6 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
             </div>
           ))}
 
-          {/* Pinned accounts */}
-          {!collapsed && pinnedAccounts.length > 0 && (
-            <div className="mt-5">
-              <div className="section-label pb-2 inline-flex items-center gap-1.5">
-                <Pin size={9} strokeWidth={1.8} />Pinned
-              </div>
-              <div className="flex flex-col gap-0.5">
-                {pinnedAccounts.map((p) => {
-                  const active = pathname === `/accounts/${p.slug}`;
-                  const dot = p.health === "high" ? "var(--pos)" : p.health === "medium" ? "var(--warn)" : "var(--neg)";
-                  return (
-                    <Link key={p.slug} href={`/accounts/${p.slug}`}
-                      className={`nav-row ${active ? "active" : ""}`}>
-                      <Logo name={p.name} size={18} rounded={4} />
-                      <span className="flex-1 truncate">{p.name}</span>
-                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: dot }} />
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </nav>
 
         {/* Footer */}
@@ -297,7 +276,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
       {/* Main column */}
       <div className="flex-1 min-w-0 flex flex-col"
         style={{ marginLeft: layoutOffset, transition: "margin-left 220ms cubic-bezier(0.32, 0.72, 0, 1)" }}>
-        <header className="h-14 border-b border-line bg-bg/80 backdrop-blur px-6 flex items-center justify-between sticky top-0 z-20">
+        <header className="h-12 border-b border-line bg-surface/80 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-20">
           <div className="flex items-center gap-2">
             <Breadcrumbs />
           </div>
@@ -633,7 +612,7 @@ function NotificationsBell() {
 
 function AskAlphyPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [q, setQ] = useState("");
-  const [msgs, setMsgs] = useState<{ role: "user" | "ai"; text: string }[]>([]);
+  const [msgs, setMsgs] = useState<{ role: "user" | "ai"; text: string; typing?: boolean; sources?: { label: string; href: string }[] }[]>([]);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -641,66 +620,135 @@ function AskAlphyPanel({ open, onClose }: { open: boolean; onClose: () => void }
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
   if (!open) return null;
+
   const ask = (text: string) => {
     if (!text.trim()) return;
-    setMsgs((m) => [...m, { role: "user", text }, { role: "ai", text: synth(text) }]);
+    const { response, sources } = alphySynth(text);
+    setMsgs(m => [...m, { role: "user", text }, { role: "ai", text: "", typing: true }]);
     setQ("");
+    let ci = 0;
+    const id = setInterval(() => {
+      ci += 3 + Math.floor(Math.random() * 4);
+      if (ci >= response.length) {
+        clearInterval(id);
+        setMsgs(m => { const c = [...m]; c[c.length - 1] = { role: "ai", text: response, typing: false, sources }; return c; });
+      } else {
+        setMsgs(m => { const c = [...m]; c[c.length - 1] = { role: "ai", text: response.slice(0, ci), typing: true }; return c; });
+      }
+    }, 14);
   };
+
   return (
     <>
-      <div className="fixed inset-0 bg-ink/30 z-[90] fade-in" onClick={onClose} />
-      <aside className="fixed top-0 right-0 h-screen w-[420px] bg-bg z-[95] drawer-anim border-l border-line flex flex-col">
-        <div className="px-4 h-14 border-b border-line flex items-center justify-between">
+      <div className="fixed inset-0 bg-black/30 backdrop-blur-[2px] z-[90] fade-in" onClick={onClose} />
+      <aside className="fixed top-0 right-0 h-screen w-[420px] bg-surface z-[95] drawer-anim border-l border-line flex flex-col"
+        style={{ boxShadow: "-8px 0 40px -12px rgba(28,40,64,0.15)" }}>
+        <div className="px-4 h-12 border-b border-line flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg grid place-items-center" style={{ background: "var(--accent)" }}>
-              <Sparkles size={13} strokeWidth={1.8} style={{ color: "var(--accent-ink)" }} />
-            </div>
-            <span className="text-[13px] font-semibold text-ink">Ask Alphy</span>
+            <Sparkles size={16} strokeWidth={1.6} style={{ color: "var(--ink)" }} />
+            <span className="text-[13px] font-semibold text-ink">Alphy</span>
+            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded" style={{ background: "var(--pos-soft)", color: "var(--pos)" }}>ONLINE</span>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg grid place-items-center text-muted hover:text-ink hover:bg-surface-2">
-            <X size={14} strokeWidth={1.6} />
+          <button onClick={onClose} className="w-7 h-7 rounded-lg grid place-items-center text-muted hover:text-ink hover:bg-bg-deep transition-colors">
+            <X size={13} strokeWidth={1.6} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-3 space-y-3">
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {msgs.length === 0 && (
-            <div className="space-y-1.5">
-              {["What changed in my book today?", "Top 3 accounts at risk", "Coaching focus for Brad Allen"].map((s) => (
-                <button key={s} onClick={() => ask(s)}
-                  className="block w-full text-left text-[12px] px-2.5 py-1.5 rounded-lg border border-line bg-surface hover:bg-surface-2">
-                  {s}
-                </button>
-              ))}
+            <div className="flex flex-col items-center justify-center pt-16 pb-8">
+              <Sparkles size={28} strokeWidth={1.3} style={{ color: "var(--ink)" }} />
+              <h2 className="text-[18px] font-semibold text-ink mt-3" style={{ letterSpacing: "-0.02em" }}>How can I help?</h2>
+              <p className="text-[11.5px] text-muted mt-1">Ask about your accounts, deals, or signals</p>
             </div>
           )}
           {msgs.map((m, i) => m.role === "user" ? (
             <div key={i} className="flex justify-end">
-              <div className="max-w-[85%] px-2.5 py-1.5 rounded-lg bg-ink text-white text-[12.5px]">{m.text}</div>
+              <div className="max-w-[85%] px-3.5 py-2.5 rounded-2xl rounded-tr-md text-[12.5px] leading-relaxed"
+                style={{ background: "var(--accent)", color: "var(--accent-ink)" }}>{m.text}</div>
             </div>
           ) : (
-            <div key={i} className="flex items-start gap-2">
-              <div className="w-5 h-5 rounded grid place-items-center mt-0.5" style={{ background: "var(--accent)" }}>
+            <div key={i} className="flex items-start gap-2.5">
+              <div className="w-6 h-6 rounded-lg grid place-items-center shrink-0 mt-0.5"
+                style={{ background: "var(--accent)" }}>
                 <Sparkles size={11} strokeWidth={1.8} style={{ color: "var(--accent-ink)" }} />
               </div>
-              <div className="text-[12.5px] text-ink-2 leading-relaxed whitespace-pre-line">{m.text}</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[12.5px] text-ink leading-relaxed whitespace-pre-line">
+                  {m.text.split(/(\*\*[^*]+\*\*)/).map((part, pi) =>
+                    part.startsWith("**") && part.endsWith("**")
+                      ? <strong key={pi} className="font-semibold">{part.slice(2, -2)}</strong>
+                      : <span key={pi}>{part}</span>
+                  )}
+                  {m.typing && <span className="inline-block w-0.5 h-3.5 bg-accent-deep ml-0.5 animate-pulse align-text-bottom" />}
+                </div>
+                {!m.typing && m.sources && m.sources.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {m.sources.map((s, j) => (
+                      <a key={j} href={s.href}
+                        className="inline-flex items-center gap-1 text-[9.5px] font-medium px-1.5 py-0.5 rounded-md border border-line bg-bg-deep hover:border-accent/30 transition-colors">
+                        <Sparkles size={7} strokeWidth={2} style={{ color: "var(--accent-deep)" }} />
+                        <span className="text-ink-2">{s.label}</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
-        <div className="p-3 border-t border-line flex items-center gap-2">
-          <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") ask(q); }}
-            placeholder="Ask anything…" className="flex-1 h-9 px-2.5 rounded-lg border border-line bg-surface text-[12.5px] outline-none" />
-          <button onClick={() => ask(q)} className="w-9 h-9 rounded-lg grid place-items-center bg-ink text-white">
-            <ArrowUp size={13} strokeWidth={1.8} />
-          </button>
+
+        <div className="p-3 border-t border-line">
+          <div className="rounded-xl border border-line bg-surface overflow-hidden">
+            <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") ask(q); }}
+              placeholder="Ask a question about your accounts..."
+              className="w-full bg-transparent text-[12.5px] px-3.5 pt-3 pb-1 outline-none placeholder:text-muted-2" />
+            <div className="flex items-center justify-between px-3 pb-2">
+              <div className="flex items-center gap-1">
+                <span className="inline-flex items-center gap-1 text-[10px] text-muted px-1.5 py-0.5 rounded hover:bg-bg-deep cursor-pointer transition-colors">
+                  <Building2 size={9} strokeWidth={1.6} /> Accounts
+                </span>
+                <span className="inline-flex items-center gap-1 text-[10px] text-muted px-1.5 py-0.5 rounded hover:bg-bg-deep cursor-pointer transition-colors">
+                  <BarChart3 size={9} strokeWidth={1.6} /> Deals
+                </span>
+                <span className="inline-flex items-center gap-1 text-[10px] text-muted px-1.5 py-0.5 rounded hover:bg-bg-deep cursor-pointer transition-colors">
+                  <Zap size={9} strokeWidth={1.6} /> Signals
+                </span>
+              </div>
+              <button onClick={() => ask(q)}
+                className={`w-7 h-7 rounded-full grid place-items-center transition-all ${q.trim() ? "bg-ink text-white" : "bg-bg-deep text-muted-2"}`}
+                disabled={!q.trim()}>
+                <Send size={11} strokeWidth={1.8} />
+              </button>
+            </div>
+          </div>
+          <p className="text-[9.5px] text-muted-2 text-center mt-2">Alphy can make mistakes. Verify important information.</p>
         </div>
       </aside>
     </>
   );
 }
 
-function synth(q: string) {
+function alphySynth(q: string): { response: string; sources: { label: string; href: string }[] } {
   const lc = q.toLowerCase();
-  if (lc.includes("risk")) return "Three accounts slipping right now: Snowflake (47d to renewal, sponsor 24d silent), GitLab Inc. (WAU/MAU 0.62 → 0.48, renewal 64d), Akamai (QBR 14d overdue). Combined exposure ~$1.3M ARR.";
-  if (lc.includes("brad")) return "Brad's coaching focus this week: Pricing & ROI (2/5 across last 4 calls). Recommend pairing him with Lisa Park's discovery deck.";
-  if (lc.includes("change") || lc.includes("today")) return "4 changes overnight: Stripe probability dropped 7pts, Cloudflare's Maya promoted to VP (expansion door open), NextEra pilot extension confirmed, GitLab WAU/MAU dropped further to 0.48.";
-  return "Answer would ground in your tenant's accounts, deals, calls, and emails — citations would appear here.";
+  if (lc.includes("risk")) return {
+    response: "Three accounts slipping right now:\n\n• **Snowflake** — 47d to renewal, sponsor 24d silent, health 41\n• **GitLab** — WAU/MAU 0.62 → 0.48, renewal 64d\n• **Akamai** — QBR 14d overdue\n\nCombined exposure ~$1.3M ARR. Prioritize Snowflake exec touchpoint.",
+    sources: [{ label: "Snowflake · Health", href: "/accounts/snowflake-inc" }, { label: "GitLab · Adoption", href: "/accounts/gitlab-inc" }],
+  };
+  if (lc.includes("brad")) return {
+    response: "Brad's coaching focus: **Pricing & ROI** (2/5 across last 4 calls). He tends to concede on discount before exploring value.\n\nRecommend pairing him with Lisa Park's discovery deck for two weeks.",
+    sources: [{ label: "Brad · Call Scores", href: "/home" }],
+  };
+  if (lc.includes("expansion") || lc.includes("signal")) return {
+    response: "Top expansion signals:\n\n• **Cloudflare** — Maya Chen promoted to VP Eng, budget spans Networking + Security. $180K target.\n• **Tableau** — 4 ML engineers hired, governance gap. $175K target.\n\nCloudflare is higher confidence. Build the case before Q2 planning locks.",
+    sources: [{ label: "Cloudflare · Plan", href: "/accounts/cloudflare-inc" }, { label: "Tableau · Signals", href: "/accounts/tableau-software" }],
+  };
+  if (lc.includes("change") || lc.includes("today")) return {
+    response: "4 changes overnight:\n\n1. **Stripe** probability dropped 7pts — David Wallace silent\n2. **Cloudflare** Maya promoted to VP Eng — expansion door open\n3. **NextEra** pilot extension confirmed through Q3\n4. **GitLab** WAU/MAU dropped to 0.48\n\nNet impact: -$14K. Action needed on Stripe and GitLab.",
+    sources: [{ label: "Pipeline Changes", href: "/deals" }, { label: "Signals Feed", href: "/signals" }],
+  };
+  return {
+    response: "I'd pull evidence from your accounts, calls, and CRM to answer this. Try asking about specific accounts, pipeline risks, or expansion signals.",
+    sources: [{ label: "Your Portfolio", href: "/accounts" }],
+  };
 }
