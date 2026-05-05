@@ -1837,6 +1837,12 @@ export type ExpansionFactor = {
   weight: number; // 0-1
 };
 
+export type ExpansionStage = "identified" | "qualified" | "proposal" | "negotiation" | "closed";
+export const EXPANSION_STAGES: ExpansionStage[] = ["identified", "qualified", "proposal", "negotiation", "closed"];
+
+export type ExpansionComparable = { account: string; arr: number; daysToClose: number };
+export type ExpansionMilestone = { label: string; date: string; done: boolean };
+
 export type ExpansionOpportunity = {
   id: string;
   accountSlug: string;
@@ -1848,6 +1854,20 @@ export type ExpansionOpportunity = {
   factors: ExpansionFactor[];
   play: string;           // recommended next action
   evidence: string;       // supporting signal
+  stage: ExpansionStage;
+  daysInStage: number;
+  owner: string;
+  ownerInitials: string;
+  ownerBg: string;
+  closeDate: string;
+  champion: string;
+  championTitle: string;
+  risks: string[];
+  nextSteps: string[];
+  comparables: ExpansionComparable[];
+  milestones: ExpansionMilestone[];
+  currentArr: number;
+  usageTrend: number;     // % change last 30d
 };
 
 export const expansionOpportunities: ExpansionOpportunity[] = [
@@ -1863,6 +1883,13 @@ export const expansionOpportunities: ExpansionOpportunity[] = [
     ],
     play: "Schedule Revenue Intel demo with VP Sales",
     evidence: "4 similar accounts converted at avg $110K. Champion Maya Chen just promoted to VP Eng.",
+    stage: "proposal", daysInStage: 5, owner: "Walid Qayoumi", ownerInitials: "WQ", ownerBg: "#374151", closeDate: "2025-06-15",
+    champion: "Maya Chen", championTitle: "VP, Engineering",
+    currentArr: 720_000, usageTrend: 12,
+    risks: ["Procurement cycle may extend past Q2 cutoff", "Security review pending for Revenue Intel data access"],
+    nextSteps: ["Schedule Revenue Intel demo with VP Sales", "Send ROI calculator with Cloudflare-specific data", "Loop in Jason Park (Security Ops) for compliance sign-off"],
+    comparables: [{ account: "Databricks", arr: 135_000, daysToClose: 28 }, { account: "HashiCorp", arr: 110_000, daysToClose: 35 }, { account: "Elastic", arr: 95_000, daysToClose: 42 }],
+    milestones: [{ label: "Discovery call completed", date: "2025-04-18", done: true }, { label: "Use case validated", date: "2025-04-28", done: true }, { label: "Proposal sent", date: "2025-05-10", done: true }, { label: "Security review", date: "2025-05-25", done: false }, { label: "Contract signed", date: "2025-06-15", done: false }],
   },
   {
     id: "eo2", accountSlug: slugify("Tableau Software"), accountName: "Tableau", productId: "rev-intel",
@@ -1876,6 +1903,13 @@ export const expansionOpportunities: ExpansionOpportunity[] = [
     ],
     play: "Share governance gap analysis with ML team lead",
     evidence: "Hiring 4 ML engineers — governance gap flagged in last call. 3 pattern matches.",
+    stage: "qualified", daysInStage: 12, owner: "Marcus Webb", ownerInitials: "MW", ownerBg: "#1E40AF", closeDate: "2025-07-01",
+    champion: "Priya Sharma", championTitle: "Head of Revenue Operations",
+    currentArr: 540_000, usageTrend: 8,
+    risks: ["New Head of RevOps still ramping — may delay decisions", "Competing priority: Tableau is evaluating vendor consolidation"],
+    nextSteps: ["Share governance gap analysis with ML team lead", "Schedule joint call with Priya Sharma + Sales Director", "Prepare competitive positioning vs. incumbent"],
+    comparables: [{ account: "Snowflake", arr: 95_000, daysToClose: 38 }, { account: "Datadog", arr: 88_000, daysToClose: 45 }],
+    milestones: [{ label: "Intro call with RevOps", date: "2025-04-22", done: true }, { label: "Gap analysis shared", date: "2025-05-14", done: false }, { label: "Proposal delivered", date: "2025-06-01", done: false }, { label: "Contract signed", date: "2025-07-01", done: false }],
   },
   {
     id: "eo3", accountSlug: slugify("Tableau Software"), accountName: "Tableau", productId: "ai-copilot",
@@ -1889,6 +1923,13 @@ export const expansionOpportunities: ExpansionOpportunity[] = [
     ],
     play: "Propose AI Copilot pilot to Sales Director",
     evidence: "High engagement with manual meeting prep. 3 comparable conversions at avg $80K.",
+    stage: "identified", daysInStage: 8, owner: "Walid Qayoumi", ownerInitials: "WQ", ownerBg: "#374151", closeDate: "2025-08-01",
+    champion: "Priya Sharma", championTitle: "Head of Revenue Operations",
+    currentArr: 540_000, usageTrend: 5,
+    risks: ["No executive sponsor identified yet", "Budget cycle starts in Q4 — may defer to next fiscal year"],
+    nextSteps: ["Propose AI Copilot pilot to Sales Director", "Quantify time saved on manual meeting prep", "Identify exec sponsor for budget approval"],
+    comparables: [{ account: "HubSpot", arr: 92_000, daysToClose: 55 }, { account: "Outreach", arr: 78_000, daysToClose: 40 }],
+    milestones: [{ label: "Need identified", date: "2025-04-27", done: true }, { label: "Pilot proposed", date: "2025-05-20", done: false }, { label: "Pilot completed", date: "2025-06-20", done: false }, { label: "Contract signed", date: "2025-08-01", done: false }],
   },
   {
     id: "eo4", accountSlug: slugify("Cloudflare, Inc."), accountName: "Cloudflare", productId: "ai-copilot",
@@ -1902,6 +1943,13 @@ export const expansionOpportunities: ExpansionOpportunity[] = [
     ],
     play: "Convert AI Copilot trial to paid — 10 seats active",
     evidence: "Trial active with 10 seats in Sales. 60% weekly engagement rate.",
+    stage: "negotiation", daysInStage: 3, owner: "Walid Qayoumi", ownerInitials: "WQ", ownerBg: "#374151", closeDate: "2025-05-30",
+    champion: "Maya Chen", championTitle: "VP, Engineering",
+    currentArr: 720_000, usageTrend: 18,
+    risks: ["Trial ends May 28 — tight window to convert", "Procurement requires 3 quotes for >$50K spend"],
+    nextSteps: ["Send trial usage report to Maya Chen", "Draft conversion proposal with volume discount", "Get verbal commit before trial expiry"],
+    comparables: [{ account: "Stripe", arr: 105_000, daysToClose: 18 }, { account: "Figma", arr: 88_000, daysToClose: 22 }],
+    milestones: [{ label: "Trial launched", date: "2025-04-15", done: true }, { label: "10 seats activated", date: "2025-04-28", done: true }, { label: "Usage review", date: "2025-05-12", done: true }, { label: "Proposal sent", date: "2025-05-20", done: true }, { label: "Contract signed", date: "2025-05-30", done: false }],
   },
   {
     id: "eo5", accountSlug: slugify("Akamai Technologies"), accountName: "Akamai", productId: "data-hub",
@@ -1915,6 +1963,13 @@ export const expansionOpportunities: ExpansionOpportunity[] = [
     ],
     play: "Present Data Hub integration roadmap to Engineering lead",
     evidence: "3 comparable accounts adopted Data Hub post-Insights. Eng team evaluating enrichment tools.",
+    stage: "identified", daysInStage: 18, owner: "Marcus Webb", ownerInitials: "MW", ownerBg: "#1E40AF", closeDate: "2025-08-15",
+    champion: "Tom Nakamura", championTitle: "Engineering Lead",
+    currentArr: 380_000, usageTrend: -3,
+    risks: ["Deal stale — 18 days without progression", "Eng team evaluating 2 competing enrichment tools", "Usage trending down — may weaken expansion case"],
+    nextSteps: ["Present Data Hub integration roadmap to Engineering lead", "Run competitive tear-down vs. enrichment alternatives", "Schedule exec sponsor meeting to unblock"],
+    comparables: [{ account: "Twilio", arr: 72_000, daysToClose: 52 }, { account: "MongoDB", arr: 68_000, daysToClose: 48 }],
+    milestones: [{ label: "Interest flagged", date: "2025-04-17", done: true }, { label: "Roadmap presented", date: "2025-05-15", done: false }, { label: "Pilot approved", date: "2025-06-15", done: false }, { label: "Contract signed", date: "2025-08-15", done: false }],
   },
   {
     id: "eo6", accountSlug: slugify("Snowflake Inc."), accountName: "Snowflake", productId: "insights",
@@ -1928,6 +1983,13 @@ export const expansionOpportunities: ExpansionOpportunity[] = [
     ],
     play: "Include Insights demo in next QBR deck",
     evidence: "Renewal in 47 days — positioning as value-add to strengthen retention.",
+    stage: "qualified", daysInStage: 6, owner: "Walid Qayoumi", ownerInitials: "WQ", ownerBg: "#374151", closeDate: "2025-06-20",
+    champion: "Brad Wallace", championTitle: "VP Sales Ops",
+    currentArr: 480_000, usageTrend: -11,
+    risks: ["Champion silent 14 days", "Renewal at risk — expansion may be premature"],
+    nextSteps: ["Include Insights demo in next QBR deck", "Re-engage Brad Wallace with value update"],
+    comparables: [{ account: "Databricks", arr: 78_000, daysToClose: 35 }],
+    milestones: [{ label: "Opportunity identified", date: "2025-04-28", done: true }, { label: "QBR scheduled", date: "2025-05-20", done: false }, { label: "Contract signed", date: "2025-06-20", done: false }],
   },
   {
     id: "eo7", accountSlug: slugify("GitLab Inc."), accountName: "GitLab", productId: "ai-copilot",
@@ -1941,6 +2003,13 @@ export const expansionOpportunities: ExpansionOpportunity[] = [
     ],
     play: "Propose AI Copilot to reduce meeting prep overhead",
     evidence: "WAU/MAU dropping — AI Copilot could boost engagement. 2 comparables at avg $55K.",
+    stage: "identified", daysInStage: 22, owner: "Rachel Kim", ownerInitials: "RK", ownerBg: "#7C3AED", closeDate: "2025-09-01",
+    champion: "Derek Olsen", championTitle: "Sales Manager",
+    currentArr: 290_000, usageTrend: -8,
+    risks: ["WAU/MAU declining — account health at risk", "No budget allocated for new tools this quarter"],
+    nextSteps: ["Propose AI Copilot to reduce meeting prep overhead", "Show ROI from comparable accounts"],
+    comparables: [{ account: "HubSpot", arr: 58_000, daysToClose: 60 }],
+    milestones: [{ label: "Need identified", date: "2025-04-13", done: true }, { label: "Proposal sent", date: "2025-06-01", done: false }, { label: "Contract signed", date: "2025-09-01", done: false }],
   },
   {
     id: "eo8", accountSlug: slugify("Akamai Technologies"), accountName: "Akamai", productId: "forecasting",
@@ -1954,6 +2023,13 @@ export const expansionOpportunities: ExpansionOpportunity[] = [
     ],
     play: "Bundle Forecasting add-on into renewal proposal",
     evidence: "Finance team manually pulling reports from Insights. Natural upsell path.",
+    stage: "identified", daysInStage: 10, owner: "Marcus Webb", ownerInitials: "MW", ownerBg: "#1E40AF", closeDate: "2025-09-15",
+    champion: "Tom Nakamura", championTitle: "Engineering Lead",
+    currentArr: 380_000, usageTrend: -3,
+    risks: ["Low urgency — may slip to next quarter", "Finance team not yet engaged"],
+    nextSteps: ["Bundle Forecasting add-on into renewal proposal", "Demo Forecasting to Finance team"],
+    comparables: [{ account: "Twilio", arr: 60_000, daysToClose: 45 }],
+    milestones: [{ label: "Need identified", date: "2025-04-25", done: true }, { label: "Demo scheduled", date: "2025-05-25", done: false }, { label: "Contract signed", date: "2025-09-15", done: false }],
   },
 ];
 
