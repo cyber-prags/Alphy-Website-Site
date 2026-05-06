@@ -35,973 +35,432 @@ export default function HomePage() {
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// AM HOME — "Pipeline for accounts you already own"
+// AM HOME — calm, expansion-first workspace
+// One narrative: what changed → what to do → what's in the pipeline
 // ════════════════════════════════════════════════════════════════════════
-function AMHome() {
-  const greeting = greetingFor();
 
-  // Derived buckets from real mock data
-  const hot = useMemo(
-    () => [...expansionOpportunities].sort((a, b) => b.score - a.score).slice(0, 3),
-    []
-  );
-  const allRanked = useMemo(
-    () => [...expansionOpportunities].sort((a, b) => b.score - a.score),
-    []
-  );
-  const stuckDeals = useMemo(
-    () => expansionOpportunities.filter((o) => o.daysInStage >= 12).sort((a, b) => b.daysInStage - a.daysInStage),
-    []
-  );
-
-  const movers = championChanges.filter((c) => c.impact === "high" || c.impact === "medium");
-
-  // Pipeline summary
-  const pipelineValue  = expansionOpportunities.reduce((s, o) => s + o.estimatedArr, 0);
-  const inMotion       = expansionOpportunities.filter((o) => o.stage !== "identified" && o.stage !== "closed").reduce((s, o) => s + o.estimatedArr, 0);
-  const signalsThisWk  = 23;  // illustrative — real value would come from signal feed
-  const movedStage     = 4;
-
-  return (
-    <AppShell>
-      {/* ─── Top bar ─────────────────────────────────────────── */}
-      <div className="flex items-end justify-between gap-4 flex-wrap mb-7 pb-5 border-b border-line">
-        <div>
-          <div className="flex items-center gap-3 mb-1.5">
-            <h1 className="text-[24px] font-semibold text-ink" style={{ letterSpacing: "-0.022em" }}>
-              {greeting}, Walid
-            </h1>
-            <span className="persona-chip"><span className="dot" />Account Manager</span>
-          </div>
-          <div className="flex items-center gap-2 text-[12px] text-muted">
-            <span>{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</span>
-            <span className="text-muted-2">·</span>
-            <DataFreshness minutesAgo={3} sources={["Salesforce", "LinkedIn", "Gong", "Alphy AI"] as any} />
-          </div>
-        </div>
-
-        <div className="flex items-stretch gap-0 rounded-xl overflow-hidden border border-line bg-surface">
-          <SummaryStat label="Pipeline value"   value={fmtMoney(pipelineValue)} accent="var(--accent)" />
-          <SummaryStat label="In motion"        value={fmtMoney(inMotion)}      accent="var(--ink)" />
-          <SummaryStat label="Signals this wk"  value={signalsThisWk}           accent="var(--pos)" delta="+8" />
-          <SummaryStat label="Moved stage"      value={movedStage}              accent="var(--ink)" />
-        </div>
-      </div>
-
-      {/* ─── 1 · AI co-pilot · today's plays ─────────────────── */}
-      <AICopilotTodos />
-
-      {/* ─── 2 · Hot list — RANKED DAILY ─────────────────────── */}
-      <div className="mt-7"><HotListSection hot={hot} all={allRanked} /></div>
-
-      {/* ─── 3 · Three-column intelligence row ───────────────── */}
-      <div className="grid grid-cols-12 gap-5 mt-7">
-        <div className="col-span-12 lg:col-span-4"><ChampionMoversPanel movers={movers} /></div>
-        <div className="col-span-12 lg:col-span-4"><StuckDealsPanel deals={stuckDeals} /></div>
-        <div className="col-span-12 lg:col-span-4"><RenewalWindowsPanel /></div>
-      </div>
-
-      {/* ─── 4 · White space heatmap ────────────────────────── */}
-      <div className="mt-7"><WhiteSpaceFeed /></div>
-
-      {/* ─── 5 · Today's queue (compact kanban) ─────────────── */}
-      <div className="mt-7"><TodayQueue persona="am" /></div>
-    </AppShell>
-  );
-}
-
-// ════════════════════════════════════════════════════════════════════════
-// AI CO-PILOT — today's plays at the top of the home
-// AI-generated to-dos ranked by signal strength, with "expires tonight"
-// urgency framing borrowed from intent-platform UX patterns.
-// ════════════════════════════════════════════════════════════════════════
 type CoPilotPlay = {
   id: string;
-  action: string;       // verb-led headline
+  action: string;
   person: string;
   personTitle: string;
-  context: string;      // why now
+  context: string;
   account: string;
   accountSlug: string;
-  signals: number;      // signal count
-  urgency: "today" | "this-week" | "expires";
   arr?: number;
-  detail?: string;      // expanded detail
+  staleDays?: number;
+  detail?: string;
   suggestedReply?: string;
 };
 
 const COPILOT_PLAYS: CoPilotPlay[] = [
   {
     id: "p1",
-    action: "Reply to Maya Chen — proposal stale 5 days",
+    action: "Follow up with Maya Chen",
     person: "Maya Chen",
     personTitle: "VP Engineering",
-    context: "You sent the Revenue Intel proposal May 1 — no reply yet. She just got promoted, budget scope expanded.",
+    context: "Hasn't replied to the Revenue Intel proposal you sent 5 days ago. She just got promoted — her budget scope expanded into Networking + Security.",
     account: "Cloudflare",
     accountSlug: "cloudflare-inc",
-    signals: 5,
-    urgency: "today",
     arr: 120_000,
-    detail: "Maya was promoted to VP Eng 12d ago. Her new scope spans Networking + Security. The proposal you sent on May 1 covered Revenue Intel — consider a follow-up that bundles Networking add-on to fit her new mandate.",
-    suggestedReply: "Hi Maya — congrats on the promotion! Wanted to check in on the Revenue Intel proposal. Given your expanded scope, I have a few thoughts on bundling Networking that could simplify procurement…",
+    staleDays: 5,
+    detail: "Maya was promoted to VP Eng 12 days ago. The proposal you sent on May 1 covered Revenue Intel only — there's an opening to bundle Networking that fits her new mandate and may simplify procurement.",
+    suggestedReply: "Hi Maya — congrats on the promotion. Wanted to check in on the Revenue Intel proposal. Given your expanded scope, I have a few thoughts on bundling Networking that could simplify procurement…",
   },
   {
     id: "p2",
-    action: "Loop in Jason Park — security review unblocks deal",
-    person: "Jason Park",
-    personTitle: "Security Ops Lead",
-    context: "Cloudflare procurement requires Security sign-off before May 25. Without him, deal slips past Q2 cutoff.",
+    action: "Convert Cloudflare AI Copilot trial",
+    person: "Maya Chen",
+    personTitle: "VP Engineering",
+    context: "Trial ends May 28. 10 active seats, 60% weekly engagement. Send the usage report and a conversion proposal before it expires.",
     account: "Cloudflare",
     accountSlug: "cloudflare-inc",
-    signals: 3,
-    urgency: "today",
-    arr: 120_000,
+    arr: 95_000,
+    staleDays: 3,
   },
   {
     id: "p3",
     action: "Send governance gap analysis to Priya Sharma",
     person: "Priya Sharma",
     personTitle: "Head of Revenue Operations",
-    context: "She asked for it Apr 28 — 8 days waiting. Tableau hiring 4 ML engineers, governance gap widening.",
+    context: "She asked for it on Apr 28 — 8 days waiting. Tableau is hiring 4 ML engineers; the governance gap is widening.",
     account: "Tableau",
     accountSlug: "tableau-software",
-    signals: 4,
-    urgency: "this-week",
     arr: 90_000,
+    staleDays: 8,
   },
   {
     id: "p4",
-    action: "Re-engage Brad Wallace — silent 14 days",
+    action: "Re-engage Brad Wallace",
     person: "Brad Wallace",
     personTitle: "VP Sales Ops",
-    context: "Snowflake renewal in 47d. James Whitfield (your other sponsor) just left. Brad is your only path in.",
+    context: "Snowflake renewal in 47 days. James Whitfield (your other sponsor) just left — Brad is your only path in. He's been silent 14 days.",
     account: "Snowflake",
     accountSlug: "snowflake-inc",
-    signals: 4,
-    urgency: "this-week",
     arr: 480_000,
-  },
-  {
-    id: "p5",
-    action: "Send trial usage report — Cloudflare AI Copilot",
-    person: "Maya Chen",
-    personTitle: "VP Engineering",
-    context: "Trial ends May 28 with 60% weekly engagement. Convert before expiry or lose 10 active seats.",
-    account: "Cloudflare",
-    accountSlug: "cloudflare-inc",
-    signals: 3,
-    urgency: "expires",
-    arr: 95_000,
-  },
-  {
-    id: "p6",
-    action: "Schedule Tom Nakamura to unblock Akamai Data Hub",
-    person: "Tom Nakamura",
-    personTitle: "Engineering Lead",
-    context: "Deal stale 18d. Akamai evaluating 2 competing tools. Schedule a roadmap session this week.",
-    account: "Akamai",
-    accountSlug: "akamai-technologies",
-    signals: 2,
-    urgency: "this-week",
-    arr: 65_000,
+    staleDays: 14,
   },
 ];
 
-function AICopilotTodos() {
-  const [view, setView] = useState<"plays" | "accounts">("plays");
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const todayCount = COPILOT_PLAYS.filter((p) => p.urgency === "today" || p.urgency === "expires").length;
-  const totalArr = COPILOT_PLAYS.reduce((s, p) => s + (p.arr ?? 0), 0);
+// Activity feed signals — chronological, mixed types
+type ActivityKind = "champion" | "departure" | "usage" | "deal" | "renewal" | "note";
+type ActivityItem = {
+  id: string;
+  kind: ActivityKind;
+  account: string;
+  accountSlug: string;
+  text: string;
+  ago: string;            // "12h", "2d", etc.
+  bucket: "today" | "yesterday" | "earlier";
+};
+
+const ACTIVITY: ActivityItem[] = [
+  { id: "a1", kind: "champion",  account: "Cloudflare", accountSlug: "cloudflare-inc",      text: "Maya Chen promoted to VP Engineering",                       ago: "12h", bucket: "today" },
+  { id: "a2", kind: "departure", account: "Snowflake",  accountSlug: "snowflake-inc",       text: "Brad Wallace silent 14 days — renewal sponsor exposure",      ago: "2h",  bucket: "today" },
+  { id: "a3", kind: "usage",     account: "Cloudflare", accountSlug: "cloudflare-inc",      text: "Hit 92% of Networking plan limits — third time this quarter", ago: "4h",  bucket: "today" },
+  { id: "a4", kind: "deal",      account: "Cloudflare", accountSlug: "cloudflare-inc",      text: "AI Copilot trial conversion window — 22 days remaining",      ago: "today", bucket: "today" },
+  { id: "a5", kind: "renewal",   account: "Akamai",     accountSlug: "akamai-technologies", text: "QBR overdue 14 days — Q2 expansion narrative stale",          ago: "1d",  bucket: "yesterday" },
+  { id: "a6", kind: "usage",     account: "GitLab",     accountSlug: "gitlab-inc",          text: "Trial signup detected — Alex Rivera (AI Copilot)",            ago: "1d",  bucket: "yesterday" },
+  { id: "a7", kind: "departure", account: "Snowflake",  accountSlug: "snowflake-inc",       text: "James Whitfield (VP Sales Ops) left the company",             ago: "2d",  bucket: "earlier" },
+  { id: "a8", kind: "usage",     account: "Tableau",    accountSlug: "tableau-software",    text: "12 new seats added — ML team grew, governance gap widening",  ago: "3d",  bucket: "earlier" },
+  { id: "a9", kind: "champion",  account: "Tableau",    accountSlug: "tableau-software",    text: "Priya Sharma joined as Head of Revenue Operations",           ago: "3d",  bucket: "earlier" },
+  { id: "a10", kind: "usage",    account: "Snowflake",  accountSlug: "snowflake-inc",       text: "ML Ops team running API in prod — new use case detected",    ago: "4d",  bucket: "earlier" },
+];
+
+// ─────────────────────────────────────────────────────────────────────
+function AMHome() {
+  const greeting = greetingFor();
+  const ranked = useMemo(
+    () => [...expansionOpportunities].sort((a, b) => b.score - a.score).slice(0, 6),
+    []
+  );
+
+  // Book stats
+  const customers = [
+    "Cloudflare", "Snowflake", "Tableau", "Akamai", "GitLab",
+  ];
+  const bookArr      = 2_380_000;
+  const pipelineArr  = expansionOpportunities.reduce((s, o) => s + o.estimatedArr, 0);
+  const activeOpps   = expansionOpportunities.filter((o) => o.stage !== "closed" && o.stage !== "identified").length;
+  const totalSignals = ACTIVITY.length + 13; // weekly volume
+
+  const featured = COPILOT_PLAYS[0];
+  const more = COPILOT_PLAYS.slice(1);
 
   return (
-    <section className="rounded-2xl overflow-hidden"
-      style={{
-        background: "linear-gradient(135deg, color-mix(in srgb, var(--accent) 4%, var(--surface)) 0%, var(--surface) 60%)",
-        border: "1px solid color-mix(in srgb, var(--accent) 18%, var(--line))",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 0 22px -8px color-mix(in srgb, var(--accent) 18%, transparent)",
-      }}
-    >
-      {/* Header */}
-      <div className="px-6 py-4 flex items-center justify-between flex-wrap gap-3"
-        style={{ borderBottom: "1px solid color-mix(in srgb, var(--accent) 12%, var(--line))" }}>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="w-9 h-9 rounded-xl grid place-items-center"
-              style={{
-                background: "linear-gradient(135deg, var(--accent) 0%, #7C3AED 100%)",
-                boxShadow: "0 6px 18px -6px rgba(38,109,240,0.5)",
-              }}>
-              <Sparkles size={16} strokeWidth={2.2} className="text-white" />
-            </div>
-            <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full" style={{ background: "var(--pos)", boxShadow: "0 0 8px var(--pos)" }} />
-          </div>
+    <AppShell>
+      {/* ─── Header ──────────────────────────────────────────── */}
+      <header className="mb-9">
+        <div className="flex items-baseline justify-between flex-wrap gap-3">
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-[16px] font-semibold text-ink" style={{ letterSpacing: "-0.018em" }}>
-                AI co-pilot
-              </h2>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] px-2 py-0.5 rounded"
-                style={{ background: "var(--accent-soft)", color: "var(--accent-deep)" }}>
-                Today
+            <h1 className="text-[24px] font-semibold text-ink" style={{ letterSpacing: "-0.022em" }}>
+              {greeting}, Walid
+            </h1>
+            <div className="flex items-center gap-2 text-[12px] text-muted mt-1.5">
+              <span>{new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
+              <span className="text-muted-2">·</span>
+              <span>
+                <span className="font-semibold text-ink-2 tnum">{fmtMoney(bookArr)}</span> book
+              </span>
+              <span className="text-muted-2">·</span>
+              <span>
+                <span className="font-semibold text-ink-2 tnum">{customers.length}</span> customers
+              </span>
+              <span className="text-muted-2">·</span>
+              <span>
+                <span className="font-semibold text-ink-2 tnum">{activeOpps}</span> active plays
               </span>
             </div>
-            <div className="text-[11.5px] text-muted mt-0.5">
-              <span className="font-semibold text-ink-2">{todayCount} plays</span> need attention today ·
-              <span className="ml-1">{fmtMoney(totalArr)} touched</span>
-            </div>
           </div>
+          <DataFreshness minutesAgo={3} sources={["Salesforce", "LinkedIn", "Gong", "Alphy AI"] as any} />
         </div>
+      </header>
 
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 p-1 rounded-lg" style={{ background: "var(--bg-deep)" }}>
-            <button onClick={() => setView("plays")}
-              className={`px-3 py-1.5 rounded text-[11.5px] font-medium ${view === "plays" ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink"}`}>
-              Plays
-            </button>
-            <button onClick={() => setView("accounts")}
-              className={`px-3 py-1.5 rounded text-[11.5px] font-medium ${view === "accounts" ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink"}`}>
-              By account
-            </button>
-          </div>
-          <button className="px-3 py-2 rounded-lg text-[11.5px] font-medium text-muted hover:text-ink inline-flex items-center gap-1"
-            style={{ border: "1px solid var(--line)", background: "var(--surface)" }}>
-            See all {COPILOT_PLAYS.length}
-            <ChevronRight size={11} />
-          </button>
+      {/* ─── Today ───────────────────────────────────────────── */}
+      <SectionHeader label="Today" detail={`${COPILOT_PLAYS.length} plays`} />
+      <FeaturedPlay play={featured} />
+      <div className="mt-2 mb-10">
+        {more.map((p, i) => <PlayRow key={p.id} play={p} isLast={i === more.length - 1} />)}
+      </div>
+
+      {/* ─── Pipeline ────────────────────────────────────────── */}
+      <SectionHeader
+        label="Pipeline"
+        detail={`${fmtMoney(pipelineArr)} across ${ranked.length} plays`}
+        right={<Link href="/portfolio" className="text-[11.5px] font-medium text-muted hover:text-ink inline-flex items-center gap-1">View portfolio <ChevronRight size={11} /></Link>}
+      />
+      <div className="mb-10 -mx-2 overflow-x-auto">
+        <div className="flex items-stretch gap-3 px-2 min-w-min">
+          {ranked.map((opp) => <PipelineTile key={opp.id} opp={opp} />)}
         </div>
       </div>
 
-      {/* Plays list */}
-      <div>
-        {COPILOT_PLAYS.slice(0, 4).map((play, i) => (
-          <CoPilotRow
-            key={play.id}
-            play={play}
-            isLast={i === Math.min(3, COPILOT_PLAYS.length - 1)}
-            isExpanded={expanded === play.id}
-            onToggle={() => setExpanded((e) => (e === play.id ? null : play.id))}
-          />
-        ))}
-        {COPILOT_PLAYS.length > 4 && (
-          <button className="w-full px-6 py-3 text-[11.5px] font-medium text-muted hover:text-ink hover:bg-bg-deep transition-colors text-left">
-            +{COPILOT_PLAYS.length - 4} more plays for this week
-            <ChevronRight size={11} className="inline ml-1" />
-          </button>
-        )}
-      </div>
-    </section>
+      {/* ─── Activity ────────────────────────────────────────── */}
+      <SectionHeader
+        label="Activity"
+        detail={`${totalSignals} signals this week`}
+        right={<Link href="/signals" className="text-[11.5px] font-medium text-muted hover:text-ink inline-flex items-center gap-1">All signals <ChevronRight size={11} /></Link>}
+      />
+      <ActivityFeed items={ACTIVITY} />
+    </AppShell>
   );
 }
 
-function CoPilotRow({ play, isLast, isExpanded, onToggle }: { play: CoPilotPlay; isLast: boolean; isExpanded: boolean; onToggle: () => void }) {
-  const urgencyTone =
-    play.urgency === "today"   ? { color: "var(--neg)", soft: "var(--neg-soft)", label: "Today" } :
-    play.urgency === "expires" ? { color: "var(--warn)", soft: "var(--warn-soft)", label: "Expires soon" } :
-                                 { color: "var(--muted)", soft: "var(--bg-deep)", label: "This week" };
-
+// ─────────────────────────────────────────────────────────────────────
+function SectionHeader({ label, detail, right }: { label: string; detail?: string; right?: React.ReactNode }) {
   return (
-    <div style={{ borderBottom: isLast ? "none" : "1px solid var(--line)" }}>
-      <div onClick={onToggle}
-        className="px-6 py-4 hover:bg-bg-deep cursor-pointer transition-colors flex items-start gap-3.5">
-        {/* AI sparkle */}
-        <div className="w-7 h-7 rounded-lg grid place-items-center shrink-0 mt-0.5"
-          style={{
-            background: "color-mix(in srgb, var(--accent) 10%, transparent)",
-            border: "1px solid color-mix(in srgb, var(--accent) 18%, transparent)",
-          }}>
-          <Sparkles size={12} strokeWidth={2.2} style={{ color: "var(--accent-deep)" }} />
-        </div>
-
-        {/* Main */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start gap-2 mb-1">
-            <span className="text-[13.5px] font-semibold text-ink leading-snug flex-1">{play.action}</span>
-            <span className="text-[9.5px] font-semibold uppercase tracking-[0.12em] px-1.5 py-0.5 rounded shrink-0"
-              style={{ background: urgencyTone.soft, color: urgencyTone.color }}>
-              {urgencyTone.label}
-            </span>
-          </div>
-          <div className="text-[11.5px] text-muted leading-relaxed">{play.context}</div>
-          <div className="flex items-center gap-2 mt-2">
-            <Logo name={play.account} size={16} rounded={4} />
-            <span className="text-[11px] font-medium text-ink-2">{play.account}</span>
-            <span className="text-muted-2">·</span>
-            <span className="text-[10.5px] text-muted">{play.person} · {play.personTitle}</span>
-            <span className="text-muted-2">·</span>
-            <span className="inline-flex items-center gap-0.5 text-[10.5px] font-medium" style={{ color: "var(--accent-deep)" }}>
-              <Zap size={10} strokeWidth={2.4} fill="currentColor" />
-              {play.signals}
-            </span>
-            {play.arr && (
-              <>
-                <span className="text-muted-2">·</span>
-                <span className="text-[10.5px] font-mono tnum font-semibold" style={{ color: "var(--pos)" }}>
-                  {fmtMoney(play.arr)}
-                </span>
-              </>
-            )}
-          </div>
-        </div>
-
-        <ChevronDown size={14} strokeWidth={1.8}
-          className={`text-muted shrink-0 transition-transform mt-1 ${isExpanded ? "rotate-180" : ""}`} />
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-baseline gap-2.5">
+        <h2 className="text-[14px] font-semibold text-ink" style={{ letterSpacing: "-0.012em" }}>{label}</h2>
+        {detail && <span className="text-[11.5px] text-muted-2 tnum">{detail}</span>}
       </div>
+      {right}
+    </div>
+  );
+}
 
-      {/* Expanded panel */}
-      {isExpanded && (
-        <div className="px-6 pb-4 -mt-1 pt-0">
-          <div className="rounded-xl p-4 ml-10"
-            style={{ background: "var(--bg-deep)", border: "1px solid var(--line)" }}>
-            {play.detail && (
-              <div className="mb-3">
+// ─────────────────────────────────────────────────────────────────────
+// Featured Play — the single most important action today
+// ─────────────────────────────────────────────────────────────────────
+function FeaturedPlay({ play }: { play: CoPilotPlay }) {
+  const [open, setOpen] = useState(false);
+  const stale = play.staleDays && play.staleDays >= 5;
+  return (
+    <div className="rounded-2xl overflow-hidden mb-2"
+      style={{
+        background: "var(--surface)",
+        border: "1px solid var(--line)",
+        boxShadow: "0 1px 0 rgba(0,0,0,0.02)",
+      }}>
+      <div className="grid grid-cols-12 gap-0">
+        {/* Left rail accent */}
+        <div className="col-span-12 lg:col-span-8 p-6 relative">
+          <div className="absolute left-0 top-6 bottom-6 w-[3px] rounded-r-full"
+            style={{ background: "var(--accent-deep)" }} />
+          <div className="pl-2">
+            <div className="flex items-center gap-2 mb-2">
+              <Logo name={play.account} size={16} rounded={4} />
+              <span className="text-[11px] font-semibold text-ink-2">{play.account}</span>
+              {play.arr && (
+                <>
+                  <span className="text-muted-2">·</span>
+                  <span className="text-[11px] font-mono tnum text-muted">{fmtMoney(play.arr)}</span>
+                </>
+              )}
+            </div>
+            <h3 className="text-[20px] font-semibold text-ink leading-tight mb-2.5"
+              style={{ letterSpacing: "-0.018em" }}>
+              {play.action}
+            </h3>
+            <p className="text-[13.5px] text-muted leading-relaxed max-w-2xl">{play.context}</p>
+
+            {open && play.detail && (
+              <div className="mt-4 p-4 rounded-xl"
+                style={{ background: "var(--bg-deep)", border: "1px solid var(--line)" }}>
                 <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1.5">Why now</div>
-                <div className="text-[12px] text-ink-2 leading-relaxed">{play.detail}</div>
+                <div className="text-[12.5px] text-ink-2 leading-relaxed mb-3">{play.detail}</div>
+                {play.suggestedReply && (
+                  <>
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1.5 flex items-center gap-1.5">
+                      <Sparkles size={10} strokeWidth={2.2} style={{ color: "var(--accent-deep)" }} />
+                      Suggested reply
+                    </div>
+                    <div className="rounded-lg px-3 py-2.5 text-[12px] text-ink-2 leading-relaxed font-mono"
+                      style={{ background: "var(--surface)", border: "1px solid var(--line)" }}>
+                      {play.suggestedReply}
+                    </div>
+                  </>
+                )}
               </div>
             )}
-            {play.suggestedReply && (
-              <div className="mb-3">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1.5 flex items-center gap-1.5">
-                  <Sparkles size={10} strokeWidth={2.2} style={{ color: "var(--accent-deep)" }} />
-                  Suggested reply
-                </div>
-                <div className="rounded-lg px-3 py-2.5 text-[11.5px] text-ink-2 leading-relaxed font-mono"
-                  style={{ background: "var(--surface)", border: "1px solid var(--line)" }}>
-                  {play.suggestedReply}
-                </div>
-              </div>
-            )}
-            <div className="flex items-center gap-2 flex-wrap">
-              <button className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg text-white"
+
+            <div className="flex items-center gap-2 mt-5">
+              <button className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-2 rounded-lg text-white"
                 style={{ background: "var(--accent-deep)" }}>
-                <Sparkles size={11} strokeWidth={2} /> Draft reply
+                <Sparkles size={11} strokeWidth={2.2} /> Draft follow-up
               </button>
               <Link href={`/accounts/${play.accountSlug}`}
-                className="inline-flex items-center gap-1.5 text-[11.5px] font-medium px-3 py-1.5 rounded-lg"
+                className="inline-flex items-center gap-1.5 text-[12px] font-medium px-3.5 py-2 rounded-lg"
                 style={{ background: "var(--surface)", color: "var(--ink-2)", border: "1px solid var(--line)" }}>
-                Open account <ArrowRight size={10} strokeWidth={2.2} />
+                Open account <ArrowRight size={11} strokeWidth={2.2} />
               </Link>
-              <button className="inline-flex items-center gap-1.5 text-[11.5px] font-medium px-3 py-1.5 rounded-lg text-muted hover:text-ink">
-                Snooze 1d
-              </button>
-              <button className="inline-flex items-center gap-1.5 text-[11.5px] font-medium px-3 py-1.5 rounded-lg text-muted hover:text-ink ml-auto">
-                Dismiss
+              <button onClick={() => setOpen((v) => !v)}
+                className="text-[11.5px] text-muted hover:text-ink ml-1 inline-flex items-center gap-1">
+                {open ? "Hide context" : "Why now"} <ChevronDown size={11} strokeWidth={2} className={`transition-transform ${open ? "rotate-180" : ""}`} />
               </button>
             </div>
           </div>
         </div>
-      )}
-    </div>
-  );
-}
 
-// ────────────────────────────────────────────────────────────────────────
-function SummaryStat({ label, value, accent, delta }: { label: string; value: string | number; accent: string; delta?: string }) {
-  return (
-    <div className="px-5 py-3 border-r border-line last:border-r-0">
-      <div className="text-[10px] uppercase tracking-[0.12em] text-muted-2 mb-1 font-semibold">{label}</div>
-      <div className="flex items-baseline gap-1.5">
-        <span className="text-[18px] font-bold tnum" style={{ color: accent, letterSpacing: "-0.02em" }}>{value}</span>
-        {delta && <span className="text-[10.5px] font-semibold tnum" style={{ color: "var(--pos)" }}>{delta}</span>}
-      </div>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════════════════
-// HOT LIST — the hero. Ranked daily.
-// ════════════════════════════════════════════════════════════════════════
-function HotListSection({ hot, all }: { hot: ExpansionOpportunity[]; all: ExpansionOpportunity[] }) {
-  const [view, setView] = useState<"hot" | "all">("hot");
-  const data = view === "hot" ? hot : all;
-
-  return (
-    <section>
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-9 h-9 rounded-xl grid place-items-center"
-            style={{
-              background: "linear-gradient(135deg, #FF8A3D 0%, #F5360F 100%)",
-              boxShadow: "0 6px 18px -6px rgba(245,54,15,0.45)",
-            }}
-          >
-            <Flame size={16} strokeWidth={2.2} className="text-white" />
-          </div>
+        {/* Right side — meta */}
+        <div className="col-span-12 lg:col-span-4 p-6 lg:border-l border-line lg:bg-bg-deep/40 flex flex-col gap-4">
           <div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1">Champion</div>
             <div className="flex items-center gap-2">
-              <h2 className="text-[18px] font-semibold text-ink" style={{ letterSpacing: "-0.018em" }}>The hot list</h2>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] px-2 py-0.5 rounded"
-                style={{ background: "var(--bg-deep)", color: "var(--muted)" }}>Ranked daily</span>
+              <div className="w-6 h-6 rounded-full grid place-items-center text-[9px] font-semibold text-white"
+                style={{ background: "var(--accent-deep)" }}>
+                {play.person.split(" ").map((n) => n[0]).join("")}
+              </div>
+              <div>
+                <div className="text-[12px] font-semibold text-ink">{play.person}</div>
+                <div className="text-[10.5px] text-muted">{play.personTitle}</div>
+              </div>
             </div>
-            <div className="text-[11.5px] text-muted mt-0.5">Accounts where 2+ signals fired this week — ready to expand</div>
           </div>
-        </div>
-
-        <div className="flex items-center gap-1 p-1 rounded-lg" style={{ background: "var(--bg-deep)" }}>
-          <button onClick={() => setView("hot")}
-            className={`px-3 py-1.5 rounded text-[11.5px] font-medium ${view === "hot" ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink"}`}>
-            🔥 Hot {hot.length}
-          </button>
-          <button onClick={() => setView("all")}
-            className={`px-3 py-1.5 rounded text-[11.5px] font-medium ${view === "all" ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink"}`}>
-            All ranked {all.length}
-          </button>
-          <Link href="/accounts" className="ml-1 px-3 py-1.5 rounded text-[11.5px] font-medium text-muted hover:text-ink inline-flex items-center gap-1">
-            Book of business <ChevronRight size={11} />
-          </Link>
+          {play.staleDays !== undefined && (
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1">Time elapsed</div>
+              <div className="text-[14px] font-semibold tnum"
+                style={{ color: stale ? "var(--neg)" : "var(--ink)" }}>
+                {play.staleDays} {play.staleDays === 1 ? "day" : "days"}
+              </div>
+              <div className="text-[10.5px] text-muted">since you reached out</div>
+            </div>
+          )}
+          {play.arr && (
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1">Estimated ARR</div>
+              <div className="text-[18px] font-bold tnum text-ink" style={{ letterSpacing: "-0.018em" }}>
+                {fmtMoney(play.arr)}
+              </div>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Cards */}
-      <div className="space-y-3">
-        {data.map((opp, i) => <HotCard key={opp.id} opp={opp} rank={i + 1} featured={view === "hot" && i === 0} />)}
-      </div>
-    </section>
+    </div>
   );
 }
 
-// ────────────────────────────────────────────────────────────────────────
-// HotCard — a single ranked expansion opportunity, with reason chips.
-// Top-1 in "hot" view gets featured treatment.
-// ────────────────────────────────────────────────────────────────────────
-function HotCard({ opp, rank, featured }: { opp: ExpansionOpportunity; rank: number; featured: boolean }) {
-  const [expanded, setExpanded] = useState(featured);
-  const tier = opp.score >= 85 ? "hot" : opp.score >= 75 ? "warm" : "cool";
-  const tierColor = tier === "hot" ? "#F5360F" : tier === "warm" ? "#F5B900" : "var(--accent)";
-  const tierGlow  = tier === "hot" ? "rgba(245,54,15,0.35)" : tier === "warm" ? "rgba(245,185,0,0.30)" : "rgba(38,109,240,0.25)";
-
-  // Generate reason chips from data
-  const chips = useMemo<{ icon: any; label: string; tone: string }[]>(() => {
-    const c: { icon: any; label: string; tone: string }[] = [];
-    if (opp.usageTrend > 5) c.push({ icon: Zap, label: `Usage +${opp.usageTrend}%`, tone: "var(--pos)" });
-    if (opp.usageTrend < 0) c.push({ icon: TrendingDown, label: `Usage ${opp.usageTrend}%`, tone: "var(--neg)" });
-    if (opp.daysInStage <= 7) c.push({ icon: ArrowUpRight, label: "Just moved stage", tone: "var(--accent)" });
-    if (opp.daysInStage >= 14) c.push({ icon: AlertCircle, label: `${opp.daysInStage}d in stage`, tone: "var(--warn)" });
-    if (opp.factors.find((f) => f.label === "Champion strength" && f.score >= 90))
-      c.push({ icon: Crown, label: "Champion just promoted", tone: "var(--accent)" });
-    if (opp.factors.find((f) => f.label === "Champion strength" && f.score < 60))
-      c.push({ icon: AlertCircle, label: "Champion silent", tone: "var(--neg)" });
-    if (opp.comparables.length >= 3)
-      c.push({ icon: TrendingUp, label: `${opp.comparables.length} comparable wins`, tone: "var(--info)" });
-    if (opp.factors.find((f) => f.label === "Budget signals" && f.score >= 80))
-      c.push({ icon: Target, label: "Budget confirmed", tone: "var(--pos)" });
-    return c.slice(0, 4);
-  }, [opp]);
-
-  const StageStepper = () => {
-    const idx = EXPANSION_STAGES.indexOf(opp.stage);
-    return (
-      <div className="flex items-center gap-0.5">
-        {EXPANSION_STAGES.map((s, i) => (
-          <div key={s} className="flex items-center">
-            {i > 0 && <div className="w-3 h-[2px]" style={{ background: i <= idx ? tierColor : "var(--line)" }} />}
-            <div className={`w-2 h-2 rounded-full ${i === idx ? "ring-2" : ""}`}
-              style={{ background: i <= idx ? tierColor : "var(--line)", ringColor: tierColor } as any} />
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  if (featured) {
-    return (
-      <div
-        className="relative rounded-2xl overflow-hidden"
-        style={{
-          background: `linear-gradient(135deg, var(--bg) 0%, color-mix(in srgb, ${tierColor} 4%, var(--bg)) 100%)`,
-          border: `1px solid ${tierColor}40`,
-          boxShadow: `0 0 36px -8px ${tierGlow}`,
-        }}
-      >
-        {/* Decorative gradient bar */}
-        <div className="absolute top-0 left-0 right-0 h-[3px]"
-          style={{ background: `linear-gradient(90deg, ${tierColor}, transparent 80%)` }} />
-
-        <div className="grid grid-cols-12 gap-0">
-          {/* Left: Account + score + chips */}
-          <div className="col-span-12 lg:col-span-7 p-6">
-            <div className="flex items-start gap-4">
-              <div className="relative shrink-0">
-                <div className="absolute -inset-1.5 rounded-xl opacity-50 blur"
-                  style={{ background: `radial-gradient(circle, ${tierColor}, transparent 70%)` }} />
-                <Logo name={opp.accountName} size={56} rounded={14} />
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-[10px] font-mono font-bold text-muted-2">#{rank}</span>
-                  <span className="text-[10.5px] font-semibold uppercase tracking-[0.14em] px-2 py-0.5 rounded"
-                    style={{ background: `${tierColor}18`, color: tierColor }}>
-                    {tier === "hot" ? "🔥 Hot" : tier === "warm" ? "Warm" : "Building"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-[24px] font-bold text-ink leading-none" style={{ letterSpacing: "-0.025em" }}>
-                    {opp.accountName}
-                  </h3>
-                  <span className="text-[12px] font-semibold px-2 py-1 rounded"
-                    style={{ background: "var(--accent-soft)", color: "var(--accent-deep)" }}>
-                    {opp.productName}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 text-[11.5px] text-muted">
-                  <span className="inline-flex items-center gap-1.5">
-                    <StageStepper />
-                    <span className="text-ink-2 font-medium ml-1 capitalize">{opp.stage}</span>
-                    <span className="text-muted-2">· {opp.daysInStage}d</span>
-                  </span>
-                </div>
-              </div>
-
-              {/* Big score display */}
-              <ScoreVisual score={opp.score} color={tierColor} size={86} />
-            </div>
-
-            {/* Reason chips */}
-            <div className="flex flex-wrap items-center gap-1.5 mt-5">
-              {chips.map((c, i) => (
-                <span key={i}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium"
-                  style={{
-                    background: "var(--surface)",
-                    border: "1px solid var(--line)",
-                    color: c.tone,
-                  }}
-                >
-                  <c.icon size={11} strokeWidth={2.2} />
-                  {c.label}
-                </span>
-              ))}
-            </div>
-
-            {/* Next move */}
-            <div className="mt-5 p-4 rounded-xl"
-              style={{ background: "var(--bg-deep)", border: "1px solid var(--line)" }}>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1.5">Your next move</div>
-              <div className="flex items-start gap-2.5">
-                <Zap size={14} strokeWidth={2.2} style={{ color: tierColor }} className="mt-0.5 shrink-0" />
-                <div className="flex-1 text-[13.5px] font-medium text-ink leading-snug">{opp.play}</div>
-              </div>
-              <div className="flex items-center gap-2 mt-3">
-                <Link href={`/accounts/${opp.accountSlug}`}
-                  className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg text-white"
-                  style={{ background: tierColor }}>
-                  Open account <ArrowRight size={11} strokeWidth={2.2} />
-                </Link>
-                <button className="inline-flex items-center gap-1.5 text-[11.5px] font-medium px-3 py-1.5 rounded-lg"
-                  style={{ background: "var(--surface)", color: "var(--ink-2)", border: "1px solid var(--line)" }}>
-                  <Sparkles size={11} strokeWidth={2} /> Brief me
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Right: ARR + champion + comparables */}
-          <div className="col-span-12 lg:col-span-5 p-6 lg:border-l border-line"
-            style={{ background: "var(--surface)" }}>
-            <div className="grid grid-cols-2 gap-5 mb-5">
-              <div>
-                <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1">Estimated ARR</div>
-                <div className="text-[26px] font-bold text-ink tnum" style={{ letterSpacing: "-0.02em" }}>
-                  {fmtMoney(opp.estimatedArr)}
-                </div>
-                <div className="text-[10.5px] text-muted mt-0.5">vs current {fmtMoney(opp.currentArr)}</div>
-              </div>
-              <div>
-                <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1">Target close</div>
-                <div className="text-[20px] font-semibold text-ink tnum" style={{ letterSpacing: "-0.015em" }}>
-                  {new Date(opp.closeDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                </div>
-                <div className="text-[10.5px] text-muted mt-0.5">{daysUntil(opp.closeDate)}d away</div>
-              </div>
-            </div>
-
-            <div className="border-t border-line pt-4 mb-4">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-2">Champion</div>
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full grid place-items-center text-[10px] font-bold text-white"
-                  style={{ background: tierColor }}>
-                  {opp.champion.split(" ").map((n) => n[0]).join("")}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[12.5px] font-semibold text-ink truncate">{opp.champion}</div>
-                  <div className="text-[10.5px] text-muted truncate">{opp.championTitle}</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="border-t border-line pt-4">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-2">Comparable wins</div>
-              <div className="space-y-1.5">
-                {opp.comparables.slice(0, 3).map((c) => (
-                  <div key={c.account} className="flex items-center justify-between text-[11.5px]">
-                    <span className="text-ink-2">{c.account}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold tnum" style={{ color: "var(--pos)" }}>{fmtMoney(c.arr)}</span>
-                      <span className="text-muted-2 tnum text-[10.5px]">{c.daysToClose}d</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ──── Compact card (non-featured) ────
+// ─────────────────────────────────────────────────────────────────────
+// PlayRow — a simple one-liner play
+// ─────────────────────────────────────────────────────────────────────
+function PlayRow({ play, isLast }: { play: CoPilotPlay; isLast: boolean }) {
+  const stale = play.staleDays && play.staleDays >= 5;
   return (
-    <div
-      onClick={() => setExpanded((e) => !e)}
-      className="rounded-xl cursor-pointer transition-all hover:shadow-sm"
-      style={{
-        background: "var(--bg)",
-        border: `1px solid ${expanded ? tierColor + "40" : "var(--line)"}`,
-        boxShadow: expanded ? `0 0 18px -8px ${tierGlow}` : undefined,
-      }}
-    >
-      <div className="flex items-center gap-4 px-4 py-3.5">
-        <span className="text-[10px] font-mono font-bold w-4 text-center text-muted shrink-0">#{rank}</span>
-        <Logo name={opp.accountName} size={32} rounded={9} />
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[13.5px] font-semibold text-ink">{opp.accountName}</span>
-            <span className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded"
-              style={{ background: "var(--accent-soft)", color: "var(--accent-deep)" }}>
-              {opp.productName}
-            </span>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] px-1.5 py-0.5 rounded ml-auto lg:ml-0"
-              style={{ background: `${tierColor}14`, color: tierColor }}>
-              {tier}
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {chips.slice(0, 3).map((c, i) => (
-              <span key={i}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-medium"
-                style={{ background: "var(--bg-deep)", color: c.tone }}>
-                <c.icon size={10} strokeWidth={2.2} />
-                {c.label}
+    <Link href={`/accounts/${play.accountSlug}`}
+      className="group flex items-center gap-3 px-3 py-3 hover:bg-bg-deep transition-colors rounded-lg"
+      style={{ borderBottom: isLast ? "none" : "1px solid var(--line)" }}>
+      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: stale ? "var(--neg)" : "var(--muted-2)" }} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[13px] font-medium text-ink">{play.action}</span>
+          <span className="text-muted-2">·</span>
+          <Logo name={play.account} size={12} rounded={3} />
+          <span className="text-[11.5px] text-muted">{play.account}</span>
+          {play.staleDays !== undefined && (
+            <>
+              <span className="text-muted-2">·</span>
+              <span className="text-[11px] tnum" style={{ color: stale ? "var(--neg)" : "var(--muted)" }}>
+                {play.staleDays}d
               </span>
-            ))}
-          </div>
+            </>
+          )}
         </div>
-
-        <div className="hidden md:block">
-          <ScoreVisual score={opp.score} color={tierColor} size={42} compact />
-        </div>
-
-        <div className="text-right shrink-0">
-          <div className="text-[15px] font-bold tnum text-ink leading-none" style={{ letterSpacing: "-0.015em" }}>
-            {fmtMoney(opp.estimatedArr)}
-          </div>
-          <div className="text-[10px] text-muted-2 mt-0.5 capitalize">{opp.stage} · {opp.daysInStage}d</div>
-        </div>
-
-        <ChevronDown size={14} strokeWidth={1.8}
-          className={`text-muted shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} />
       </div>
-
-      {expanded && (
-        <div className="px-4 pb-4 pt-1 border-t border-line mx-4 grid grid-cols-12 gap-4 mt-1">
-          <div className="col-span-12 md:col-span-7">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1.5">Next move</div>
-            <div className="flex items-start gap-2 mb-3">
-              <Zap size={12} strokeWidth={2.2} style={{ color: tierColor }} className="mt-0.5 shrink-0" />
-              <span className="text-[12.5px] font-medium text-ink-2">{opp.play}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link href={`/accounts/${opp.accountSlug}`}
-                className="inline-flex items-center gap-1 text-[10.5px] font-semibold px-2.5 py-1.5 rounded-md text-white"
-                style={{ background: tierColor }}>
-                Open <ArrowRight size={10} strokeWidth={2.2} />
-              </Link>
-              <button className="inline-flex items-center gap-1 text-[10.5px] font-medium px-2.5 py-1.5 rounded-md"
-                style={{ background: "var(--surface)", color: "var(--ink-2)", border: "1px solid var(--line)" }}>
-                <Sparkles size={10} strokeWidth={2} /> Brief
-              </button>
-            </div>
-          </div>
-          <div className="col-span-12 md:col-span-5">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1.5">Champion</div>
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full grid place-items-center text-[8.5px] font-bold text-white"
-                style={{ background: tierColor }}>
-                {opp.champion.split(" ").map((n) => n[0]).join("")}
-              </div>
-              <div className="min-w-0">
-                <div className="text-[12px] font-semibold text-ink truncate">{opp.champion}</div>
-                <div className="text-[10px] text-muted truncate">{opp.championTitle}</div>
-              </div>
-            </div>
-          </div>
-        </div>
+      {play.arr && (
+        <span className="text-[11.5px] font-mono tnum text-muted-2 shrink-0">{fmtMoney(play.arr)}</span>
       )}
-    </div>
+      <ChevronRight size={13} strokeWidth={1.8} className="text-muted-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+    </Link>
   );
 }
 
-// ────────────────────────────────────────────────────────────────────────
-function ScoreVisual({ score, color, size = 64, compact = false }: { score: number; color: string; size?: number; compact?: boolean }) {
-  const r = (size - 4) / 2;
-  const C = 2 * Math.PI * r;
-  const offset = C - (score / 100) * C;
-  const cx = size / 2;
-  const fontSize = compact ? Math.round(size * 0.36) : Math.round(size * 0.30);
+// ─────────────────────────────────────────────────────────────────────
+// PipelineTile — single opportunity card in the horizontal pipeline row
+// ─────────────────────────────────────────────────────────────────────
+const STAGE_LABEL_SHORT: Record<string, string> = {
+  identified:  "Identified",
+  qualified:   "Qualified",
+  proposal:    "Proposal",
+  negotiation: "Negotiation",
+  closed:      "Closed",
+};
+
+function PipelineTile({ opp }: { opp: typeof expansionOpportunities[number] }) {
+  const stale = opp.daysInStage >= 14;
+  const scoreTone = opp.score >= 85 ? "var(--pos)" : opp.score >= 70 ? "var(--accent)" : "var(--muted)";
   return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-        <circle cx={cx} cy={cx} r={r} fill="none" stroke="var(--line)" strokeWidth={compact ? 3 : 4} opacity={0.4} />
-        <circle cx={cx} cy={cx} r={r} fill="none" stroke={color} strokeWidth={compact ? 3 : 4}
-          strokeLinecap="round" strokeDasharray={C} strokeDashoffset={offset}
-          style={{ transition: "stroke-dashoffset 800ms cubic-bezier(0.4,0,0.2,1)" }} />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ color }}>
-        <span className="font-bold tnum leading-none" style={{ fontSize, letterSpacing: "-0.02em" }}>{score}</span>
-        {!compact && <span className="text-[8.5px] uppercase tracking-[0.14em] font-semibold opacity-70 mt-0.5">score</span>}
+    <Link href={`/accounts/${opp.accountSlug}`}
+      className="group rounded-xl p-4 transition-all hover:shadow-sm shrink-0"
+      style={{
+        width: 200,
+        background: "var(--surface)",
+        border: "1px solid var(--line)",
+      }}>
+      <div className="flex items-center gap-2 mb-3">
+        <Logo name={opp.accountName} size={22} rounded={5} />
+        <div className="min-w-0 flex-1">
+          <div className="text-[12.5px] font-semibold text-ink truncate">{opp.accountName}</div>
+          <div className="text-[10px] text-muted truncate">{opp.productName}</div>
+        </div>
       </div>
-    </div>
+      <div className="flex items-baseline gap-2 mb-2">
+        <span className="text-[20px] font-bold tnum text-ink leading-none" style={{ letterSpacing: "-0.018em" }}>
+          {fmtMoney(opp.estimatedArr)}
+        </span>
+        <span className="text-[10.5px] font-semibold tnum" style={{ color: scoreTone }}>
+          {opp.score}
+        </span>
+      </div>
+      <div className="flex items-center justify-between mt-3 pt-3 border-t border-line">
+        <span className="text-[10.5px] font-medium text-ink-2">{STAGE_LABEL_SHORT[opp.stage]}</span>
+        <span className="text-[10px] tnum" style={{ color: stale ? "var(--neg)" : "var(--muted-2)" }}>
+          {opp.daysInStage}d
+        </span>
+      </div>
+    </Link>
   );
 }
 
-// ════════════════════════════════════════════════════════════════════════
-// CHAMPION MOVERS
-// ════════════════════════════════════════════════════════════════════════
-function ChampionMoversPanel({ movers }: { movers: ChampionChange[] }) {
+// ─────────────────────────────────────────────────────────────────────
+// ActivityFeed — chronological signal log grouped by recency
+// ─────────────────────────────────────────────────────────────────────
+function ActivityFeed({ items }: { items: ActivityItem[] }) {
+  const buckets: { label: string; items: ActivityItem[] }[] = [
+    { label: "Today",              items: items.filter((i) => i.bucket === "today") },
+    { label: "Yesterday",          items: items.filter((i) => i.bucket === "yesterday") },
+    { label: "Earlier this week",  items: items.filter((i) => i.bucket === "earlier") },
+  ];
   return (
-    <div className="card p-5 h-full">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg grid place-items-center"
-            style={{ background: "linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)" }}>
-            <Crown size={13} strokeWidth={2} className="text-white" />
+    <div className="space-y-6">
+      {buckets.map((b) => (
+        <div key={b.label}>
+          <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-2">
+            {b.label}
           </div>
-          <div>
-            <div className="text-[14px] font-semibold text-ink">Champion movers</div>
-            <div className="text-[10.5px] text-muted">Last 7 days</div>
+          <div className="space-y-px">
+            {b.items.map((i) => <ActivityRow key={i.id} item={i} />)}
           </div>
         </div>
-        <span className="text-[10px] font-mono text-muted-2 bg-bg-deep px-1.5 py-0.5 rounded">{movers.length}</span>
-      </div>
-
-      <div className="space-y-2.5">
-        {movers.map((m) => {
-          const Icon =
-            m.changeType === "promotion" ? TrendingUp :
-            m.changeType === "departure" ? TrendingDown :
-            m.changeType === "new-hire" ? Users : MoveRight;
-          const tone = m.tone === "pos" ? "var(--pos)" : m.tone === "neg" ? "var(--neg)" : m.tone === "warn" ? "var(--warn)" : "var(--info)";
-          const soft = m.tone === "pos" ? "var(--pos-soft)" : m.tone === "neg" ? "var(--neg-soft)" : m.tone === "warn" ? "var(--warn-soft)" : "var(--info-soft)";
-          return (
-            <Link key={m.id} href={`/accounts/${m.accountSlug}`}
-              className="block rounded-xl p-3 hover:bg-bg-deep transition-colors"
-              style={{ border: "1px solid var(--line)" }}>
-              <div className="flex items-start gap-2.5">
-                <div className="w-7 h-7 rounded-full grid place-items-center shrink-0"
-                  style={{ background: soft }}>
-                  <Icon size={13} strokeWidth={2} style={{ color: tone }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className="text-[12.5px] font-semibold text-ink truncate">{m.personName}</span>
-                    <span className="text-[10px] text-muted-2 ml-auto shrink-0">{m.detectedAgo}</span>
-                  </div>
-                  <div className="text-[10.5px] text-muted truncate">
-                    <span className="text-ink-2">{m.accountName}</span>
-                    <span className="text-muted-2"> · </span>
-                    {m.changeType === "promotion" && `→ ${m.newTitle}`}
-                    {m.changeType === "departure" && "Left company"}
-                    {m.changeType === "new-hire" && `New ${m.newTitle}`}
-                    {m.changeType === "role-change" && `→ ${m.newTitle}`}
-                  </div>
-                  <div className="text-[10.5px] mt-1.5 leading-snug font-medium" style={{ color: tone }}>
-                    {m.recommendedPlay}
-                  </div>
-                </div>
-              </div>
-            </Link>
-          );
-        })}
-      </div>
+      ))}
     </div>
   );
 }
 
-// ════════════════════════════════════════════════════════════════════════
-// STUCK DEALS
-// ════════════════════════════════════════════════════════════════════════
-function StuckDealsPanel({ deals }: { deals: ExpansionOpportunity[] }) {
+function ActivityRow({ item }: { item: ActivityItem }) {
+  const meta: Record<ActivityKind, { Icon: any; tone: string }> = {
+    champion:  { Icon: ArrowUpRight,    tone: "var(--accent-deep)" },
+    departure: { Icon: TrendingDown,    tone: "var(--neg)" },
+    usage:     { Icon: Zap,             tone: "var(--accent)" },
+    deal:      { Icon: Target,          tone: "var(--ink-2)" },
+    renewal:   { Icon: Calendar,        tone: "var(--warn)" },
+    note:      { Icon: FileText,        tone: "var(--muted)" },
+  };
+  const m = meta[item.kind];
   return (
-    <div className="card p-5 h-full">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg grid place-items-center"
-            style={{ background: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)" }}>
-            <AlertCircle size={13} strokeWidth={2} className="text-white" />
-          </div>
-          <div>
-            <div className="text-[14px] font-semibold text-ink">Stuck</div>
-            <div className="text-[10.5px] text-muted">14+ days, no movement</div>
-          </div>
-        </div>
-        <span className="text-[10px] font-mono text-muted-2 bg-bg-deep px-1.5 py-0.5 rounded">{deals.length}</span>
-      </div>
-
-      <div className="space-y-2.5">
-        {deals.map((d) => {
-          const reason = d.risks[0] ?? "No recent activity";
-          return (
-            <Link key={d.id} href={`/accounts/${d.accountSlug}`}
-              className="block rounded-xl p-3 hover:bg-bg-deep transition-colors"
-              style={{ border: "1px solid var(--line)" }}>
-              <div className="flex items-start gap-2.5">
-                <Logo name={d.accountName} size={28} rounded={7} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className="text-[12.5px] font-semibold text-ink truncate">{d.accountName}</span>
-                    <span className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded shrink-0"
-                      style={{ background: "var(--neg-soft)", color: "var(--neg)" }}>
-                      {d.daysInStage}d
-                    </span>
-                    <span className="text-[10.5px] font-semibold tnum ml-auto text-ink shrink-0">
-                      {fmtMoney(d.estimatedArr)}
-                    </span>
-                  </div>
-                  <div className="text-[10.5px] text-muted-2 capitalize mb-1">
-                    {d.productName} · {d.stage}
-                  </div>
-                  <div className="text-[10.5px] leading-snug" style={{ color: "var(--ink-2)" }}>
-                    <AlertTriangle size={9} strokeWidth={2.4} className="inline mr-1 mb-0.5" style={{ color: "var(--warn)" }} />
-                    {reason}
-                  </div>
-                </div>
-              </div>
-            </Link>
-          );
-        })}
-      </div>
-    </div>
+    <Link href={`/accounts/${item.accountSlug}`}
+      className="group flex items-center gap-3 px-3 py-2.5 -mx-3 rounded-lg hover:bg-bg-deep transition-colors">
+      <span className="text-[10.5px] font-mono tnum text-muted-2 w-8 shrink-0 text-right">{item.ago}</span>
+      <m.Icon size={12} strokeWidth={2} style={{ color: m.tone }} className="shrink-0" />
+      <Logo name={item.account} size={14} rounded={3} />
+      <span className="text-[12px] font-semibold text-ink-2 shrink-0">{item.account}</span>
+      <span className="text-muted-2">·</span>
+      <span className="text-[12px] text-muted-2 truncate flex-1">{item.text}</span>
+      <ChevronRight size={11} strokeWidth={1.8} className="text-muted-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+    </Link>
   );
 }
 
-// ════════════════════════════════════════════════════════════════════════
-// RENEWAL WINDOWS — expansion adjacent to renewals
-// ════════════════════════════════════════════════════════════════════════
-const RENEWAL_WINDOWS = [
-  { account: "Snowflake",  slug: "snowflake-inc",       arr: 480_000, renewalIn: 47, expansionPotential: 72_000, signal: "Insights upsell — bundle into renewal" },
-  { account: "Tableau",    slug: "tableau-software",    arr: 540_000, renewalIn: 62, expansionPotential: 175_000, signal: "RevIntel + AI Copilot stack — joint proposal" },
-  { account: "Akamai",     slug: "akamai-technologies", arr: 380_000, renewalIn: 78, expansionPotential: 120_000, signal: "Data Hub + Forecasting bundle" },
-  { account: "GitLab",     slug: "gitlab-inc",          arr: 290_000, renewalIn: 89, expansionPotential: 60_000,  signal: "AI Copilot — addresses adoption gap" },
-];
-
-function RenewalWindowsPanel() {
-  return (
-    <div className="card p-5 h-full">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg grid place-items-center"
-            style={{ background: "linear-gradient(135deg, #10B981 0%, #059669 100%)" }}>
-            <Calendar size={13} strokeWidth={2} className="text-white" />
-          </div>
-          <div>
-            <div className="text-[14px] font-semibold text-ink">Renewal windows</div>
-            <div className="text-[10.5px] text-muted">Next 90d — bundle expansion</div>
-          </div>
-        </div>
-        <span className="text-[10px] font-mono text-muted-2 bg-bg-deep px-1.5 py-0.5 rounded">{RENEWAL_WINDOWS.length}</span>
-      </div>
-
-      <div className="space-y-2.5">
-        {RENEWAL_WINDOWS.map((w) => {
-          const urgent = w.renewalIn <= 60;
-          return (
-            <Link key={w.slug} href={`/accounts/${w.slug}`}
-              className="block rounded-xl p-3 hover:bg-bg-deep transition-colors"
-              style={{ border: "1px solid var(--line)" }}>
-              <div className="flex items-start gap-2.5">
-                <Logo name={w.account} size={28} rounded={7} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-[12.5px] font-semibold text-ink truncate">{w.account}</span>
-                    <span className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded shrink-0"
-                      style={{ background: urgent ? "var(--warn-soft)" : "var(--accent-soft)", color: urgent ? "var(--warn)" : "var(--accent-deep)" }}>
-                      {w.renewalIn}d
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 mb-1.5 text-[10px] text-muted">
-                    <span>Renewal {fmtMoney(w.arr)}</span>
-                    <span>+</span>
-                    <span className="font-semibold tnum" style={{ color: "var(--pos)" }}>
-                      {fmtMoney(w.expansionPotential)} expansion
-                    </span>
-                  </div>
-                  <div className="text-[10.5px] leading-snug text-ink-2">{w.signal}</div>
-                </div>
-              </div>
-            </Link>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════════════════
-// WHITE SPACE FEED — usage signals across the book
-// ════════════════════════════════════════════════════════════════════════
-const WHITE_SPACE_SIGNALS = [
-  { account: "Cloudflare",  slug: "cloudflare-inc",      icon: Zap,         label: "Hit 92% of plan limits", detail: "Networking module — 3rd time this quarter", tone: "var(--accent)" },
-  { account: "Snowflake",   slug: "snowflake-inc",       icon: Eye,         label: "New use case detected",  detail: "ML Ops team using API in prod last 14 days", tone: "var(--pos)"   },
-  { account: "Cloudflare",  slug: "cloudflare-inc",      icon: TrendingUp,  label: "Weekend usage +340%",    detail: "Heavy use Sat/Sun — power-user adoption signal", tone: "var(--pos)"   },
-  { account: "Tableau",     slug: "tableau-software",    icon: Users,       label: "New seats added: 12",    detail: "ML team grew — governance gap widening", tone: "var(--accent)" },
-  { account: "Akamai",      slug: "akamai-technologies", icon: FileText,    label: "Pricing page visited 4x", detail: "Tom Nakamura viewed enterprise tier", tone: "var(--info)"  },
-  { account: "GitLab",      slug: "gitlab-inc",          icon: Eye,         label: "Trial signup detected",  detail: "Alex Rivera signed up for AI Copilot trial", tone: "var(--pos)"   },
-];
-
-function WhiteSpaceFeed() {
-  return (
-    <div className="card p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg grid place-items-center"
-            style={{ background: "linear-gradient(135deg, #266DF0 0%, #1A5AD4 100%)" }}>
-            <Sparkles size={13} strokeWidth={2} className="text-white" />
-          </div>
-          <div>
-            <div className="text-[14px] font-semibold text-ink">White space — suspiciously good usage</div>
-            <div className="text-[10.5px] text-muted">Signals from across your book that look like expansion-ready behavior</div>
-          </div>
-        </div>
-        <Link href="/accounts" className="text-[11px] font-medium text-muted hover:text-ink inline-flex items-center gap-1">
-          View matrix <ChevronRight size={11} />
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {WHITE_SPACE_SIGNALS.map((s, i) => (
-          <Link key={i} href={`/accounts/${s.slug}`}
-            className="rounded-xl p-3.5 hover:shadow-sm transition-all flex items-start gap-3"
-            style={{ background: "var(--bg)", border: "1px solid var(--line)" }}>
-            <div className="w-8 h-8 rounded-lg grid place-items-center shrink-0"
-              style={{ background: `color-mix(in srgb, ${s.tone} 12%, transparent)` }}>
-              <s.icon size={14} strokeWidth={2} style={{ color: s.tone }} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <Logo name={s.account} size={14} rounded={3} />
-                <span className="text-[11.5px] font-semibold text-ink truncate">{s.account}</span>
-              </div>
-              <div className="text-[12px] font-semibold leading-snug mb-0.5" style={{ color: s.tone }}>{s.label}</div>
-              <div className="text-[10.5px] text-muted leading-snug">{s.detail}</div>
-            </div>
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 // ════════════════════════════════════════════════════════════════════════
 // DEFAULT HOME (non-AM personas) — preserves existing layout
