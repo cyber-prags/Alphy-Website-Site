@@ -35,6 +35,7 @@ const URGENCY_META: Record<RequestUrgency, { label: string; ink: string; bg: str
 };
 
 type Comment = { id: string; by: string; at: string; text: string };
+export type RequestComment = Comment;
 
 type Request = {
   id: string;
@@ -51,12 +52,14 @@ type Request = {
   upvoteCount: number;    // other accounts asking for the same thing
   comments: Comment[];
 };
+export type FeatureRequest = Request;
+export const REQUEST_STATUS_META = STATUS_META;
 
 // ---------------------------------------------------------------------------
 // Seed list (mock; persisted via localStorage so demo edits stick)
 // ---------------------------------------------------------------------------
 
-const SEED: Request[] = [
+export const REQUEST_SEED: Request[] = [
   {
     id: "req-1",
     title: "Bulk reassign accounts when reps leave",
@@ -167,9 +170,9 @@ const SEED: Request[] = [
 const KEY = "alphard:feature-requests";
 
 function loadRequests(): Request[] {
-  if (typeof window === "undefined") return SEED;
-  try { return JSON.parse(window.localStorage.getItem(KEY) ?? "null") ?? SEED; }
-  catch { return SEED; }
+  if (typeof window === "undefined") return REQUEST_SEED;
+  try { return JSON.parse(window.localStorage.getItem(KEY) ?? "null") ?? REQUEST_SEED; }
+  catch { return REQUEST_SEED; }
 }
 
 // ---------------------------------------------------------------------------

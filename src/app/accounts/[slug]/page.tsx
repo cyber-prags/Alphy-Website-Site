@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -16,6 +16,7 @@ import { Popover, MenuItem } from "@/components/Popover";
 import { DraftDeckModal, type DeckTemplate } from "@/components/DraftDeckModal";
 import { AdoptionPanel } from "@/components/AdoptionPanel";
 import { accountAdoption, expansionOpportunities, championChanges, fmtMoney as fmtMoneyShort, slugify as slugifyMock } from "@/lib/mock";
+import { useUser } from "@/components/UserContext";
 import { Flame } from "lucide-react";
 import { SourceChip } from "@/components/SourceChip";
 import { StakeholderEditor } from "@/components/StakeholderEditor";
@@ -35,6 +36,7 @@ import { useToast } from "@/components/Toast";
 const TABS = [
   { id: "brief"      as const, label: "Brief" },
   { id: "growth"     as const, label: "Growth Plan" },
+  { id: "notes"      as const, label: "Notes" },
   { id: "analytics"  as const, label: "Analytics" },
   { id: "whitespace" as const, label: "White Space" },
   { id: "journey"    as const, label: "Journey" },
@@ -160,6 +162,7 @@ function AccountWorkspace({ account, slug, backHref }: { account: AccountDetail;
 
       {tab === "brief"      && <BriefPanel account={liveAccount} outcomes={accountOutcomes} deals={accountDeals} adoption={adoption} onJumpTab={setTab} />}
       {tab === "growth"     && <GrowthPlanPanel account={liveAccount} slug={slug} />}
+      {tab === "notes"      && <NotesPanel slug={slug} accountName={liveAccount.name} />}
       {tab === "analytics"  && <AnalyticsPanel account={liveAccount} adoption={adoption} />}
       {tab === "whitespace" && <WhiteSpaceMatrix account={liveAccount} slug={slug} />}
       {tab === "journey"    && <JourneyPanel account={liveAccount} />}
@@ -364,6 +367,9 @@ function BriefPanel({ account, outcomes, deals, adoption, onJumpTab }: {
     <div className="space-y-4">
       {/* AI Overview — generative account summary */}
       <AIOverviewCard account={account} adoption={adoption} />
+
+      {/* Lifecycle baton — who owns the account at each phase */}
+      <LifecycleBaton account={account} />
 
       {account.status === "Customer" && account.renewalDays > 0 && account.renewalDays <= 90 && (
         <HandoffCard account={account} />
@@ -687,7 +693,7 @@ const TOPIC_STYLE: Record<CallRecording["topic"], { bg: string; color: string }>
   "Health Check":{ bg: "var(--bg-deep)",     color: "var(--ink-2)"       },
 };
 
-function callsFor(account: AccountDetail): CallRecording[] {
+function callsFor(account: AccountDetail, currentUser: { name: string; initials: string; firstName: string }): CallRecording[] {
   const isHealthy = account.healthScore >= 75;
   return [
     {
@@ -696,7 +702,7 @@ function callsFor(account: AccountDetail): CallRecording[] {
       duration: "32m",
       when: "Yesterday",
       participants: [
-        { name: "Walid Qayoumi", initials: "WQ", bg: "#374151", isHost: true },
+        { name: currentUser.name, initials: currentUser.initials, bg: "#374151", isHost: true },
         { name: account.stakeholders[0]?.name ?? "Maya Chen", initials: (account.stakeholders[0]?.name ?? "Maya Chen").split(" ").map(p => p[0]).slice(0,2).join(""), bg: "#3B82F6" },
       ],
       summary: isHealthy
@@ -705,9 +711,9 @@ function callsFor(account: AccountDetail): CallRecording[] {
       topic: isHealthy ? "Expansion" : "Renewal",
       sentiment: isHealthy ? "pos" : "warn",
       transcript: [
-        { speaker: "Walid",                   at: "00:00", text: "Thanks for jumping on. Wanted to walk through where we are on the Q3 motion." },
+        { speaker: currentUser.firstName,     at: "00:00", text: "Thanks for jumping on. Wanted to walk through where we are on the Q3 motion." },
         { speaker: account.stakeholders[0]?.name ?? "Maya", at: "00:18", text: "Yeah, perfect timing. We just got VP approval to expand into Networking." },
-        { speaker: "Walid",                   at: "01:05", text: "Great. Let me show you a quick proof point from a similar customer..." },
+        { speaker: currentUser.firstName,     at: "01:05", text: "Great. Let me show you a quick proof point from a similar customer..." },
         { speaker: account.stakeholders[0]?.name ?? "Maya", at: "12:30", text: "Can we get legal looped in on Wednesday? That's our next blocker." },
       ],
     },
@@ -717,7 +723,7 @@ function callsFor(account: AccountDetail): CallRecording[] {
       duration: "45m",
       when: "1w ago",
       participants: [
-        { name: "Walid Qayoumi", initials: "WQ", bg: "#374151", isHost: true },
+        { name: currentUser.name, initials: currentUser.initials, bg: "#374151", isHost: true },
         { name: "Marcus Webb",    initials: "MW", bg: "#1E40AF" },
         { name: account.stakeholders[1]?.name ?? "Lin Park", initials: (account.stakeholders[1]?.name ?? "Lin Park").split(" ").map(p => p[0]).slice(0,2).join(""), bg: "#10B981" },
       ],
@@ -725,7 +731,7 @@ function callsFor(account: AccountDetail): CallRecording[] {
       topic: "QBR",
       sentiment: "pos",
       transcript: [
-        { speaker: "Walid",      at: "00:00", text: "Welcome everyone. Today we'll cover Q1 outcomes, current health, and the Q2 plan." },
+        { speaker: currentUser.firstName, at: "00:00", text: "Welcome everyone. Today we'll cover Q1 outcomes, current health, and the Q2 plan." },
         { speaker: "Marcus",     at: "02:14", text: "Quick context on expansion — we have three plays open in Networking and Security." },
         { speaker: "Lin Park",   at: "08:22", text: "Can you share which other customers in our segment are running this pattern?" },
       ],
@@ -752,7 +758,8 @@ function callsFor(account: AccountDetail): CallRecording[] {
 }
 
 function CallRecordingsCard({ account, onOpen }: { account: AccountDetail; onOpen: (c: CallRecording) => void }) {
-  const calls = callsFor(account);
+  const { user } = useUser();
+  const calls = callsFor(account, user);
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
@@ -1518,6 +1525,7 @@ function healthFactorsFor(account: AccountDetail): { label: string; source: stri
 }
 
 function HealthOverrideCard({ account }: { account: AccountDetail }) {
+  const { user: __hoUser } = useUser();
   const factors = healthFactorsFor(account);
   const aiScore = account.healthScore;
   const slug = slugify(account.name);
@@ -1534,7 +1542,7 @@ function HealthOverrideCard({ account }: { account: AccountDetail }) {
   const [reason, setReason] = useState<string>(current?.reason ?? "");
 
   const submit = () => {
-    const ov: HealthOverride = { score, reason, by: "Walid", at: new Date().toISOString() };
+    const ov: HealthOverride = { score, reason, by: __hoUser.firstName, at: new Date().toISOString() };
     const next = { ...allOverrides, [slug]: [...history, ov] };
     setAllOverrides(next);
     saveOverrides(next);
@@ -2309,11 +2317,141 @@ function Stat({ label, value, unit, tone }: { label: string; value: string; unit
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// LIFECYCLE BATON — AE → AM → CSM ownership chain
+// Addresses Walid R2's point: "expansion is moving from sales to CS"
+// Always visible on the Brief panel so the team can see who owns what
+// at each phase, with a clear handoff trigger button.
+// ═══════════════════════════════════════════════════════════════════════
+function LifecycleBaton({ account }: { account: AccountDetail }) {
+  const toast = useToast();
+  const isCustomer = account.status === "Customer";
+  const h = account.healthScore;
+
+  type Phase = {
+    role: "AE" | "AM" | "CSM";
+    label: string;
+    owner: string;
+    initials: string;
+    status: "done" | "active" | "next" | "later";
+    detail: string;
+  };
+
+  // Determine current phase from account state
+  const currentPhase: "AE" | "AM" | "CSM" =
+    !isCustomer ? "AE"
+    : isCustomer && account.renewalDays > 0 && account.renewalDays <= 90 ? "CSM"
+    : "AM";
+
+  const phases: Phase[] = [
+    {
+      role: "AE",
+      label: "Acquisition",
+      owner: !isCustomer ? account.owner : "Brad Allen",
+      initials: !isCustomer ? account.ownerInitials : "BA",
+      status: !isCustomer ? "active" : "done",
+      detail: !isCustomer ? "Driving discovery + MEDDPICC" : `Closed ${account.arr ? fmtMoneyShort(account.arr) : "—"} · Mar 2024`,
+    },
+    {
+      role: "AM",
+      label: "Expansion",
+      owner: isCustomer ? account.owner : "Sarah Chen",
+      initials: isCustomer ? account.ownerInitials : "SC",
+      status: !isCustomer ? "next" : currentPhase === "AM" ? "active" : "done",
+      detail: !isCustomer ? "Picks up post-close" : currentPhase === "AM" ? `Hunting expansion · ${account.nrr}% NRR` : "Handed renewal to CSM",
+    },
+    {
+      role: "CSM",
+      label: "Adoption + Renewal",
+      owner: isCustomer ? "Rachel Kim" : "—",
+      initials: isCustomer ? "RK" : "—",
+      status: currentPhase === "CSM" ? "active" : !isCustomer ? "later" : currentPhase === "AM" ? "next" : "active",
+      detail: !isCustomer ? "Engaged post-onboarding"
+        : currentPhase === "CSM" ? `Renewal in ${account.renewalDays}d · ${h >= 75 ? "on track" : "at risk"}`
+        : `Adoption ${h >= 75 ? "healthy" : "watch"} · last QBR ${account.lastQbrDays}d ago`,
+    },
+  ];
+
+  const STATUS_META_PHASE: Record<Phase["status"], { dot: string; bg: string; ink: string; ring: string }> = {
+    done:   { dot: "var(--pos)",         bg: "var(--pos-soft)",    ink: "var(--pos)",         ring: "var(--pos)20" },
+    active: { dot: "var(--accent)",      bg: "var(--accent-soft)", ink: "var(--accent-deep)", ring: "var(--accent)25" },
+    next:   { dot: "var(--warn)",        bg: "var(--warn-soft)",   ink: "var(--warn)",        ring: "var(--warn)15" },
+    later:  { dot: "var(--muted-2)",     bg: "var(--bg-deep)",     ink: "var(--muted)",       ring: "var(--line)" },
+  };
+
+  return (
+    <div className="card p-4">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md grid place-items-center"
+            style={{ background: "linear-gradient(135deg, var(--accent) 0%, #7C3AED 100%)" }}>
+            <Handshake size={11} strokeWidth={2.2} className="text-white" />
+          </div>
+          <span className="text-[13px] font-semibold text-ink">Lifecycle baton</span>
+          <span className="text-[10.5px] text-muted">Who owns this account at each phase</span>
+        </div>
+        <button onClick={() => toast({ tone: "info", title: "Handoff triggered", body: "Notes, intel, and signals will be packaged and sent to the next owner." })}
+          className="text-[11px] font-semibold px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-colors"
+          style={{ background: "var(--ink)", color: "white" }}>
+          <ArrowRight size={11} strokeWidth={2.4} /> Trigger handoff
+        </button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        {phases.map((p, i) => {
+          const meta = STATUS_META_PHASE[p.status];
+          return (
+            <div key={p.role} className="relative">
+              {/* Connector line to next phase */}
+              {i < phases.length - 1 && (
+                <div className="absolute top-1/2 -right-1 w-2 h-[2px] rounded-full"
+                  style={{ background: "var(--line)", zIndex: 0 }} />
+              )}
+              <div className="relative rounded-xl p-3"
+                style={{
+                  background: meta.bg,
+                  border: `1px solid color-mix(in srgb, ${meta.dot} 18%, var(--line))`,
+                  boxShadow: p.status === "active" ? `0 0 0 3px ${meta.ring}` : undefined,
+                  zIndex: 1,
+                }}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9.5px] font-bold tnum" style={{ color: meta.ink, opacity: 0.6 }}>
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: meta.ink }}>
+                      {p.role}
+                    </span>
+                  </div>
+                  <span className="text-[9.5px] font-semibold uppercase tracking-[0.12em]" style={{ color: meta.ink, opacity: 0.7 }}>
+                    {p.status === "done" ? "✓ Done" : p.status === "active" ? "● Active" : p.status === "next" ? "○ Next" : "—"}
+                  </span>
+                </div>
+                <div className="text-[12.5px] font-semibold text-ink mb-1.5">{p.label}</div>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-5 h-5 rounded-full grid place-items-center text-[8px] font-bold text-white shrink-0"
+                    style={{ background: meta.dot }}>
+                    {p.initials}
+                  </div>
+                  <span className="text-[11px] font-medium text-ink-2 truncate">{p.owner}</span>
+                </div>
+                <div className="text-[10.5px] text-muted leading-snug">{p.detail}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------
 // JOURNEY PANEL — horizontal timeline + card grid
 // Shows all touchpoints in one view with a timeline strip and detail cards.
 // -------------------------------------------------------------------------
 function JourneyPanel({ account }: { account: AccountDetail }) {
+  const { user: __journeyUser } = useUser();
+  const userFullName = __journeyUser.name;
   const isCustomer = account.status === "Customer";
   const h = account.healthScore;
 
@@ -2340,16 +2478,16 @@ function JourneyPanel({ account }: { account: AccountDetail }) {
 
   const touchpoints: Touchpoint[] = [
     { id: "j1",  type: "milestone",  phase: "Pre-sale", title: "Account created",       description: `${account.name} added to the platform as a ${account.status.toLowerCase()}.`,  date: "Jan 2024", isoDate: "2024-01-08",  tone: "accent" },
-    { id: "j2",  type: "call",       phase: "Pre-sale", title: "Discovery call",        description: "Initial needs assessment — mapped 3 core use cases and identified champion.",   date: "Jan 2024", isoDate: "2024-01-22",  actor: "Walid Qayoumi", tone: "pos" },
-    { id: "j3",  type: "email",      phase: "Pre-sale", title: "Proposal sent",         description: "Sent commercial proposal covering Sales Cloud + CS Cloud bundle.",              date: "Feb 2024", isoDate: "2024-02-14",  actor: "Walid Qayoumi", tone: "info" },
+    { id: "j2",  type: "call",       phase: "Pre-sale", title: "Discovery call",        description: "Initial needs assessment — mapped 3 core use cases and identified champion.",   date: "Jan 2024", isoDate: "2024-01-22",  actor: userFullName, tone: "pos" },
+    { id: "j3",  type: "email",      phase: "Pre-sale", title: "Proposal sent",         description: "Sent commercial proposal covering Sales Cloud + CS Cloud bundle.",              date: "Feb 2024", isoDate: "2024-02-14",  actor: userFullName, tone: "info" },
     { id: "j4",  type: "deal",       phase: "Pre-sale", title: "Deal closed — Won",     description: `Signed ${account.arr ? fmtMoney(account.arr) : "—"} annual contract. Champion: ${account.stakeholders[0]?.name ?? "TBD"}.`, date: "Mar 2024", isoDate: "2024-03-05", tone: "pos" },
     { id: "j5",  type: "onboarding", phase: "Onboarding", title: "Onboarding kicked off", description: "SSO configured, field mapping complete, sandbox provisioned. 3 training sessions scheduled.", date: "Mar 2024", isoDate: "2024-03-18", actor: "Rachel Kim", tone: "accent" },
     { id: "j6",  type: "milestone",  phase: "Onboarding", title: "First value milestone", description: "Team reached 80% feature breadth within 45 days. Activation confirmed.",       date: "May 2024", isoDate: "2024-05-02",  tone: "pos" },
-    { id: "j7",  type: "meeting",    phase: "Adoption",   title: "Q1 QBR",                description: "Reviewed adoption metrics, ROI from first quarter. Customer requested cross-BU references.", date: "Jun 2024", isoDate: "2024-06-12", actor: "Walid Qayoumi", tone: "info" },
+    { id: "j7",  type: "meeting",    phase: "Adoption",   title: "Q1 QBR",                description: "Reviewed adoption metrics, ROI from first quarter. Customer requested cross-BU references.", date: "Jun 2024", isoDate: "2024-06-12", actor: userFullName, tone: "info" },
     { id: "j8",  type: "signal",     phase: "Adoption",   title: h >= 75 ? "Expansion signal detected" : "Usage decline detected", description: h >= 75 ? "Networking team expressed interest in platform expansion. Budget confirmed by VP." : "WAU/MAU dropped below 0.5. Two key users went dormant.", date: "Aug 2024", isoDate: "2024-08-19", tone: h >= 75 ? "accent" : "warn" },
     { id: "j9",  type: "ticket",     phase: "Adoption",   title: "P1 — Webhook retry SLA", description: "Events lost during failover window. Escalated to engineering. Resolved in 48h.", date: "Sep 2024", isoDate: "2024-09-10", tone: "warn" },
-    { id: "j10", type: "meeting",    phase: "Growth",     title: "Q2 QBR",                description: "Presented ROI: 32% efficiency gain. Aligned on H2 success plan with 3 initiatives.", date: "Oct 2024", isoDate: "2024-10-08", actor: "Walid Qayoumi", tone: "pos" },
-    { id: "j11", type: "call",       phase: "Growth",     title: h >= 75 ? "Expansion alignment" : "Re-engagement call", description: h >= 75 ? "Confirmed Q3 expansion budget. Finance Ops meeting set for next week." : "Champion responded after 14-day gap. Renewal still on track.", date: "Nov 2024", isoDate: "2024-11-15", actor: "Walid Qayoumi", tone: h >= 75 ? "pos" : "warn" },
+    { id: "j10", type: "meeting",    phase: "Growth",     title: "Q2 QBR",                description: "Presented ROI: 32% efficiency gain. Aligned on H2 success plan with 3 initiatives.", date: "Oct 2024", isoDate: "2024-10-08", actor: userFullName, tone: "pos" },
+    { id: "j11", type: "call",       phase: "Growth",     title: h >= 75 ? "Expansion alignment" : "Re-engagement call", description: h >= 75 ? "Confirmed Q3 expansion budget. Finance Ops meeting set for next week." : "Champion responded after 14-day gap. Renewal still on track.", date: "Nov 2024", isoDate: "2024-11-15", actor: userFullName, tone: h >= 75 ? "pos" : "warn" },
     { id: "j12", type: isCustomer ? "deal" : "signal", phase: "Renewal", title: isCustomer ? `Renewal — ${account.renewalDays > 0 ? `${account.renewalDays}d out` : "Due"}` : "Prospect evaluation ongoing", description: isCustomer ? `Annual renewal for ${account.arr ? fmtMoney(account.arr) : "—"}. ${h >= 75 ? "On track — champion aligned." : "At risk — procurement shifting to legal."}` : "Multiple stakeholders engaged. Next step: technical deep-dive.", date: "May 2026", isoDate: "2026-05-04", tone: h >= 75 ? "pos" : "warn" },
   ];
 
@@ -2899,6 +3037,7 @@ const ACCOUNT_EVENTS: ActivityEvent[] = [
 ];
 
 function ActivityPanel({ account, slug }: { account: AccountDetail; slug: string }) {
+  const { user } = useUser();
   const [filter, setFilter] = useState<ActivityEvent["type"] | "all" | "signal-ai" | "comments">("all");
   const [localComments, setLocalComments] = useState<ActivityCommentType[]>(activityComments[slug] ?? []);
 
@@ -2919,7 +3058,7 @@ function ActivityPanel({ account, slug }: { account: AccountDetail; slug: string
 
   const handleAddComment = (text: string, mentions: string[]) => {
     const c: ActivityCommentType = {
-      id: `ac-${Date.now()}`, accountSlug: slug, author: "Walid Qayoumi", authorInitials: "WQ",
+      id: `ac-${Date.now()}`, accountSlug: slug, author: user.name, authorInitials: user.initials,
       text, at: new Date().toISOString(), mentions,
     };
     setLocalComments((prev) => [c, ...prev]);
@@ -3489,13 +3628,14 @@ function RefreshCwIcon() {
 function HandoffEditor({ handoff, accountName, onClose, onSave, onClear }: {
   handoff: HandoffData; accountName: string; onClose: () => void; onSave: (d: HandoffData) => void; onClear: () => void;
 }) {
+  const { user: __heUser } = useUser();
   const [draft, setDraft] = useState<HandoffData>(handoff);
   const [comment, setComment] = useState("");
   const setField = (k: keyof HandoffData["fields"], v: string) => setDraft((d) => ({ ...d, fields: { ...d.fields, [k]: v } }));
   const setStatus = (s: HandoffStatus) => setDraft((d) => ({ ...d, status: s }));
   const addComment = () => {
     if (!comment.trim()) return;
-    setDraft((d) => ({ ...d, comments: [...d.comments, { id: `c_${Date.now()}`, by: "Walid", at: new Date().toISOString().slice(0, 10), text: comment.trim() }] }));
+    setDraft((d) => ({ ...d, comments: [...d.comments, { id: `c_${Date.now()}`, by: __heUser.firstName, at: new Date().toISOString().slice(0, 10), text: comment.trim() }] }));
     setComment("");
   };
 
@@ -4381,4 +4521,248 @@ function GrowthPlanPanel({ account, slug }: { account: AccountDetail; slug: stri
       </div>
     </div>
   );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// NOTES PANEL — per-account scratchpad with quick templates
+// ═══════════════════════════════════════════════════════════════════════
+
+type AccountNote = {
+  id: string;
+  text: string;
+  pinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+  template?: string;
+};
+
+const NOTE_TEMPLATES = [
+  { key: "call",     label: "Call notes",        prefix: "📞 Call · {{date}} · " },
+  { key: "qbr",      label: "QBR prep",          prefix: "📋 QBR Prep · {{date}}\n• Outcomes since last QBR:\n• What changed:\n• Asks for next quarter:\n" },
+  { key: "champ",    label: "Champion intel",    prefix: "👑 Champion · " },
+  { key: "blocker",  label: "Active blocker",    prefix: "🚧 Blocker · " },
+  { key: "exec",     label: "Exec summary",      prefix: "📈 Exec summary · " },
+];
+
+function NotesPanel({ slug, accountName }: { slug: string; accountName: string }) {
+  const storageKey = `alphard:notes:${slug}`;
+  const { user } = useUser();
+  const toast = useToast();
+  const [notes, setNotes] = useState<AccountNote[]>([]);
+  const [draft, setDraft] = useState("");
+  const [filter, setFilter] = useState<"all" | "pinned">("all");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) setNotes(JSON.parse(raw));
+      else {
+        setNotes([
+          {
+            id: "seed-1",
+            text: `Maya Chen call · 12 May\n• Confirmed Q3 expansion budget for Networking + Security\n• Wants ROI deck before next QBR — bring Databricks comparable\n• Jason Park wants security review before procurement signs\n• Action: send revised proposal Friday`,
+            pinned: true,
+            createdAt: new Date(Date.now() - 86400_000 * 4).toISOString(),
+            updatedAt: new Date(Date.now() - 86400_000 * 4).toISOString(),
+            template: "call",
+          },
+        ]);
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey]);
+
+  const persist = (list: AccountNote[]) => {
+    setNotes(list);
+    try { localStorage.setItem(storageKey, JSON.stringify(list)); } catch {}
+  };
+
+  const insertTemplate = (key: string) => {
+    const t = NOTE_TEMPLATES.find((x) => x.key === key);
+    if (!t) return;
+    const date = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const seed = t.prefix.replace("{{date}}", date);
+    setDraft(seed);
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (el) {
+        el.focus();
+        el.setSelectionRange(seed.length, seed.length);
+      }
+    });
+  };
+
+  const post = () => {
+    const text = draft.trim();
+    if (!text) return;
+    const now = new Date().toISOString();
+    const note: AccountNote = {
+      id: `note-${Date.now()}`,
+      text,
+      pinned: false,
+      createdAt: now,
+      updatedAt: now,
+    };
+    persist([note, ...notes]);
+    setDraft("");
+    toast({ tone: "success", title: "Note saved", body: `Pinned to ${accountName}'s scratchpad.` });
+  };
+
+  const remove = (id: string) => persist(notes.filter((n) => n.id !== id));
+  const togglePin = (id: string) => persist(notes.map((n) => n.id === id ? { ...n, pinned: !n.pinned } : n));
+  const startEdit = (n: AccountNote) => { setEditingId(n.id); setEditingText(n.text); };
+  const saveEdit = () => {
+    if (!editingId) return;
+    persist(notes.map((n) => n.id === editingId ? { ...n, text: editingText, updatedAt: new Date().toISOString() } : n));
+    setEditingId(null);
+    setEditingText("");
+  };
+
+  const filtered = filter === "pinned" ? notes.filter(n => n.pinned) : notes;
+  const sorted = [...filtered].sort((a, b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  });
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <FileText size={14} strokeWidth={2} style={{ color: "var(--accent-deep)" }} />
+            <span className="text-[14px] font-semibold text-ink">Scratchpad</span>
+            <span className="text-[10px] font-mono tnum text-muted-2 bg-bg-deep px-1.5 py-0.5 rounded">{notes.length}</span>
+          </div>
+          <div className="text-[12px] text-muted">
+            Forgiving free-form notes for {accountName}. Saved to your browser — never leaves.
+          </div>
+        </div>
+        <div className="flex items-center gap-1 p-1 rounded-lg" style={{ background: "var(--bg-deep)" }}>
+          <button onClick={() => setFilter("all")}
+            className={`px-3 py-1.5 rounded text-[11.5px] font-medium ${filter === "all" ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink"}`}>
+            All {notes.length}
+          </button>
+          <button onClick={() => setFilter("pinned")}
+            className={`px-3 py-1.5 rounded text-[11.5px] font-medium ${filter === "pinned" ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink"}`}>
+            Pinned {notes.filter(n => n.pinned).length}
+          </button>
+        </div>
+      </div>
+
+      <div className="card p-4">
+        <textarea
+          ref={textareaRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder={`Type a note about ${accountName}… (Cmd+Enter to save)`}
+          className="w-full text-[13px] text-ink bg-transparent outline-none resize-y min-h-[110px] leading-relaxed font-mono placeholder:text-muted-2"
+          onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); post(); } }}
+        />
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-line gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {NOTE_TEMPLATES.map((t) => (
+              <button key={t.key} onClick={() => insertTemplate(t.key)}
+                className="text-[10.5px] font-medium px-2 py-1 rounded-md inline-flex items-center gap-1 hover:bg-bg-deep transition-colors"
+                style={{ border: "1px solid var(--line)", color: "var(--ink-2)" }}>
+                <Plus size={9} strokeWidth={2.4} />
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10.5px] text-muted-2">⌘ + Enter to save</span>
+            <button onClick={post} disabled={!draft.trim()}
+              className="text-[12px] font-semibold px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors"
+              style={{ background: "var(--accent-deep)" }}>
+              <Plus size={11} strokeWidth={2.4} /> Save note
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {sorted.length === 0 ? (
+        <div className="card p-12 text-center">
+          <FileText size={20} strokeWidth={1.5} className="mx-auto text-muted-2 mb-3" />
+          <div className="text-[13px] font-semibold text-ink">No notes yet</div>
+          <div className="text-[11.5px] text-muted mt-1">
+            Use the composer above or pick a template — call notes, QBR prep, champion intel.
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {sorted.map((n) => {
+            const isEditing = editingId === n.id;
+            return (
+              <div key={n.id}
+                className="card p-4 transition-colors"
+                style={{
+                  borderColor: n.pinned ? "color-mix(in srgb, var(--accent) 25%, var(--line))" : "var(--line)",
+                  background: n.pinned ? "color-mix(in srgb, var(--accent) 3%, var(--surface))" : "var(--surface)",
+                }}>
+                <div className="flex items-center justify-between mb-2.5 gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 text-[10.5px] text-muted">
+                    <div className="w-5 h-5 rounded-full grid place-items-center text-[8px] font-bold text-white"
+                      style={{ background: "var(--accent-deep)" }}>{user.initials}</div>
+                    <span className="font-semibold text-ink-2">{user.firstName}</span>
+                    <span className="text-muted-2">·</span>
+                    <span>{relativeNote(n.createdAt)}</span>
+                    {n.updatedAt !== n.createdAt && (<><span className="text-muted-2">·</span><span className="italic">edited</span></>)}
+                    {n.pinned && (
+                      <span className="ml-1 text-[10px] font-semibold px-1.5 py-0.5 rounded uppercase tracking-[0.12em]"
+                        style={{ background: "var(--accent-soft)", color: "var(--accent-deep)" }}>Pinned</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => togglePin(n.id)}
+                      className="text-[10.5px] font-medium px-2 py-1 rounded hover:bg-bg-deep text-muted hover:text-ink transition-colors">
+                      {n.pinned ? "Unpin" : "Pin"}
+                    </button>
+                    {!isEditing && (
+                      <button onClick={() => startEdit(n)}
+                        className="text-[10.5px] font-medium px-2 py-1 rounded hover:bg-bg-deep text-muted hover:text-ink transition-colors">Edit</button>
+                    )}
+                    <button onClick={() => remove(n.id)}
+                      className="text-[10.5px] font-medium px-2 py-1 rounded hover:bg-bg-deep text-muted hover:text-neg transition-colors">Delete</button>
+                  </div>
+                </div>
+                {isEditing ? (
+                  <>
+                    <textarea
+                      value={editingText}
+                      onChange={(e) => setEditingText(e.target.value)}
+                      className="w-full text-[12.5px] text-ink bg-transparent outline-none resize-y min-h-[100px] leading-relaxed font-mono"
+                    />
+                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-line">
+                      <button onClick={saveEdit}
+                        className="text-[11px] font-semibold px-3 py-1.5 rounded text-white"
+                        style={{ background: "var(--accent-deep)" }}>Save</button>
+                      <button onClick={() => { setEditingId(null); setEditingText(""); }}
+                        className="text-[11px] font-medium px-3 py-1.5 rounded text-muted hover:text-ink">Cancel</button>
+                    </div>
+                  </>
+                ) : (
+                  <pre className="text-[12.5px] text-ink-2 leading-relaxed whitespace-pre-wrap font-mono">{n.text}</pre>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function relativeNote(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(ms / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}d ago`;
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }

@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Inter } from "next/font/google";
 import {
   ArrowRight, ShieldCheck, Sparkles, TrendingUp, Users, LayoutGrid,
   LineChart, Zap, Eye, Crown, ChevronRight, Check, Star, Flame, Activity,
-  Mail, BookOpen,
+  Mail, BookOpen, Plus,
 } from "lucide-react";
 import { MarketingNav } from "@/components/MarketingNav";
 import { AlphardLogo } from "@/components/AlphardLogo";
@@ -521,6 +521,108 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* ───────────────────── FOR THE CRO ───────────────────── */}
+        <section className="py-20 md:py-28">
+          <Reveal>
+            <div className="rounded-3xl px-8 py-14 md:px-16 md:py-20 max-w-[1100px] mx-auto"
+              style={{
+                background: "linear-gradient(135deg, #0F1218 0%, #1a1f2a 100%)",
+                color: "white",
+                border: "1px solid rgba(255,255,255,0.06)",
+                boxShadow: "0 30px 90px -30px rgba(15,18,24,0.30)",
+              }}>
+              <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+                <div>
+                  <FeatureLabelDark icon={Crown} text="FOR THE CRO" />
+                  <h2 className="text-[30px] md:text-[40px] font-semibold mb-5 leading-[1.05]" style={{ letterSpacing: "-0.025em" }}>
+                    When an AM leaves, the relationship doesn't.
+                  </h2>
+                  <p className="text-[15.5px] leading-relaxed mb-7" style={{ color: "rgba(255,255,255,0.65)" }}>
+                    Today, every AM walks out the door with their Excel, their Slack DMs, their head full of context. Alphard makes the institutional knowledge — champion intel, decision-maker maps, comparable wins, pricing memory — a property of the account, not the person.
+                  </p>
+                  <ul className="space-y-3 mb-2">
+                    {[
+                      "Champion + stakeholder maps preserved across owner changes",
+                      "Every call recap, email thread, and signal indexed against the account",
+                      "Multi-product books: ARR by product, expansion playbook per product",
+                      "Cross-channel handoff: AE → AM → CSM with packaged context",
+                    ].map((t) => (
+                      <li key={t} className="flex items-start gap-3 text-[14.5px]" style={{ color: "rgba(255,255,255,0.85)" }}>
+                        <Check size={16} strokeWidth={2.4} style={{ color: "#A4C2FA" }} className="mt-0.5 shrink-0" />
+                        {t}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Visual: knowledge persisting across AM changes */}
+                <div className="relative">
+                  <div aria-hidden className="absolute -inset-12 rounded-[40px] blur-3xl opacity-30 pointer-events-none"
+                    style={{ background: "radial-gradient(ellipse at center, rgba(38,109,240,0.5), transparent 70%)" }} />
+                  <div className="relative rounded-2xl p-6 space-y-3"
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.10)",
+                      backdropFilter: "blur(20px)",
+                    }}>
+                    <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em]" style={{ color: "rgba(255,255,255,0.50)" }}>
+                      Cloudflare · institutional memory
+                    </div>
+                    {[
+                      { label: "Champion intel", value: "Maya Chen — VP Eng promoted Apr 26", color: "#A4C2FA" },
+                      { label: "Decision process", value: "Procurement: 3 quotes >$50K · Sec review required", color: "#A4C2FA" },
+                      { label: "Comparable wins", value: "Databricks $135K · HashiCorp $110K · Elastic $95K", color: "#0FC27B" },
+                      { label: "Pricing memory", value: "Last expansion at 18% discount, multi-year preferred", color: "#FEBC2E" },
+                      { label: "Owner history", value: "Walid (current) ← Brad Allen (acquired 2024)", color: "rgba(255,255,255,0.55)" },
+                    ].map((row) => (
+                      <div key={row.label} className="rounded-lg px-3 py-2.5"
+                        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                        <div className="text-[10px] uppercase tracking-[0.12em] font-semibold mb-0.5"
+                          style={{ color: "rgba(255,255,255,0.45)" }}>{row.label}</div>
+                        <div className="text-[12.5px] font-medium" style={{ color: row.color }}>{row.value}</div>
+                      </div>
+                    ))}
+                    <div className="text-[10.5px] text-center pt-2" style={{ color: "rgba(255,255,255,0.40)" }}>
+                      ↑ Stays with the account when the AM rotates
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Reveal>
+        </section>
+
+        {/* ───────────────────── MULTI-PRODUCT ───────────────────── */}
+        <section className="py-20 md:py-28">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            <Reveal>
+              <FeatureLabel icon={LayoutGrid} text="MULTI-PRODUCT BOOKS" />
+              <h2 className="text-[34px] md:text-[44px] font-semibold mb-5 leading-[1.05]" style={{ letterSpacing: "-0.03em" }}>
+                Sell different products into different buyers — at the same customer.
+              </h2>
+              <p className="text-[15.5px] leading-relaxed mb-7" style={{ color: "rgba(15,18,24,0.62)" }}>
+                Modern B2B SaaS sells Product A to RevOps, Product B to Sales, Product C to Engineering — same logo, different buyers, different motions. Alphard handles each product as its own expansion lane, with its own champion, its own comparable wins, its own playbook.
+              </p>
+              <ul className="space-y-3 mb-2">
+                {[
+                  "Per-product expansion score, pipeline, and active opportunities",
+                  "White-space matrix shows which products live where in the org",
+                  "Cross-sell recommendations sourced from comparable accounts",
+                  "Each product has its own champion map — not lumped into one account view",
+                ].map((t) => (
+                  <li key={t} className="flex items-start gap-3 text-[14.5px]" style={{ color: "rgba(15,18,24,0.78)" }}>
+                    <Check size={16} strokeWidth={2.4} style={{ color: ACCENT }} className="mt-0.5 shrink-0" />
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            </Reveal>
+            <Reveal delay={120}>
+              <MultiProductMatrix />
+            </Reveal>
+          </div>
+        </section>
+
         {/* ───────────────────── WHY ALPHARD ───────────────────── */}
         <section className="py-20 md:py-28">
           <Reveal>
@@ -671,6 +773,132 @@ function FeatureLabel({
         <Icon size={11} strokeWidth={2} style={{ color: ACCENT }} />
         {text}
       </span>
+    </div>
+  );
+}
+
+// Dark variant for the CRO-section label (used on a dark card)
+function FeatureLabelDark({
+  icon: Icon, text,
+}: {
+  icon: React.ComponentType<{ size?: number; strokeWidth?: number; style?: React.CSSProperties }>;
+  text: string;
+}) {
+  return (
+    <div className="inline-flex items-center gap-2 mb-5">
+      <span
+        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[10.5px] font-semibold tracking-[0.14em] uppercase"
+        style={{
+          background: "rgba(38,109,240,0.12)",
+          border: "1px solid rgba(164,194,250,0.30)",
+          color: "#A4C2FA",
+        }}
+      >
+        <Icon size={11} strokeWidth={2} style={{ color: "#A4C2FA" }} />
+        {text}
+      </span>
+    </div>
+  );
+}
+
+// Multi-product white-space matrix visualization
+function MultiProductMatrix() {
+  const products = [
+    { name: "Revenue Intel",  arr: 120, color: ACCENT,    buyer: "VP Sales" },
+    { name: "AI Copilot",     arr: 95,  color: "#7C3AED", buyer: "Sales Mgr" },
+    { name: "Insights",       arr: 72,  color: "#0FC27B", buyer: "RevOps" },
+    { name: "Data Hub",       arr: 65,  color: "#F5B900", buyer: "Eng Lead" },
+  ];
+  const accounts = [
+    { name: "Cloudflare", presence: [true,  true,  false, false] },
+    { name: "Tableau",    presence: [true,  true,  true,  false] },
+    { name: "Snowflake",  presence: [false, false, true,  false] },
+    { name: "Akamai",     presence: [false, false, false, true]  },
+    { name: "GitLab",     presence: [false, true,  false, false] },
+  ];
+  return (
+    <div className="relative">
+      <div aria-hidden className="absolute -inset-8 rounded-[40px] blur-3xl pointer-events-none"
+        style={{ background: "radial-gradient(ellipse at center, rgba(38,109,240,0.10), transparent 70%)" }} />
+      <div className="relative rounded-[14px] overflow-hidden bg-white"
+        style={{
+          border: "1px solid rgba(15,18,24,0.10)",
+          boxShadow: "0 1px 2px rgba(15,18,24,0.04), 0 22px 70px -16px rgba(15,18,24,0.18)",
+        }}>
+        {/* Header row */}
+        <div className="px-5 py-3.5 flex items-center justify-between"
+          style={{ borderBottom: "1px solid rgba(15,18,24,0.06)" }}>
+          <div className="flex items-center gap-2">
+            <LayoutGrid size={13} strokeWidth={2} style={{ color: ACCENT }} />
+            <span className="text-[12.5px] font-semibold" style={{ color: "#0F1218" }}>White-space matrix</span>
+          </div>
+          <span className="text-[10.5px] font-mono" style={{ color: "rgba(15,18,24,0.45)" }}>
+            5 accounts · 4 products
+          </span>
+        </div>
+
+        {/* Matrix */}
+        <div className="p-4">
+          <div className="grid" style={{ gridTemplateColumns: `140px repeat(${products.length}, 1fr)`, gap: 8 }}>
+            {/* Top row: product headers */}
+            <div></div>
+            {products.map((p) => (
+              <div key={p.name} className="text-center">
+                <div className="text-[10.5px] font-semibold mb-0.5" style={{ color: p.color }}>{p.name}</div>
+                <div className="text-[9px] uppercase tracking-[0.10em]" style={{ color: "rgba(15,18,24,0.45)" }}>
+                  {p.buyer}
+                </div>
+              </div>
+            ))}
+
+            {/* Account rows */}
+            {accounts.map((acc) => (
+              <React.Fragment key={acc.name}>
+                <div className="flex items-center text-[12px] font-medium" style={{ color: "#0F1218" }}>
+                  {acc.name}
+                </div>
+                {acc.presence.map((has, i) => {
+                  const p = products[i];
+                  return (
+                    <div key={i} className="flex items-center justify-center">
+                      <div className="w-9 h-9 rounded-lg grid place-items-center transition-all"
+                        style={{
+                          background: has ? p.color : "rgba(15,18,24,0.04)",
+                          border: has ? "none" : "1px dashed rgba(15,18,24,0.15)",
+                          boxShadow: has ? `0 4px 12px -4px ${p.color}80` : "none",
+                        }}>
+                        {has ? (
+                          <Check size={13} strokeWidth={2.4} className="text-white" />
+                        ) : (
+                          <Plus size={11} strokeWidth={2.2} style={{ color: "rgba(15,18,24,0.30)" }} />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </React.Fragment>
+            ))}
+          </div>
+
+          {/* Legend */}
+          <div className="mt-4 pt-3 flex items-center justify-between text-[10px]"
+            style={{ borderTop: "1px solid rgba(15,18,24,0.06)" }}>
+            <div className="flex items-center gap-3" style={{ color: "rgba(15,18,24,0.55)" }}>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded" style={{ background: ACCENT }} />
+                Adopted
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded border border-dashed" style={{ borderColor: "rgba(15,18,24,0.30)" }} />
+                White space
+              </span>
+            </div>
+            <span style={{ color: ACCENT, fontWeight: 600 }}>
+              13 expansion plays open
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
