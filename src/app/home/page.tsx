@@ -14,6 +14,7 @@ import { MyNumber } from "@/components/MyNumber";
 import { Logo } from "@/components/Logo";
 import { DataFreshness } from "@/components/SourceChip";
 import { usePersona, PERSONA_LABEL } from "@/components/PersonaContext";
+import { useUser } from "@/components/UserContext";
 import {
   pinnedAccounts, accountDetails, fmtMoney, outcomes, accounts, myNumber,
   slugify, championChanges, csmWorkloads, accountPlans,
@@ -130,6 +131,7 @@ const ACTIVITY: ActivityItem[] = [
 // ─────────────────────────────────────────────────────────────────────
 function AMHome() {
   const greeting = greetingFor();
+  const { user } = useUser();
   const ranked = useMemo(
     () => [...expansionOpportunities].sort((a, b) => b.score - a.score).slice(0, 6),
     []
@@ -154,7 +156,7 @@ function AMHome() {
         <div className="flex items-baseline justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-[24px] font-semibold text-ink" style={{ letterSpacing: "-0.022em" }}>
-              {greeting}, Walid
+              {greeting}, {user.firstName}
             </h1>
             <div className="flex items-center gap-2 text-[12px] text-muted mt-1.5">
               <span>{new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
@@ -467,6 +469,7 @@ function ActivityRow({ item }: { item: ActivityItem }) {
 // ════════════════════════════════════════════════════════════════════════
 function DefaultHome() {
   const { persona } = usePersona();
+  const { user } = useUser();
   const greeting = greetingFor();
   const sources = persona === "ae"
     ? (["Salesforce", "Gong", "Google Workspace", "Alphy AI"] as const)
@@ -481,7 +484,7 @@ function DefaultHome() {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <h1 className="text-[22px] font-semibold text-ink" style={{ letterSpacing: "-0.02em" }}>
-              {greeting}, Walid
+              {greeting}, {user.firstName}
             </h1>
             <span className="persona-chip"><span className="dot" />{PERSONA_LABEL[persona]}</span>
           </div>

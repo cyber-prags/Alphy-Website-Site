@@ -16,6 +16,7 @@ import { ToastProvider, useToast } from "./Toast";
 import { Popover, MenuItem, MenuLabel, MenuSeparator } from "./Popover";
 import { CommandK } from "./CommandK";
 import { usePersona, PERSONA_LABEL } from "./PersonaContext";
+import { useUser } from "./UserContext";
 import { OnboardingTour } from "./OnboardingTour";
 import { ClosureBadge, useClosure } from "./ClosureContext";
 import { Logo } from "./Logo";
@@ -494,20 +495,21 @@ function ProfileMenu({ collapsed }: { collapsed?: boolean }) {
   const toast = useToast();
   const router = useRouter();
   const { persona, setPersona } = usePersona();
-  const subtitle = `${PERSONA_LABEL[persona]} · Alphard`;
+  const { user } = useUser();
+  const subtitle = `${PERSONA_LABEL[persona]} · ${user.company}`;
   return (
     <Popover
       align="left" width={240}
       trigger={(_, toggle) => collapsed ? (
-        <button onClick={toggle} title={`Walid Qayoumi · ${PERSONA_LABEL[persona]}`}
+        <button onClick={toggle} title={`${user.name} · ${PERSONA_LABEL[persona]}`}
           className="w-9 h-9 mx-auto rounded-full grid place-items-center text-[11px] font-semibold ring-2 ring-line hover:ring-line-strong transition-all"
-          style={{ background: "var(--accent)", color: "var(--accent-ink)" }}>WQ</button>
+          style={{ background: "var(--accent)", color: "var(--accent-ink)" }}>{user.initials}</button>
       ) : (
         <button onClick={toggle} className="flex items-center h-11 px-2 gap-2.5 rounded-lg hover:bg-surface-2 w-full transition-colors">
           <div className="w-8 h-8 rounded-full grid place-items-center text-[11px] font-semibold shrink-0"
-            style={{ background: "var(--accent)", color: "var(--accent-ink)" }}>WQ</div>
+            style={{ background: "var(--accent)", color: "var(--accent-ink)" }}>{user.initials}</div>
           <div className="flex-1 min-w-0 text-left">
-            <div className="text-[12.5px] font-semibold text-ink truncate leading-tight">Walid Qayoumi</div>
+            <div className="text-[12.5px] font-semibold text-ink truncate leading-tight">{user.name}</div>
             <div className="text-[10px] text-muted truncate leading-tight mt-0.5">{subtitle}</div>
           </div>
           <ChevronDown size={12} strokeWidth={1.8} className="text-muted-2 shrink-0" />
@@ -530,13 +532,13 @@ function ProfileMenu({ collapsed }: { collapsed?: boolean }) {
           </MenuItem>
           <MenuSeparator />
           <MenuLabel>Account</MenuLabel>
-          <MenuItem onClick={() => { toast({ tone: "info", title: "Profile" }); close(); }}>
+          <MenuItem onClick={() => { close(); router.push("/settings"); }}>
             <span className="inline-flex items-center gap-2"><CircleUser size={12} className="text-muted" />Profile</span>
           </MenuItem>
-          <MenuItem onClick={() => { toast({ tone: "info", title: "API keys" }); close(); }}>
+          <MenuItem onClick={() => { close(); router.push("/settings"); }}>
             <span className="inline-flex items-center gap-2"><KeyRound size={12} className="text-muted" />API keys</span>
           </MenuItem>
-          <MenuItem onClick={() => { toast({ tone: "info", title: "Send feedback" }); close(); }}>
+          <MenuItem onClick={() => { close(); window.location.href = "mailto:pragyan@alphard.global?subject=Alphard%20feedback"; }}>
             <span className="inline-flex items-center gap-2"><MessageSquare size={12} className="text-muted" />Send feedback</span>
           </MenuItem>
           <MenuSeparator />

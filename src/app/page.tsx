@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { MarketingNav } from "@/components/MarketingNav";
 import { AlphardLogo } from "@/components/AlphardLogo";
+import { AnimatedChat } from "@/components/AnimatedChat";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -128,7 +129,7 @@ export default function LandingPage() {
               }}
             >
               <Flame size={11} strokeWidth={2.4} />
-              Expansion intelligence — not another CSM tool
+              The Expansion OS for Account Managers
             </span>
           </div>
 
@@ -140,19 +141,20 @@ export default function LandingPage() {
               letterSpacing: "-0.045em",
               lineHeight: 1.02,
             }}
-            className="text-[44px] md:text-[64px] lg:text-[78px] font-semibold mb-6"
+            className="text-[44px] md:text-[64px] lg:text-[80px] font-semibold mb-6"
           >
-            Pipeline for accounts{" "}
+            Run{" "}
             <span
               style={{
-                backgroundImage: `linear-gradient(135deg, ${ACCENT} 0%, #7C3AED 100%)`,
+                backgroundImage: `linear-gradient(135deg, ${ACCENT} 0%, #7C3AED 60%, #F5360F 100%)`,
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",
               }}
             >
-              you already own.
-            </span>
+              Expansion
+            </span>{" "}
+            like a pipeline.
           </h1>
 
           <p
@@ -162,9 +164,9 @@ export default function LandingPage() {
               transition: "opacity 800ms 250ms, transform 800ms 250ms",
               color: "rgba(15,18,24,0.65)",
             }}
-            className="text-[17px] md:text-[19px] max-w-[680px] mx-auto mb-9 leading-relaxed"
+            className="text-[17px] md:text-[19px] max-w-[700px] mx-auto mb-9 leading-relaxed"
           >
-            Alphard turns every signal in your book — usage, champion moves, ticket velocity, renewal proximity — into one ranked daily list of expansion plays. Built for Account Managers who refuse to lose deals to silence.
+            Every signal in your book — usage, champion moves, ticket velocity, renewal proximity — fused into one ranked daily list of expansion plays. Built for Account Managers who treat their book like pipeline, not paperwork.
           </p>
 
           <div
@@ -176,7 +178,7 @@ export default function LandingPage() {
             className="flex flex-wrap items-center justify-center gap-3 mb-3"
           >
             <button
-              onClick={() => router.push("/home")}
+              onClick={() => router.push("/signin")}
               className="group inline-flex items-center gap-2 bg-[#0F1218] text-white px-7 py-3.5 rounded-xl text-[14.5px] font-semibold hover:bg-black transition-all"
               style={{ boxShadow: "0 10px 30px -10px rgba(15,18,24,0.30)" }}
             >
@@ -212,6 +214,41 @@ export default function LandingPage() {
               <ProductFrame src="/screenshots/home-am.png" alt="Alphard AM home — today's expansion plays" />
             </div>
           </Reveal>
+        </section>
+
+        {/* ───────────────────── INTEGRATIONS ───────────────────── */}
+        <IntegrationsStrip />
+
+        {/* ───────────────────── ANIMATED CHAT FEATURE ───────────────────── */}
+        <section className="py-20 md:py-28">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            <Reveal>
+              <FeatureLabel icon={Sparkles} text="REVENUE AGENT" />
+              <h2 className="text-[34px] md:text-[44px] font-semibold mb-5 leading-[1.05]" style={{ letterSpacing: "-0.03em" }}>
+                Ask anything about your book.
+                <br />
+                <span style={{ color: "rgba(15,18,24,0.55)" }}>Get the answer with the receipts.</span>
+              </h2>
+              <p className="text-[15.5px] leading-relaxed mb-7" style={{ color: "rgba(15,18,24,0.62)" }}>
+                The Revenue Agent reads your CRM, calls, emails, calendar, product usage and ticket data — then answers in plain English with structured next steps. Every claim cites the underlying signal.
+              </p>
+              <ul className="space-y-3 mb-2">
+                {[
+                  "Account-aware: knows champions, deals, renewals, history",
+                  "Drafts replies, briefs, and proposals you can ship in two clicks",
+                  "Cross-account queries: 'which of my Strategic accounts are heating up?'",
+                ].map((t) => (
+                  <li key={t} className="flex items-start gap-3 text-[14.5px]" style={{ color: "rgba(15,18,24,0.78)" }}>
+                    <Check size={16} strokeWidth={2.4} style={{ color: ACCENT }} className="mt-0.5 shrink-0" />
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            </Reveal>
+            <Reveal delay={120}>
+              <AnimatedChat />
+            </Reveal>
+          </div>
         </section>
 
         {/* ───────────────────── PROBLEM FRAME ───────────────────── */}
@@ -492,7 +529,7 @@ export default function LandingPage() {
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <button
-                onClick={() => router.push("/home")}
+                onClick={() => router.push("/signin")}
                 className="group inline-flex items-center gap-2 bg-[#0F1218] text-white px-8 py-4 rounded-xl text-[15px] font-semibold hover:bg-black transition-all"
                 style={{ boxShadow: "0 14px 36px -10px rgba(15,18,24,0.32)" }}
               >
@@ -558,5 +595,164 @@ function FeatureLabel({
         {text}
       </span>
     </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Integrations strip — shows the data sources Alphard plugs into
+// ──────────────────────────────────────────────────────────────────────
+const INTEGRATIONS: { name: string; group: string; logo: React.ReactNode }[] = [
+  { name: "Salesforce",  group: "CRM",          logo: <SalesforceLogo /> },
+  { name: "HubSpot",     group: "CRM",          logo: <HubSpotLogo /> },
+  { name: "Gong",        group: "Calls",        logo: <GongLogo /> },
+  { name: "Outreach",    group: "Sequences",    logo: <OutreachLogo /> },
+  { name: "Salesloft",   group: "Sequences",    logo: <SalesloftLogo /> },
+  { name: "Slack",       group: "Comms",        logo: <SlackLogo /> },
+  { name: "LinkedIn",    group: "Champions",    logo: <LinkedInLogo /> },
+  { name: "Zendesk",     group: "Support",      logo: <ZendeskLogo /> },
+  { name: "Mixpanel",    group: "Product",      logo: <MixpanelLogo /> },
+  { name: "Snowflake",   group: "Warehouse",    logo: <SnowflakeLogo /> },
+  { name: "Google",      group: "Calendar",     logo: <GoogleLogo /> },
+  { name: "Microsoft",   group: "Calendar",     logo: <MicrosoftLogo /> },
+];
+
+function IntegrationsStrip() {
+  return (
+    <section className="py-14 md:py-20">
+      <div className="text-center mb-10">
+        <p className="text-[11.5px] font-semibold uppercase tracking-[0.18em] mb-3" style={{ color: "rgba(15,18,24,0.45)" }}>
+          Plugs into the stack you already use
+        </p>
+        <h3 className="text-[22px] md:text-[26px] font-semibold" style={{ letterSpacing: "-0.02em", color: "#0F1218" }}>
+          One platform, every source of signal.
+        </h3>
+      </div>
+      <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-px rounded-2xl overflow-hidden"
+        style={{ background: "rgba(15,18,24,0.06)", border: "1px solid rgba(15,18,24,0.06)" }}>
+        {INTEGRATIONS.map((i) => (
+          <div key={i.name}
+            className="bg-white px-4 py-5 md:px-6 md:py-6 flex flex-col items-center justify-center gap-2 transition-colors hover:bg-[#FAFAFB]">
+            <div className="h-7 w-7 md:h-8 md:w-8 grid place-items-center">{i.logo}</div>
+            <div className="text-[12px] font-medium" style={{ color: "#0F1218" }}>{i.name}</div>
+            <div className="text-[9.5px] font-semibold uppercase tracking-[0.14em]" style={{ color: "rgba(15,18,24,0.40)" }}>{i.group}</div>
+          </div>
+        ))}
+      </div>
+      <p className="text-center text-[12px] mt-6" style={{ color: "rgba(15,18,24,0.50)" }}>
+        Plus your data warehouse · webhooks · Zapier · custom API
+      </p>
+    </section>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Inline brand marks — simplified geometric versions
+// ──────────────────────────────────────────────────────────────────────
+function SalesforceLogo() {
+  return (
+    <svg viewBox="0 0 32 32" className="w-full h-full" aria-hidden>
+      <path d="M13.5 6c-1.5 0-2.8.6-3.7 1.6-1-1-2.4-1.6-3.9-1.6-3 0-5.5 2.4-5.5 5.4 0 .7.1 1.4.4 2-.4.7-.6 1.5-.6 2.4 0 2.8 2.3 5.1 5.1 5.1.5 0 1-.1 1.5-.2.9 1.6 2.7 2.7 4.7 2.7 1.7 0 3.2-.7 4.2-1.9.7.4 1.4.6 2.3.6 2.7 0 4.9-2.2 4.9-4.9 0-.5-.1-1-.2-1.5 1.1-.8 1.8-2.1 1.8-3.5 0-2.5-2-4.5-4.5-4.5-.5 0-1 .1-1.5.2C16.9 7 15.3 6 13.5 6z" fill="#00A1E0"/>
+    </svg>
+  );
+}
+function HubSpotLogo() {
+  return (
+    <svg viewBox="0 0 32 32" className="w-full h-full" aria-hidden>
+      <circle cx="22" cy="22" r="5" fill="none" stroke="#FF7A59" strokeWidth="2.4"/>
+      <path d="M22 13V8a3 3 0 1 0-3 3" fill="none" stroke="#FF7A59" strokeWidth="2.4"/>
+      <circle cx="19" cy="8" r="2.2" fill="#FF7A59"/>
+    </svg>
+  );
+}
+function GongLogo() {
+  return (
+    <svg viewBox="0 0 32 32" className="w-full h-full" aria-hidden>
+      <circle cx="16" cy="16" r="11" fill="#7C3AED"/>
+      <circle cx="16" cy="16" r="5" fill="white"/>
+    </svg>
+  );
+}
+function OutreachLogo() {
+  return (
+    <svg viewBox="0 0 32 32" className="w-full h-full" aria-hidden>
+      <path d="M6 22 L16 6 L26 22 Z" fill="#5951FF"/>
+      <circle cx="16" cy="20" r="3" fill="white"/>
+    </svg>
+  );
+}
+function SalesloftLogo() {
+  return (
+    <svg viewBox="0 0 32 32" className="w-full h-full" aria-hidden>
+      <rect x="4" y="14" width="6" height="14" rx="1" fill="#5C5CFF"/>
+      <rect x="13" y="8" width="6" height="20" rx="1" fill="#5C5CFF"/>
+      <rect x="22" y="4" width="6" height="24" rx="1" fill="#5C5CFF"/>
+    </svg>
+  );
+}
+function SlackLogo() {
+  return (
+    <svg viewBox="0 0 32 32" className="w-full h-full" aria-hidden>
+      <rect x="4" y="13" width="11" height="3" rx="1.5" fill="#36C5F0"/>
+      <rect x="13" y="4" width="3" height="11" rx="1.5" fill="#2EB67D"/>
+      <rect x="17" y="16" width="11" height="3" rx="1.5" fill="#ECB22E"/>
+      <rect x="16" y="17" width="3" height="11" rx="1.5" fill="#E01E5A"/>
+    </svg>
+  );
+}
+function LinkedInLogo() {
+  return (
+    <svg viewBox="0 0 32 32" className="w-full h-full" aria-hidden>
+      <rect width="32" height="32" rx="5" fill="#0A66C2"/>
+      <path d="M9 13v10h-3V13h3zm-1.5-4.5a1.7 1.7 0 1 1 0 3.4 1.7 1.7 0 0 1 0-3.4zM11 13h3v1.5c.5-.9 1.7-1.7 3.5-1.7 3.7 0 4.5 2.4 4.5 5.5V23h-3v-4.3c0-1.5-.4-2.7-2-2.7s-2 1.3-2 2.7V23h-3V13z" fill="white"/>
+    </svg>
+  );
+}
+function ZendeskLogo() {
+  return (
+    <svg viewBox="0 0 32 32" className="w-full h-full" aria-hidden>
+      <path d="M3 11 L15 11 L3 25 Z" fill="#03363D"/>
+      <path d="M16 11 a6 6 0 0 1 12 0 Z" fill="#03363D"/>
+      <path d="M3 7 a6 6 0 0 0 12 0 Z" fill="#03363D"/>
+      <path d="M16 25 L29 25 L29 11 Z" fill="#03363D"/>
+    </svg>
+  );
+}
+function MixpanelLogo() {
+  return (
+    <svg viewBox="0 0 32 32" className="w-full h-full" aria-hidden>
+      <circle cx="6" cy="16" r="3" fill="#7856FF"/>
+      <circle cx="16" cy="16" r="5" fill="#7856FF"/>
+      <circle cx="26" cy="16" r="2" fill="#7856FF"/>
+    </svg>
+  );
+}
+function SnowflakeLogo() {
+  return (
+    <svg viewBox="0 0 32 32" className="w-full h-full" aria-hidden stroke="#29B5E8" strokeWidth="2" fill="none" strokeLinecap="round">
+      <line x1="16" y1="3" x2="16" y2="29"/>
+      <line x1="3" y1="16" x2="29" y2="16"/>
+      <line x1="6" y1="6" x2="26" y2="26"/>
+      <line x1="26" y1="6" x2="6" y2="26"/>
+    </svg>
+  );
+}
+function GoogleLogo() {
+  return (
+    <svg viewBox="0 0 32 32" className="w-full h-full" aria-hidden>
+      <path d="M28 16.3c0-.9-.1-1.7-.2-2.5H16v4.7h6.7c-.3 1.5-1.2 2.8-2.5 3.7v3.1h4c2.4-2.2 3.8-5.4 3.8-9z" fill="#4285F4"/>
+      <path d="M16 28c3.4 0 6.2-1.1 8.2-3l-4-3.1c-1.1.7-2.5 1.2-4.2 1.2-3.2 0-6-2.2-7-5.1H4.9v3.2C6.9 24.9 11.1 28 16 28z" fill="#34A853"/>
+      <path d="M9 17.9c-.2-.7-.4-1.5-.4-2.4s.1-1.6.4-2.4V9.9H4.9C4.1 11.5 3.6 13.4 3.6 15.5s.5 4 1.3 5.6L9 17.9z" fill="#FBBC05"/>
+      <path d="M16 8.7c1.8 0 3.4.6 4.7 1.8l3.5-3.5C22.2 4.9 19.4 3.5 16 3.5 11.1 3.5 6.9 6.6 4.9 11.1l4 3.2c1-2.9 3.8-5.6 7.1-5.6z" fill="#EA4335"/>
+    </svg>
+  );
+}
+function MicrosoftLogo() {
+  return (
+    <svg viewBox="0 0 32 32" className="w-full h-full" aria-hidden>
+      <rect x="3"  y="3"  width="12" height="12" fill="#F25022"/>
+      <rect x="17" y="3"  width="12" height="12" fill="#7FBA00"/>
+      <rect x="3"  y="17" width="12" height="12" fill="#00A4EF"/>
+      <rect x="17" y="17" width="12" height="12" fill="#FFB900"/>
+    </svg>
   );
 }

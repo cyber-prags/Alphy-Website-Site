@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { AlphardLogo } from "./AlphardLogo";
 import { MessageCircle } from "lucide-react";
 
-export function MarketingNav() {
+export function MarketingNav({ active }: { active?: string } = {}) {
+  void active;
   const router = useRouter();
   return (
     <div className="pt-6">
@@ -40,7 +41,7 @@ export function MarketingNav() {
             Send feedback
           </a>
           <button
-            onClick={() => router.push("/home")}
+            onClick={() => router.push("/signin")}
             className="px-5 py-2 rounded-lg text-[13.5px] font-semibold transition-colors duration-150 text-white"
             style={{ background: "#0F1218" }}
             onMouseEnter={(e) => (e.currentTarget.style.background = "#000")}
