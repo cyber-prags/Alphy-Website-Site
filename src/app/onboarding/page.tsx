@@ -9,6 +9,7 @@ import {
 import { Inter } from "next/font/google";
 import { AlphardLogo } from "@/components/AlphardLogo";
 import { useUser } from "@/components/UserContext";
+import { asset } from "@/lib/asset";
 
 const inter = Inter({ subsets: ["latin"], weight: ["300", "400", "500", "600", "700"], display: "swap" });
 
@@ -284,7 +285,7 @@ function FeatureScreen({ step, total, data, onNext, onBack, onSkip, isLast }: {
               sandbox.alphard.ai
             </div>
           </div>
-          <img key={data.id} src={data.screenshot} alt={data.title} className="w-full block" />
+          <img key={data.id} src={asset(data.screenshot)} alt={data.title} className="w-full block" />
         </div>
       </div>
     </div>

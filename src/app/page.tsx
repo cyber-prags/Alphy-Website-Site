@@ -11,6 +11,7 @@ import {
 import { MarketingNav } from "@/components/MarketingNav";
 import { AlphardLogo } from "@/components/AlphardLogo";
 import { AnimatedChat } from "@/components/AnimatedChat";
+import { asset } from "@/lib/asset";
 import { AnimatedEmailDraft } from "@/components/AnimatedEmailDraft";
 import { AnimatedPlaybook } from "@/components/AnimatedPlaybook";
 import { AnimatedCounter } from "@/components/AnimatedCounter";
@@ -72,7 +73,7 @@ function ProductFrame({ src, alt, className = "" }: { src: string; alt: string; 
           <div className="w-2.5 h-2.5 rounded-full" style={{ background: "#28C840" }} />
           <div className="ml-3 text-[10px] text-[rgba(15,18,24,0.45)] font-mono">sandbox.alphard.ai</div>
         </div>
-        <img src={src} alt={alt} className="w-full block" />
+        <img src={asset(src)} alt={alt} className="w-full block" />
       </div>
     </div>
   );
@@ -499,7 +500,7 @@ export default function LandingPage() {
                     boxShadow: "0 1px 2px rgba(15,18,24,0.04)",
                   }}>
                   <div className="relative overflow-hidden border-b" style={{ borderColor: "rgba(15,18,24,0.06)" }}>
-                    <img src={f.src} alt={f.title} className="w-full block transition-transform duration-700 group-hover:scale-[1.04]" />
+                    <img src={asset(f.src)} alt={f.title} className="w-full block transition-transform duration-700 group-hover:scale-[1.04]" />
                     <span
                       className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold backdrop-blur"
                       style={{
