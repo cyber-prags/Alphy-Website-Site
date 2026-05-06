@@ -7,6 +7,7 @@ type UserProfile = {
   firstName: string;
   initials: string;
   company: string;
+  email: string;
 };
 
 const DEFAULT: UserProfile = {
@@ -14,6 +15,7 @@ const DEFAULT: UserProfile = {
   firstName: "Walid",
   initials: "WQ",
   company: "Alphard",
+  email: "",
 };
 
 const KEY = "alphard:user";
@@ -25,7 +27,7 @@ function deriveInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-function deriveProfile(name: string, company?: string): UserProfile {
+function deriveProfile(name: string, company?: string, email?: string): UserProfile {
   const trimmed = name.trim();
   const firstName = trimmed.split(/\s+/)[0] || "Friend";
   return {
@@ -33,12 +35,13 @@ function deriveProfile(name: string, company?: string): UserProfile {
     firstName,
     initials: deriveInitials(trimmed),
     company: (company ?? DEFAULT.company).trim() || DEFAULT.company,
+    email: (email ?? "").trim(),
   };
 }
 
 type Ctx = {
   user: UserProfile;
-  setUser: (name: string, company?: string) => void;
+  setUser: (name: string, company?: string, email?: string) => void;
 };
 
 const UserCtx = createContext<Ctx>({ user: DEFAULT, setUser: () => {} });
@@ -50,16 +53,20 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     try {
       const raw = window.localStorage.getItem(KEY);
       if (raw) {
-        const parsed = JSON.parse(raw) as { name: string; company?: string };
-        if (parsed?.name) setUserState(deriveProfile(parsed.name, parsed.company));
+        const parsed = JSON.parse(raw) as { name: string; company?: string; email?: string };
+        if (parsed?.name) setUserState(deriveProfile(parsed.name, parsed.company, parsed.email));
       }
     } catch {}
   }, []);
 
-  const setUser = (name: string, company?: string) => {
-    const next = deriveProfile(name, company);
+  const setUser = (name: string, company?: string, email?: string) => {
+    const next = deriveProfile(name, company, email);
     setUserState(next);
-    try { window.localStorage.setItem(KEY, JSON.stringify({ name: next.name, company: next.company })); } catch {}
+    try {
+      window.localStorage.setItem(KEY, JSON.stringify({
+        name: next.name, company: next.company, email: next.email,
+      }));
+    } catch {}
   };
 
   return <UserCtx.Provider value={{ user, setUser }}>{children}</UserCtx.Provider>;

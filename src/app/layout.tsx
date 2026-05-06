@@ -6,6 +6,7 @@ import { ClosureProvider } from "@/components/ClosureContext";
 import { GoalsProvider } from "@/components/GoalsContext";
 import { ThemeProvider } from "@/components/ThemeContext";
 import { UserProvider } from "@/components/UserContext";
+import { PostHogProvider } from "@/components/PostHogProvider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -30,15 +31,17 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full">
-        <ThemeProvider>
-          <UserProvider>
-            <PersonaProvider>
-              <GoalsProvider>
-                <ClosureProvider>{children}</ClosureProvider>
-              </GoalsProvider>
-            </PersonaProvider>
-          </UserProvider>
-        </ThemeProvider>
+        <PostHogProvider>
+          <ThemeProvider>
+            <UserProvider>
+              <PersonaProvider>
+                <GoalsProvider>
+                  <ClosureProvider>{children}</ClosureProvider>
+                </GoalsProvider>
+              </PersonaProvider>
+            </UserProvider>
+          </ThemeProvider>
+        </PostHogProvider>
       </body>
     </html>
   );

@@ -15,6 +15,7 @@ export default function SignInPage() {
   const router = useRouter();
   const { user, setUser } = useUser();
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -22,7 +23,8 @@ export default function SignInPage() {
   useEffect(() => {
     setName(user.name === "Walid Qayoumi" ? "" : user.name);
     setCompany(user.company === "Alphard" ? "" : user.company);
-  }, [user.name, user.company]);
+    setEmail(user.email || "");
+  }, [user.name, user.company, user.email]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,9 +32,27 @@ export default function SignInPage() {
       setError("Please share your name so the demo feels right.");
       return;
     }
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError("Please share a work email — we'll only use it to reach out about your trial.");
+      return;
+    }
     setError("");
     setLoading(true);
-    setUser(name.trim(), company.trim() || undefined);
+    setUser(name.trim(), company.trim() || undefined, email.trim());
+    // Identify the user in PostHog so funnel analytics + email outreach work
+    if (typeof window !== "undefined" && (window as any).posthog) {
+      try {
+        (window as any).posthog.identify(email.trim(), {
+          email: email.trim(),
+          name: name.trim(),
+          company: company.trim() || undefined,
+        });
+        (window as any).posthog.capture("demo_started", {
+          name: name.trim(),
+          company: company.trim() || undefined,
+        });
+      } catch {}
+    }
     setTimeout(() => router.push("/onboarding"), 600);
   };
 
@@ -106,6 +126,25 @@ export default function SignInPage() {
             </div>
 
             <div>
+              <label className="block text-[12px] font-medium mb-1.5">Work email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@company.com"
+                autoComplete="email"
+                className="w-full h-11 px-4 rounded-xl text-[14px] focus:outline-none focus:ring-2 transition-all"
+                style={{
+                  background: "white",
+                  border: "1px solid rgba(15,18,24,0.12)",
+                  color: "#0F1218",
+                }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = ACCENT; e.currentTarget.style.boxShadow = `0 0 0 3px ${ACCENT}1A`; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(15,18,24,0.12)"; e.currentTarget.style.boxShadow = "none"; }}
+              />
+            </div>
+
+            <div>
               <label className="block text-[12px] font-medium mb-1.5">
                 Your company <span className="font-normal" style={{ color: "rgba(15,18,24,0.45)" }}>· optional</span>
               </label>
@@ -149,7 +188,7 @@ export default function SignInPage() {
           </form>
 
           <p className="text-[11.5px] mt-6" style={{ color: "rgba(15,18,24,0.45)" }}>
-            No password, no credit card. Just a sandbox loaded with realistic mock data, scoped to feel like your portfolio.
+            No password, no credit card. We'll use your email to follow up about the trial and improvements — never share it.
           </p>
         </div>
 

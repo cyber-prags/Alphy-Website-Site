@@ -6,10 +6,14 @@ import { Inter } from "next/font/google";
 import {
   ArrowRight, ShieldCheck, Sparkles, TrendingUp, Users, LayoutGrid,
   LineChart, Zap, Eye, Crown, ChevronRight, Check, Star, Flame, Activity,
+  Mail, BookOpen,
 } from "lucide-react";
 import { MarketingNav } from "@/components/MarketingNav";
 import { AlphardLogo } from "@/components/AlphardLogo";
 import { AnimatedChat } from "@/components/AnimatedChat";
+import { AnimatedEmailDraft } from "@/components/AnimatedEmailDraft";
+import { AnimatedPlaybook } from "@/components/AnimatedPlaybook";
+import { AnimatedCounter } from "@/components/AnimatedCounter";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -251,13 +255,75 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* ───────────────────── AUTOMATED OUTREACH ───────────────────── */}
+        <section className="py-20 md:py-28">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            <Reveal delay={120} className="lg:order-2">
+              <FeatureLabel icon={Mail} text="AUTOMATED OUTREACH" />
+              <h2 className="text-[34px] md:text-[44px] font-semibold mb-5 leading-[1.05]" style={{ letterSpacing: "-0.03em" }}>
+                Drafted emails that read like you — with the receipts already in.
+              </h2>
+              <p className="text-[15.5px] leading-relaxed mb-7" style={{ color: "rgba(15,18,24,0.62)" }}>
+                Alphard reads your CRM, calls, calendar, product usage, and last week's emails — then drafts the follow-up with the right context, the right tone, the right next ask. You hit send.
+              </p>
+              <ul className="space-y-3 mb-2">
+                {[
+                  "Personalized to the prospect's role, history, and last touch",
+                  "Context-aware: pulls champion changes, comparable wins, ROI numbers",
+                  "Voice-matched to your past emails — no generic AI-speak",
+                  "One-click send, schedule, or hand off to a sequence",
+                ].map((t) => (
+                  <li key={t} className="flex items-start gap-3 text-[14.5px]" style={{ color: "rgba(15,18,24,0.78)" }}>
+                    <Check size={16} strokeWidth={2.4} style={{ color: ACCENT }} className="mt-0.5 shrink-0" />
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            </Reveal>
+            <Reveal className="lg:order-1">
+              <AnimatedEmailDraft />
+            </Reveal>
+          </div>
+        </section>
+
+        {/* ───────────────────── CUSTOM PLAYBOOKS ───────────────────── */}
+        <section className="py-20 md:py-28">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            <Reveal>
+              <FeatureLabel icon={BookOpen} text="ACCOUNT PLAYBOOKS" />
+              <h2 className="text-[34px] md:text-[44px] font-semibold mb-5 leading-[1.05]" style={{ letterSpacing: "-0.03em" }}>
+                A custom playbook for every account. Auto-curated, always fresh.
+              </h2>
+              <p className="text-[15.5px] leading-relaxed mb-7" style={{ color: "rgba(15,18,24,0.62)" }}>
+                No more generic frameworks. Alphard reads the last 8 weeks of signals on each account and writes a tailored play-by-play — who to call, what to send, what to ask for. Updates the moment something material changes.
+              </p>
+              <ul className="space-y-3 mb-2">
+                {[
+                  "Tailored to the account's segment, stage, and active signals",
+                  "Auto-refreshed when champions move, usage spikes, or renewals approach",
+                  "Plays sequenced in priority order with the right asset attached",
+                  "Library of starter plays you can clone and personalize for every customer",
+                ].map((t) => (
+                  <li key={t} className="flex items-start gap-3 text-[14.5px]" style={{ color: "rgba(15,18,24,0.78)" }}>
+                    <Check size={16} strokeWidth={2.4} style={{ color: ACCENT }} className="mt-0.5 shrink-0" />
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            </Reveal>
+            <Reveal delay={120}>
+              <AnimatedPlaybook />
+            </Reveal>
+          </div>
+        </section>
+
         {/* ───────────────────── PROBLEM FRAME ───────────────────── */}
         <section className="py-20 md:py-28">
           <Reveal>
             <div className="max-w-[820px] mx-auto text-center mb-14">
               <FeatureLabel icon={Eye} text="THE EXPANSION GAP" center />
               <h2 className="text-[34px] md:text-[48px] font-semibold mb-5 leading-[1.05]" style={{ letterSpacing: "-0.03em" }}>
-                CSM tools answer "will they churn?" Forecasts answer "will the deal close?"
+                Health tools answer "will they churn?" Forecasts answer "will the deal close?"
                 <br />
                 <span style={{ color: "rgba(15,18,24,0.55)" }}>Nobody answers the question that pays your number.</span>
               </h2>
@@ -387,14 +453,16 @@ export default function LandingPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-px rounded-2xl overflow-hidden"
               style={{ background: "rgba(15,18,24,0.06)" }}>
               {[
-                { v: "3.4x",  l: "Lift in expansion close rate", c: ACCENT },
-                { v: "112%",  l: "Avg net revenue retention",    c: "#0FC27B" },
-                { v: "27 hrs",l: "Returned to each AM weekly",   c: "#0F1218" },
-                { v: "4 days",l: "Cut from typical deal cycle",  c: "#0FC27B" },
+                { target: 3.4,  prefix: "", suffix: "x",     decimals: 1, l: "Lift in expansion close rate", c: ACCENT },
+                { target: 112,  prefix: "", suffix: "%",     decimals: 0, l: "Avg net revenue retention",    c: "#0FC27B" },
+                { target: 27,   prefix: "", suffix: " hrs",  decimals: 0, l: "Returned to each AM weekly",   c: "#0F1218" },
+                { target: 4,    prefix: "", suffix: " days", decimals: 0, l: "Cut from typical deal cycle",  c: "#0FC27B" },
               ].map((m, i) => (
                 <div key={i} className="px-6 py-9 md:py-10 text-center bg-white">
-                  <div className="text-[36px] md:text-[44px] font-semibold mb-1.5 tnum"
-                    style={{ color: m.c, letterSpacing: "-0.03em" }}>{m.v}</div>
+                  <div className="text-[36px] md:text-[44px] font-semibold mb-1.5"
+                    style={{ color: m.c, letterSpacing: "-0.03em" }}>
+                    <AnimatedCounter target={m.target} prefix={m.prefix} suffix={m.suffix} decimals={m.decimals} />
+                  </div>
                   <div className="text-[12.5px]" style={{ color: "rgba(15,18,24,0.55)" }}>{m.l}</div>
                 </div>
               ))}
@@ -417,21 +485,31 @@ export default function LandingPage() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
-              { title: "Book of business",      copy: "Every customer with expansion score, hot signals, and pipeline coverage — at a glance.", src: "/screenshots/accounts.png" },
-              { title: "Account intelligence",  copy: "Health, NRR, champion, success plan, and expansion bets in one continuously-updating view.", src: "/screenshots/account-detail.png" },
-              { title: "Forecast roll-up",      copy: "Pipeline coverage, commit, most-likely, best case — by manager and by segment.", src: "/screenshots/forecast.png" },
-              { title: "Journey orchestration", copy: "Adoption, onboarding, and expansion campaigns with conditional steps and live metrics.", src: "/screenshots/campaigns.png" },
-              { title: "Capacity planning",     copy: "Workload heatmap across the team. Spot the overloaded AM before churn shows up.", src: "/screenshots/capacity.png" },
-              { title: "Revenue waterfall",     copy: "Funnel and ARR movement. Where revenue is born and where it leaks.", src: "/screenshots/revenue.png" },
+              { title: "Book of business",      outcome: "$215K pipeline surfaced",  copy: "Every customer with expansion score, hot signals, and pipeline coverage — at a glance.",            src: "/screenshots/accounts.png",       tone: ACCENT },
+              { title: "Account intelligence",  outcome: "QBR prep cut to 8 minutes", copy: "Health, NRR, champion, success plan, and expansion bets in one continuously-updating view.",     src: "/screenshots/account-detail.png", tone: "#7C3AED" },
+              { title: "Forecast roll-up",      outcome: "92% accuracy at week 8",   copy: "Pipeline coverage, commit, most-likely, best case — by manager and by segment.",                  src: "/screenshots/forecast.png",       tone: "#0FC27B" },
+              { title: "Journey orchestration", outcome: "3.4× re-engagement lift",  copy: "Adoption, onboarding, and expansion campaigns with conditional steps and live metrics.",          src: "/screenshots/campaigns.png",      tone: ACCENT },
+              { title: "Capacity planning",     outcome: "Spot overload 2 weeks early", copy: "Workload heatmap across the team. Catch the at-risk book before churn shows up.",              src: "/screenshots/capacity.png",       tone: "#F5B900" },
+              { title: "Revenue waterfall",     outcome: "Stops $480K of leak",      copy: "Funnel and ARR movement. Where revenue is born and where it leaks.",                              src: "/screenshots/revenue.png",        tone: "#0FC27B" },
             ].map((f, i) => (
               <Reveal key={f.title} delay={i * 60}>
-                <div className="rounded-2xl overflow-hidden h-full bg-white transition-all hover:translate-y-[-2px]"
+                <div className="group rounded-2xl overflow-hidden h-full bg-white transition-all hover:-translate-y-1 hover:shadow-[0_18px_50px_-18px_rgba(15,18,24,0.18)]"
                   style={{
                     border: "1px solid rgba(15,18,24,0.08)",
                     boxShadow: "0 1px 2px rgba(15,18,24,0.04)",
                   }}>
-                  <div className="overflow-hidden border-b" style={{ borderColor: "rgba(15,18,24,0.06)" }}>
-                    <img src={f.src} alt={f.title} className="w-full block" />
+                  <div className="relative overflow-hidden border-b" style={{ borderColor: "rgba(15,18,24,0.06)" }}>
+                    <img src={f.src} alt={f.title} className="w-full block transition-transform duration-700 group-hover:scale-[1.04]" />
+                    <span
+                      className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold backdrop-blur"
+                      style={{
+                        background: `color-mix(in srgb, ${f.tone} 12%, white)`,
+                        color: f.tone,
+                        border: `1px solid ${f.tone}40`,
+                      }}>
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: f.tone }} />
+                      {f.outcome}
+                    </span>
                   </div>
                   <div className="px-5 py-5">
                     <div className="text-[15.5px] font-semibold mb-1.5">{f.title}</div>
@@ -456,7 +534,7 @@ export default function LandingPage() {
 
           <div className="grid md:grid-cols-3 gap-5">
             {[
-              { Icon: Zap,         title: "Built for AMs, not CSMs",          copy: "Every score, every play, every ranking is expansion-coded. No more inheriting tools designed for retention." },
+              { Icon: Zap,         title: "Expansion-first, retention-aware",  copy: "Every score, every play, every ranking is expansion-coded — and CSMs get a clean view of health and adoption alongside. Both motions, one workspace." },
               { Icon: Crown,       title: "Champion intelligence built-in",   copy: "Promotions, departures, role changes detected from email + calendar + LinkedIn — before they show up in your CRM." },
               { Icon: TrendingUp,  title: "Real outcomes, not frameworks",    copy: "Models trained on real expansion conversions. Comparable-deal benchmarks per industry, segment, and product." },
               { Icon: Users,       title: "One workspace, four lenses",       copy: "AE, AM, CSM, Manager — same data, different surfaces. No more stitching three SaaS tools together." },

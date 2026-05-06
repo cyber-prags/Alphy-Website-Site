@@ -499,7 +499,7 @@ function ProfileMenu({ collapsed }: { collapsed?: boolean }) {
   const subtitle = `${PERSONA_LABEL[persona]} · ${user.company}`;
   return (
     <Popover
-      align="left" width={240}
+      align="left" width={240} position="top"
       trigger={(_, toggle) => collapsed ? (
         <button onClick={toggle} title={`${user.name} · ${PERSONA_LABEL[persona]}`}
           className="w-9 h-9 mx-auto rounded-full grid place-items-center text-[11px] font-semibold ring-2 ring-line hover:ring-line-strong transition-all"

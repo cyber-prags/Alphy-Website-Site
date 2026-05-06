@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Send } from "lucide-react";
 import { type TaskComment } from "@/lib/mock";
+import { useUser } from "./UserContext";
 
 function timeAgo(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
@@ -22,13 +23,14 @@ export function CommentThread({
   onAdd?: (comment: TaskComment) => void;
 }) {
   const [text, setText] = useState("");
+  const { user } = useUser();
 
   const post = () => {
     if (!text.trim()) return;
     const c: TaskComment = {
       id: `tc-${Date.now()}`,
-      author: "Walid Qayoumi",
-      authorInitials: "WQ",
+      author: user.name,
+      authorInitials: user.initials,
       text: text.trim(),
       at: new Date().toISOString(),
     };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   User, Building2, Plug, Bot, Bell, Palette, CreditCard,
   Check, ChevronRight, Shield, Globe, Moon, Sun, Zap,
@@ -11,6 +11,7 @@ import { AppShell } from "@/components/AppShell";
 import { Logo } from "@/components/Logo";
 import { usePersona, PERSONA_LABEL } from "@/components/PersonaContext";
 import { useToast } from "@/components/Toast";
+import { useUser } from "@/components/UserContext";
 import type { Persona } from "@/lib/mock";
 
 // =====================================================================
@@ -182,13 +183,19 @@ function SaveButton({ onClick, saved }: { onClick: () => void; saved: boolean })
 // -----------------------------------------------------------------------
 function ProfileSection() {
   const toast = useToast();
+  const { user, setUser } = useUser();
   const [saved, setSaved] = useState(false);
-  const [name, setName]   = useState("Walid Qayoumi");
-  const [email, setEmail] = useState("walid@alphrd.ai");
-  const [title, setTitle] = useState("Account Executive");
-  const [phone, setPhone] = useState("+1 415 555 0182");
+  const [name, setName]   = useState(user.name);
+  const [email, setEmail] = useState("");
+  const [title, setTitle] = useState("Account Manager");
+  const [phone, setPhone] = useState("");
+  const [companyField, setCompanyField] = useState(user.company);
+
+  // Keep local state in sync if user changes elsewhere
+  useEffect(() => { setName(user.name); setCompanyField(user.company); }, [user.name, user.company]);
 
   const save = () => {
+    setUser(name, companyField);
     setSaved(true);
     toast({ tone: "success", title: "Profile saved", body: "Your profile has been updated." });
     setTimeout(() => setSaved(false), 2000);
@@ -200,11 +207,11 @@ function ProfileSection() {
         {/* Avatar */}
         <div className="flex items-center gap-4 mb-4 pb-4 border-b border-line">
           <div className="w-16 h-16 rounded-2xl bg-ink text-white grid place-items-center text-[22px] font-semibold">
-            WQ
+            {user.initials}
           </div>
           <div>
-            <div className="text-[13px] font-semibold text-ink">Walid Qayoumi</div>
-            <div className="text-[11.5px] text-muted mt-0.5">Workspace: Alphard</div>
+            <div className="text-[13px] font-semibold text-ink">{user.name}</div>
+            <div className="text-[11.5px] text-muted mt-0.5">Workspace: {user.company}</div>
             <button className="text-[11px] text-accent-deep hover:underline mt-1.5 inline-flex items-center gap-1">
               <Plus size={10} strokeWidth={2} /> Upload photo
             </button>

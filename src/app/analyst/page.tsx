@@ -6,6 +6,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { useToast } from "@/components/Toast";
 import { usePersona } from "@/components/PersonaContext";
+import { useUser } from "@/components/UserContext";
 
 type Citation = { label: string; href: string; source: string };
 type Msg = { role: "user" | "ai"; text: string; citations?: Citation[]; typing?: boolean };
@@ -50,6 +51,7 @@ const HISTORY: { title: string; preview: string; time: string }[] = [
 export default function AnalystPage() {
   const toast = useToast();
   const { persona } = usePersona();
+  const { user } = useUser();
   const SUGGESTIONS = SUGGESTIONS_BY_PERSONA[persona] ?? SUGGESTIONS_BY_PERSONA.ae;
   const [q, setQ] = useState("");
   const [listening, setListening] = useState(false);
@@ -106,7 +108,7 @@ export default function AnalystPage() {
   };
 
   const PERSONA_NAMES: Record<string, string> = { ae: "Account Executive", am: "Account Manager", csm: "Customer Success Manager", manager: "Sales Manager" };
-  const userName = persona === "am" ? "Pragyan" : persona === "csm" ? "Brad" : persona === "manager" ? "Walid" : "Alex";
+  const userName = user.firstName;
   const [historyOpen, setHistoryOpen] = useState(true);
 
   return (

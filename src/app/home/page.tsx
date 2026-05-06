@@ -668,7 +668,13 @@ const GOAL_CATEGORY_STYLE: Record<EnhancedGoal["category"], { bg: string; color:
 };
 
 function GoalsSection({ persona }: { persona: string }) {
-  const allGoals = persona === "ae" ? GOALS_AE_X : GOALS_CSM_X;
+  const { user } = useUser();
+  // Map any "Walid" owner in seed data to the current user
+  const personalize = (g: EnhancedGoal): EnhancedGoal =>
+    g.owner.name === "Walid"
+      ? { ...g, owner: { ...g.owner, name: user.firstName, initials: user.initials } }
+      : g;
+  const allGoals = (persona === "ae" ? GOALS_AE_X : GOALS_CSM_X).map(personalize);
   const [view, setView] = useState<"live" | "completed">("live");
   // "Completed" = goals with progress >= 100 (none in mock by default — empty state)
   const all = view === "live"
