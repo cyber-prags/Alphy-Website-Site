@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import {
   Database, Activity, Telescope, Bot, TrendingUp, Users, LineChart, BookOpen,
   ChevronsLeft, ChevronsRight, ChevronRight, ChevronDown, Settings, Search, Sparkles,
@@ -97,7 +97,9 @@ function visibleSections(persona: Persona) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <ToastProvider>
-      <AppShellInner>{children}</AppShellInner>
+      <Suspense>
+        <AppShellInner>{children}</AppShellInner>
+      </Suspense>
     </ToastProvider>
   );
 }

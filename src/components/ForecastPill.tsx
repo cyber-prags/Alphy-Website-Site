@@ -11,8 +11,7 @@ export function ForecastPill({ category, prob }: { category: ForecastCategory; p
       {category}
       <span
         className="grid place-items-center w-5 h-5 rounded-full text-[9.5px] font-mono tnum"
-        style={{ background: "rgba(255,255,255,0.15)" }}
-        style={{ color: c.ink }}
+        style={{ background: "rgba(255,255,255,0.15)", color: c.ink }}
       >
         {prob}
       </span>
