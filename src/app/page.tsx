@@ -521,11 +521,13 @@ export default function LandingPage() {
             </div>
             <div className="flex flex-wrap gap-x-7 gap-y-3 text-[13px]"
               style={{ color: "rgba(15,18,24,0.58)" }}>
-              <a href="/product" className="hover:text-[#0F1218] transition-colors">Platform</a>
-              <a href="/pricing" className="hover:text-[#0F1218] transition-colors">Pricing</a>
-              <a href="/customers" className="hover:text-[#0F1218] transition-colors">Customers</a>
-              <a href="/docs" className="hover:text-[#0F1218] transition-colors">Docs</a>
-              <a href="/signin" className="hover:text-[#0F1218] transition-colors">Sign in</a>
+              <a
+                href="mailto:pragyan@alphard.global?subject=Alphard%20feedback"
+                className="hover:text-[#0F1218] transition-colors"
+              >
+                Send feedback
+              </a>
+              <a href="/home" className="hover:text-[#0F1218] transition-colors">Launch demo</a>
             </div>
           </div>
         </footer>

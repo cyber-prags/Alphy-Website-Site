@@ -3,15 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlphardLogo } from "./AlphardLogo";
+import { MessageCircle } from "lucide-react";
 
-const NAV_LINKS = [
-  { label: "Platform",  href: "/product"   },
-  { label: "Customers", href: "/customers" },
-  { label: "Pricing",   href: "/pricing"   },
-  { label: "Docs",      href: "/docs"      },
-];
-
-export function MarketingNav({ active }: { active?: string }) {
+export function MarketingNav() {
   const router = useRouter();
   return (
     <div className="pt-6">
@@ -30,37 +24,21 @@ export function MarketingNav({ active }: { active?: string }) {
           <span className="text-[18px] font-semibold tracking-tight" style={{ color: "#0F1218" }}>Alphard</span>
         </Link>
 
-        <div className="hidden md:flex items-center gap-9 text-[13.5px]">
-          {NAV_LINKS.map((link) => {
-            const isActive = active === link.label;
-            return (
-              <Link
-                key={link.label}
-                href={link.href}
-                className="transition-colors duration-150"
-                style={{
-                  color: isActive ? "#0F1218" : "rgba(15,18,24,0.62)",
-                  fontWeight: isActive ? 500 : 400,
-                }}
-                onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.color = "#0F1218"; }}
-                onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.color = "rgba(15,18,24,0.62)"; }}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
-        </div>
-
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => router.push("/signin")}
-            className="hidden md:inline-flex px-3 py-2 rounded-lg text-[13.5px] font-medium transition-colors"
-            style={{ color: "rgba(15,18,24,0.65)" }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "#0F1218")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(15,18,24,0.65)")}
+          <a
+            href="mailto:pragyan@alphard.global?subject=Alphard%20feedback"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13.5px] font-medium transition-colors"
+            style={{
+              background: "white",
+              border: "1px solid rgba(15,18,24,0.12)",
+              color: "#0F1218",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "#FAFAFB")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "white")}
           >
-            Sign in
-          </button>
+            <MessageCircle size={13} strokeWidth={2} />
+            Send feedback
+          </a>
           <button
             onClick={() => router.push("/home")}
             className="px-5 py-2 rounded-lg text-[13.5px] font-semibold transition-colors duration-150 text-white"
