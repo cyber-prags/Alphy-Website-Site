@@ -10,6 +10,7 @@ import {
   type WhiteSpaceAnalysis, type WhiteSpaceCell, type ProductLine, type CrossSellRecommendation,
   type AccountDetail,
 } from "@/lib/mock";
+import { useToast } from "@/components/Toast";
 
 const STATUS_META: Record<WhiteSpaceCell["status"], { label: string; bg: string; ink: string; border: string }> = {
   "active":            { label: "Active",    bg: "var(--pos)",       ink: "#fff",            border: "var(--pos)" },
@@ -269,6 +270,7 @@ function RecommendationsSection({ recommendations }: { recommendations: CrossSel
 }
 
 function RecommendationRow({ rec }: { rec: CrossSellRecommendation }) {
+  const toast = useToast();
   const [open, setOpen] = useState(false);
 
   return (
@@ -304,7 +306,8 @@ function RecommendationRow({ rec }: { rec: CrossSellRecommendation }) {
               </li>
             ))}
           </ul>
-          <button className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-2 rounded-lg transition-colors"
+          <button onClick={() => toast({ tone: "info", title: "Building case", body: `${rec.productName} business case for ${rec.accountName}. Comparable wins, ROI math, and one-pager generated.` })}
+            className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-2 rounded-lg transition-colors"
             style={{ background: "var(--accent)", color: "var(--bg)" }}>
             <Sparkles size={12} strokeWidth={2} /> Build case <ArrowRight size={11} strokeWidth={2} />
           </button>

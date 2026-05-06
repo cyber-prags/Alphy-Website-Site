@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useRef, useState } from "react";
+import { createContext, use, useContext, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -17,6 +17,7 @@ import { DraftDeckModal, type DeckTemplate } from "@/components/DraftDeckModal";
 import { AdoptionPanel } from "@/components/AdoptionPanel";
 import { accountAdoption, expansionOpportunities, championChanges, fmtMoney as fmtMoneyShort, slugify as slugifyMock } from "@/lib/mock";
 import { useUser } from "@/components/UserContext";
+import { ExecutionDrawer, type DrawerConfig, type DrawerFlow } from "@/components/ExecutionDrawer";
 import { Flame } from "lucide-react";
 import { SourceChip } from "@/components/SourceChip";
 import { StakeholderEditor } from "@/components/StakeholderEditor";
@@ -32,6 +33,11 @@ import {
 } from "@/lib/mock";
 import { MentionInput } from "@/components/MentionInput";
 import { useToast } from "@/components/Toast";
+
+// Drawer context — any component below AccountWorkspace can open the
+// animated execution drawer without prop-drilling.
+const DrawerCtx = createContext<{ open: (cfg: DrawerConfig) => void }>({ open: () => {} });
+const useDrawer = () => useContext(DrawerCtx);
 
 const TABS = [
   { id: "brief"      as const, label: "Brief" },
@@ -97,6 +103,8 @@ function AccountWorkspace({ account, slug, backHref }: { account: AccountDetail;
   const [stakeholders, setStakeholders] = useState<Stakeholder[]>(account.stakeholders);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Stakeholder | null>(null);
+  // Animated action drawer — opened by any descendant via DrawerCtx
+  const [drawerCfg, setDrawerCfg] = useState<DrawerConfig | null>(null);
 
   const accountOutcomes = outcomes.filter((o) => o.account === account.name);
   const accountDeals = deals.filter((d) => d.account === account.name || d.name === account.name);
@@ -123,6 +131,7 @@ function AccountWorkspace({ account, slug, backHref }: { account: AccountDetail;
   const liveAccount: AccountDetail = { ...account, stakeholders };
 
   return (
+    <DrawerCtx.Provider value={{ open: setDrawerCfg }}>
     <AppShell>
       {/* Notion-style page header */}
       <NotionAccountHeader
@@ -178,7 +187,9 @@ function AccountWorkspace({ account, slug, backHref }: { account: AccountDetail;
       <StakeholderEditor open={editorOpen} onClose={() => setEditorOpen(false)}
         existing={editing} onSave={saveStakeholder} onDelete={deleteStakeholder}
         allStakeholders={stakeholders} />
+      <ExecutionDrawer config={drawerCfg} onClose={() => setDrawerCfg(null)} />
     </AppShell>
+    </DrawerCtx.Provider>
   );
 }
 
@@ -2015,8 +2026,20 @@ function CSMActionMetrics({ account, adoption }: { account: AccountDetail; adopt
 // Synthesises health, signals, touchpoints, and adoption into a concise
 // narrative the CSM can scan before a call.
 // ---------------------------------------------------------------------
+// Map a recommended-action label to a drawer flow
+function flowForAction(label: string): DrawerFlow {
+  const l = label.toLowerCase();
+  if (l.includes("business case") || l.includes("build case")) return "business-case";
+  if (l.includes("qbr"))                                       return "schedule-qbr";
+  if (l.includes("share success") || l.includes("metrics"))    return "share-metrics";
+  if (l.includes("recovery") || l.includes("escalate") || l.includes("emergency")) return "recovery-play";
+  if (l.includes("re-engage") || l.includes("draft") || l.includes("send"))         return "email-draft";
+  if (l.includes("brief"))                                      return "brief";
+  return "generic";
+}
+
 function AIOverviewCard({ account, adoption }: { account: AccountDetail; adoption: any }) {
-  const toast = useToast();
+  const drawer = useDrawer();
   const h = account.healthScore;
   const isCustomer = account.status === "Customer";
   const healthLabel = h >= 80 ? "Healthy" : h >= 60 ? "Watch" : "At risk";
@@ -2262,7 +2285,13 @@ function AIOverviewCard({ account, adoption }: { account: AccountDetail; adoptio
           <div className="flex flex-wrap gap-1.5">
             {actions.map((a) => (
               <button key={a}
-                onClick={() => toast({ tone: "info", title: a, body: `Action queued — your AI co-pilot will draft the first step.` })}
+                onClick={() => drawer.open({
+                  flow: flowForAction(a),
+                  account: account.name,
+                  title: a,
+                  actionLabel: a,
+                  person: champion,
+                })}
                 className="text-[11.5px] font-medium px-2.5 py-1.5 rounded-md border border-line bg-surface hover:bg-bg-deep text-ink-2 transition-colors">
                 {a}
               </button>
@@ -2293,7 +2322,7 @@ function Stat({ label, value, unit, tone }: { label: string; value: string; unit
 // at each phase, with a clear handoff trigger button.
 // ═══════════════════════════════════════════════════════════════════════
 function LifecycleBaton({ account }: { account: AccountDetail }) {
-  const toast = useToast();
+  const drawer = useDrawer();
   const isCustomer = account.status === "Customer";
   const h = account.healthScore;
 
@@ -2361,7 +2390,15 @@ function LifecycleBaton({ account }: { account: AccountDetail }) {
           <span className="text-[13px] font-semibold text-ink">Lifecycle</span>
           <span className="text-[11px] text-muted">AE → AM → CSM ownership</span>
         </div>
-        <button onClick={() => toast({ tone: "info", title: "Handoff triggered", body: "Notes, intel, and signals will be packaged and sent to the next owner." })}
+        <button onClick={() => {
+            const next = phases.find((p) => p.status === "next") ?? phases.find((p) => p.status === "active");
+            drawer.open({
+              flow: "handoff",
+              account: account.name,
+              person: next?.owner,
+              handoffTo: next ? { name: next.owner, role: next.role, initials: next.initials } : undefined,
+            });
+          }}
           className="text-[11.5px] font-medium px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 transition-colors hover:bg-bg-deep"
           style={{ color: "var(--ink-2)", border: "1px solid var(--line)" }}>
           Trigger handoff <ArrowRight size={11} strokeWidth={2.2} />
@@ -4241,6 +4278,7 @@ function AccountWorkflowsPanel({ slug }: { slug: string }) {
 // Planner) but built around expansion-first AM workflow.
 // ═══════════════════════════════════════════════════════════════════════
 function GrowthPlanPanel({ account, slug }: { account: AccountDetail; slug: string }) {
+  const drawer = useDrawer();
   const opps = expansionOpportunities.filter((o) => o.accountSlug === slug);
   const totalPipeline = opps.reduce((s, o) => s + o.estimatedArr, 0);
   const targetArr = account.arr ? Math.round(account.arr * 1.30) : 0; // 30% growth ambition
@@ -4306,7 +4344,8 @@ function GrowthPlanPanel({ account, slug }: { account: AccountDetail; slug: stri
                 Quarterly expansion bets, stakeholder coverage, and the path to target ARR.
               </div>
             </div>
-            <button className="text-[11.5px] font-semibold inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-white"
+            <button onClick={() => drawer.open({ flow: "brief", account: account.name, title: "Brief on the growth plan" })}
+              className="text-[11.5px] font-semibold inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-white"
               style={{ background: "var(--accent-deep)" }}>
               <Sparkles size={11} strokeWidth={2.2} /> Brief me on the plan
             </button>

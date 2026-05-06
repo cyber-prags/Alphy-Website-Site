@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { createContext, useContext, useState, useMemo } from "react";
 import Link from "next/link";
 import {
   ChevronRight, Sparkles, AlertTriangle, Bell, Target, Plus, CheckCircle2,
@@ -15,6 +15,11 @@ import { Logo } from "@/components/Logo";
 import { DataFreshness } from "@/components/SourceChip";
 import { usePersona, PERSONA_LABEL } from "@/components/PersonaContext";
 import { useUser } from "@/components/UserContext";
+import { ExecutionDrawer, type DrawerConfig, type DrawerFlow } from "@/components/ExecutionDrawer";
+
+// Drawer context — any sub-component can open the animated execution drawer
+const DrawerCtx = createContext<{ open: (cfg: DrawerConfig) => void }>({ open: () => {} });
+const useDrawer = () => useContext(DrawerCtx);
 import {
   pinnedAccounts, accountDetails, fmtMoney, outcomes, accounts, myNumber,
   slugify, championChanges, csmWorkloads, accountPlans,
@@ -132,6 +137,7 @@ const ACTIVITY: ActivityItem[] = [
 function AMHome() {
   const greeting = greetingFor();
   const { user } = useUser();
+  const [drawerCfg, setDrawerCfg] = useState<DrawerConfig | null>(null);
   const ranked = useMemo(
     () => [...expansionOpportunities].sort((a, b) => b.score - a.score).slice(0, 6),
     []
@@ -150,6 +156,7 @@ function AMHome() {
   const more = COPILOT_PLAYS.slice(1);
 
   return (
+    <DrawerCtx.Provider value={{ open: setDrawerCfg }}>
     <AppShell>
       {/* ─── Header ──────────────────────────────────────────── */}
       <header className="mb-9">
@@ -204,7 +211,9 @@ function AMHome() {
         right={<Link href="/signals" className="text-[11.5px] font-medium text-muted hover:text-ink inline-flex items-center gap-1">All signals <ChevronRight size={11} /></Link>}
       />
       <ActivityFeed items={ACTIVITY} />
+      <ExecutionDrawer config={drawerCfg} onClose={() => setDrawerCfg(null)} />
     </AppShell>
+    </DrawerCtx.Provider>
   );
 }
 
@@ -225,6 +234,7 @@ function SectionHeader({ label, detail, right }: { label: string; detail?: strin
 // Featured Play — the single most important action today
 // ─────────────────────────────────────────────────────────────────────
 function FeaturedPlay({ play }: { play: CoPilotPlay }) {
+  const drawer = useDrawer();
   const [open, setOpen] = useState(false);
   const stale = play.staleDays && play.staleDays >= 5;
   return (
@@ -277,7 +287,8 @@ function FeaturedPlay({ play }: { play: CoPilotPlay }) {
             )}
 
             <div className="flex items-center gap-2 mt-5">
-              <button className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-2 rounded-lg text-white"
+              <button onClick={() => drawer.open({ flow: "email-draft", account: play.account, person: play.person, title: play.action })}
+                className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-2 rounded-lg text-white"
                 style={{ background: "var(--accent-deep)" }}>
                 <Sparkles size={11} strokeWidth={2.2} /> Draft follow-up
               </button>
