@@ -78,9 +78,8 @@ export default function SignInPage() {
       <div className="relative z-10 w-full max-w-[480px]">
         {/* Logo + back link */}
         <div className="flex items-center justify-between mb-10">
-          <button onClick={() => router.push("/")} className="flex items-center gap-2.5 group" aria-label="Alphard">
-            <AlphardLogo variant="icon" size={22} fill="#0F1218" />
-            <span className="text-[18px] font-semibold tracking-tight">Alphard</span>
+          <button onClick={() => router.push("/")} className="flex items-center group" aria-label="Alphard">
+            <AlphardLogo variant="full" size={20} fill="#0F1218" />
           </button>
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-semibold tracking-[0.12em] uppercase"
             style={{

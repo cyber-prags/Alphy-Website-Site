@@ -15,7 +15,7 @@ import { OrgChart } from "@/components/OrgChart";
 import { Popover, MenuItem } from "@/components/Popover";
 import { DraftDeckModal, type DeckTemplate } from "@/components/DraftDeckModal";
 import { AdoptionPanel } from "@/components/AdoptionPanel";
-import { accountAdoption, expansionOpportunities, fmtMoney as fmtMoneyShort, slugify as slugifyMock } from "@/lib/mock";
+import { accountAdoption, expansionOpportunities, championChanges, fmtMoney as fmtMoneyShort, slugify as slugifyMock } from "@/lib/mock";
 import { Flame } from "lucide-react";
 import { SourceChip } from "@/components/SourceChip";
 import { StakeholderEditor } from "@/components/StakeholderEditor";
@@ -2010,27 +2010,48 @@ function CSMActionMetrics({ account, adoption }: { account: AccountDetail; adopt
 function AIOverviewCard({ account, adoption }: { account: AccountDetail; adoption: any }) {
   const h = account.healthScore;
   const isCustomer = account.status === "Customer";
-  const healthLabel = h >= 80 ? "healthy" : h >= 60 ? "moderate" : "at-risk";
+  const healthLabel = h >= 80 ? "Healthy" : h >= 60 ? "Watch" : "At risk";
   const healthToneColor = h >= 80 ? "var(--pos)" : h >= 60 ? "var(--warn)" : "var(--neg)";
+  const healthSoft = h >= 80 ? "var(--pos-soft)" : h >= 60 ? "var(--warn-soft)" : "var(--neg-soft)";
+
+  // Pull rich context from mock
+  const accountSlug = slugifyMock(account.name);
+  const opps = expansionOpportunities.filter((o) => o.accountName === account.name);
+  const champEvents = championChanges.filter((c) => c.accountName === account.name);
+  const topOpp = opps.sort((x, y) => y.score - x.score)[0];
+  const totalPipeline = opps.reduce((s, o) => s + o.estimatedArr, 0);
+  const targetArr = account.arr ? Math.round(account.arr * 1.30) : 0;
+  const expansionScore = topOpp?.score ?? Math.max(20, h - 20);
+  const expansionTone = expansionScore >= 85 ? "#F5360F" : expansionScore >= 75 ? "#F5B900" : expansionScore >= 60 ? "var(--accent)" : "var(--muted)";
+
+  // Champion derived from top opp or account stakeholders
+  const champion = topOpp?.champion ?? account.stakeholders[0]?.name ?? "Unknown";
+  const championTitle = topOpp?.championTitle ?? account.stakeholders[0]?.title ?? "—";
+  const championStatus: "active" | "silent" | "promoted" = champEvents.find((c) => c.changeType === "promotion")
+    ? "promoted"
+    : (account.signals.find((s) => /silent/i.test(s.body)) ? "silent" : "active");
+  const championStatusMeta: Record<string, { label: string; tone: string; soft: string }> = {
+    active:    { label: "Active",    tone: "var(--pos)", soft: "var(--pos-soft)" },
+    silent:    { label: "Silent",    tone: "var(--neg)", soft: "var(--neg-soft)" },
+    promoted:  { label: "Promoted",  tone: "var(--accent-deep)", soft: "var(--accent-soft)" },
+  };
+  const champStatusM = championStatusMeta[championStatus];
+
+  // Stakeholder coverage map
+  const stakeholderRoles = [
+    { role: "Champion",        person: champion,                                      status: championStatus === "silent" ? ("silent" as const) : ("won" as const) },
+    { role: "Economic Buyer",  person: isCustomer && h >= 70 ? "VP / CFO aligned"     : "Identifying",        status: isCustomer && h >= 80 ? ("won" as const) : isCustomer ? ("engaging" as const) : ("needed" as const) },
+    { role: "Technical Buyer", person: "Eng / Security review",                       status: ("engaging" as const) },
+    { role: "End-user",        person: adoption ? `${adoption.monthlyActiveUsers} active users` : "TBD",      status: adoption && adoption.monthlyActiveUsers > 100 ? ("won" as const) : ("engaging" as const) },
+  ];
 
   const narrative = isCustomer
     ? h >= 80
-      ? `${account.name} is in strong shape — health score ${h}/100 with stable adoption (${adoption ? `${adoption.monthlyActiveUsers} MAU, WAU/MAU ${adoption.wauMauCurrent ?? "0.71"}` : "no telemetry"}). Renewal is ${account.renewalDays > 0 ? `${account.renewalDays} days out` : "lapsed"} and NRR sits at ${account.nrr}%. The champion is active and sentiment across recent calls has been positive. Primary opportunity: expansion into adjacent teams.`
+      ? `${account.name} is in strong shape — health ${h}/100 with stable adoption${adoption ? ` (${adoption.monthlyActiveUsers} MAU, WAU/MAU ${adoption.wauMauCurrent ?? "0.71"})` : ""}. Renewal in ${account.renewalDays > 0 ? `${account.renewalDays} days` : "—"}, NRR ${account.nrr}%. ${champEvents.find((c) => c.changeType === "promotion") ? `Champion ${champion} just got promoted — expansion door is open.` : "Champion active, sentiment positive."} ${topOpp ? `Highest-scoring play: ${topOpp.play}` : "Primary opportunity: expansion into adjacent teams."}`
       : h >= 60
-      ? `${account.name} needs attention — health score ${h}/100 with mixed signals. ${adoption ? `MAU is ${adoption.monthlyActiveUsers} but WAU/MAU has dipped ${adoption.wauMauDelta}% recently.` : "No usage telemetry flowing yet."} Renewal in ${account.renewalDays > 0 ? `${account.renewalDays} days` : "lapsed"}. NRR at ${account.nrr}%. Key risk: sponsor engagement has slowed — last meaningful touchpoint was over a week ago. Recommend re-engagement call focused on value realisation.`
-      : `${account.name} is at risk — health score ${h}/100, trending down. ${adoption ? `Usage has dropped: ${adoption.monthlyActiveUsers} MAU, WAU/MAU delta ${adoption.wauMauDelta}%.` : "No telemetry."} ${account.renewalDays > 0 ? `Renewal in ${account.renewalDays} days` : "Renewal lapsed"}, NRR ${account.nrr}%. Multiple signals flagged: sponsor silent 14d+, open P0 tickets, and procurement reorg. Immediate action required — escalate through exec sponsor and run recovery play.`
-    : `${account.name} is a ${account.segment} prospect in ${account.industry} (${account.employees.toLocaleString()} employees). Pipeline value: ${account.arr ? fmtMoney(account.arr) : "TBD"}. ${account.signals.length > 0 ? `Latest signal: ${account.signals[0].body.slice(0, 100)}…` : "No signals yet."} Focus: build champion map and validate use case fit.`;
-
-  const keyMetrics = [
-    { label: "Health", value: `${h}/100`, tone: healthToneColor },
-    ...(isCustomer ? [
-      { label: "NRR", value: `${account.nrr}%`, tone: account.nrr >= 100 ? "var(--pos)" : "var(--neg)" },
-      { label: "Renewal", value: account.renewalDays > 0 ? `${account.renewalDays}d` : "Lapsed", tone: account.renewalDays > 60 ? "var(--ink)" : account.renewalDays > 0 ? "var(--warn)" : "var(--neg)" },
-    ] : []),
-    ...(adoption ? [
-      { label: "MAU", value: String(adoption.monthlyActiveUsers), tone: "var(--ink)" },
-    ] : []),
-  ];
+      ? `${account.name} needs attention — health ${h}/100 with mixed signals.${adoption ? ` MAU is ${adoption.monthlyActiveUsers}, WAU/MAU dipped ${adoption.wauMauDelta}%.` : ""} Renewal in ${account.renewalDays > 0 ? `${account.renewalDays} days` : "lapsed"}. Sponsor engagement has slowed — re-engagement focused on value realisation is the play.`
+      : `${account.name} is at risk — health ${h}/100, trending down.${adoption ? ` Usage dropped: ${adoption.monthlyActiveUsers} MAU, ${adoption.wauMauDelta}%.` : ""} Renewal in ${account.renewalDays > 0 ? `${account.renewalDays} days` : "lapsed"}, NRR ${account.nrr}%. Multiple signals flagged: sponsor silent, P0 tickets, procurement shift. Escalate immediately.`
+    : `${account.name} is a ${account.segment} prospect in ${account.industry} (${account.employees.toLocaleString()} employees). Pipeline value: ${account.arr ? fmtMoney(account.arr) : "TBD"}. ${account.signals.length > 0 ? `Latest signal: ${account.signals[0].body.slice(0, 110)}…` : "No signals yet."} Focus: build champion map and validate use case fit.`;
 
   const actions = isCustomer
     ? h >= 80
@@ -2040,41 +2061,249 @@ function AIOverviewCard({ account, adoption }: { account: AccountDetail; adoptio
       : ["Run recovery play immediately", "Escalate to exec sponsor", "Resolve open P0 tickets", "Schedule emergency check-in"]
     : ["Map buying committee", "Validate use case fit", "Send discovery agenda"];
 
+  // Recent momentum — top 3-4 material events
+  const momentum = (() => {
+    const items: { Icon: any; tone: string; label: string; ago: string }[] = [];
+    champEvents.forEach((c) => {
+      const Icon = c.changeType === "promotion" ? TrendingUp : c.changeType === "departure" ? AlertTriangle : Users;
+      const tone = c.tone === "pos" ? "var(--pos)" : c.tone === "neg" ? "var(--neg)" : "var(--accent-deep)";
+      items.push({ Icon, tone, label: `${c.personName} — ${c.changeType === "promotion" ? `→ ${c.newTitle}` : c.changeType === "departure" ? "left company" : c.newTitle}`, ago: c.detectedAgo });
+    });
+    if (adoption && adoption.wauMauDelta) {
+      items.push({
+        Icon: adoption.wauMauDelta > 0 ? TrendingUp : Activity,
+        tone: adoption.wauMauDelta > 0 ? "var(--pos)" : "var(--warn)",
+        label: `WAU/MAU ${adoption.wauMauDelta > 0 ? "up" : "down"} ${Math.abs(adoption.wauMauDelta)}% in last 14 days`,
+        ago: "this wk",
+      });
+    }
+    if (account.signals[0]) {
+      items.push({ Icon: Sparkles, tone: "var(--accent-deep)", label: account.signals[0].body.slice(0, 70), ago: "today" });
+    }
+    if (topOpp && topOpp.daysInStage <= 7) {
+      items.push({ Icon: Zap, tone: "var(--accent)", label: `${topOpp.productName} moved to ${topOpp.stage}`, ago: `${topOpp.daysInStage}d` });
+    }
+    return items.slice(0, 4);
+  })();
+
+  // Active risks
+  const risks = (() => {
+    const r: { label: string; severity: "high" | "med" | "low" }[] = [];
+    if (account.renewalDays > 0 && account.renewalDays < 60) r.push({ label: `Renewal in ${account.renewalDays} days`, severity: "high" });
+    if (h < 70) r.push({ label: `Health ${h}/100 below threshold`, severity: h < 50 ? "high" : "med" });
+    if (championStatus === "silent") r.push({ label: "Champion silent 14+ days", severity: "high" });
+    if (topOpp?.risks?.[0]) r.push({ label: topOpp.risks[0], severity: "med" });
+    if (adoption && adoption.wauMauDelta && adoption.wauMauDelta < -5) r.push({ label: `Usage dropped ${Math.abs(adoption.wauMauDelta)}%`, severity: "med" });
+    return r.slice(0, 4);
+  })();
+
   return (
     <div className="card overflow-hidden">
-      <div className="px-5 py-3 flex items-center gap-2.5 border-b border-line" style={{ background: "var(--accent-soft)" }}>
-        <div className="w-7 h-7 rounded-lg grid place-items-center" style={{ background: "var(--accent)" }}>
-          <Sparkles size={13} strokeWidth={1.8} style={{ color: "var(--accent-ink)" }} />
+      {/* Header */}
+      <div className="px-5 py-3 flex items-center gap-2.5 border-b border-line"
+        style={{ background: "linear-gradient(90deg, var(--accent-soft) 0%, transparent 80%)" }}>
+        <div className="w-7 h-7 rounded-lg grid place-items-center"
+          style={{ background: "linear-gradient(135deg, var(--accent) 0%, #7C3AED 100%)" }}>
+          <Sparkles size={13} strokeWidth={1.8} style={{ color: "white" }} />
         </div>
         <div className="flex-1">
           <span className="text-[13px] font-semibold text-ink">AI Account Overview</span>
-          <span className="text-[10.5px] text-muted ml-2">Updated just now</span>
+          <span className="text-[10.5px] text-muted ml-2">Updated just now · {account.name}</span>
         </div>
-        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-          style={{ background: h >= 80 ? "var(--pos-soft)" : h >= 60 ? "var(--warn-soft)" : "var(--neg-soft)", color: healthToneColor }}>
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+          style={{ background: healthSoft, color: healthToneColor }}>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: healthToneColor }} />
           {healthLabel}
         </span>
       </div>
-      <div className="px-5 py-4">
-        <p className="text-[12.5px] text-ink-2 leading-relaxed mb-4">{narrative}</p>
-        <div className="flex items-center gap-4 mb-4">
-          {keyMetrics.map((m) => (
-            <div key={m.label} className="flex items-center gap-1.5">
-              <span className="text-[10px] font-mono uppercase tracking-[0.06em] text-muted">{m.label}</span>
-              <span className="text-[13px] font-bold tnum" style={{ color: m.tone }}>{m.value}</span>
-            </div>
-          ))}
+
+      <div className="p-5 space-y-4">
+        {/* TL;DR narrative */}
+        <p className="text-[12.5px] text-ink-2 leading-relaxed">{narrative}</p>
+
+        {/* Stat strip */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-px rounded-xl overflow-hidden"
+          style={{ background: "var(--line)" }}>
+          <Stat label="Health"     value={`${h}`}                            unit="/100"     tone={healthToneColor} />
+          {isCustomer && <Stat label="NRR" value={`${account.nrr}`}          unit="%"        tone={account.nrr >= 100 ? "var(--pos)" : "var(--warn)"} />}
+          {isCustomer && <Stat label="ARR" value={fmtMoneyShort(account.arr)} unit=""        tone="var(--ink)" />}
+          {isCustomer && <Stat label="Renewal" value={account.renewalDays > 0 ? `${account.renewalDays}` : "—"} unit="d" tone={account.renewalDays > 60 ? "var(--ink)" : account.renewalDays > 0 ? "var(--warn)" : "var(--neg)"} />}
+          <Stat label="Expansion" value={`${expansionScore}`}                  unit="/100"   tone={expansionTone} />
         </div>
+
+        {/* 2-col context */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Stakeholder coverage */}
+          <div className="rounded-xl p-3.5"
+            style={{ background: "var(--bg-deep)", border: "1px solid var(--line)" }}>
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-1.5">
+                <Users size={11} strokeWidth={2} style={{ color: "var(--muted)" }} />
+                <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-2">Stakeholder coverage</span>
+              </div>
+              <span className="text-[10px] tnum text-muted">
+                {stakeholderRoles.filter(s => s.status === "won").length}/{stakeholderRoles.length}
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              {stakeholderRoles.map((s) => {
+                const tone = s.status === "won" ? "var(--pos)" : s.status === "engaging" ? "var(--warn)" : s.status === "silent" ? "var(--neg)" : "var(--muted)";
+                const dot = s.status === "won" ? "✓" : s.status === "silent" ? "!" : "○";
+                return (
+                  <div key={s.role} className="flex items-center gap-2 text-[11px]">
+                    <span className="w-3.5 h-3.5 rounded-full grid place-items-center text-[8px] font-bold flex-shrink-0"
+                      style={{ background: `color-mix(in srgb, ${tone} 18%, transparent)`, color: tone }}>{dot}</span>
+                    <span className="font-medium text-ink-2 w-[88px] flex-shrink-0">{s.role}</span>
+                    <span className="text-muted truncate flex-1">{s.person}</span>
+                  </div>
+                );
+              })}
+            </div>
+            {champStatusM && (
+              <div className="mt-3 pt-2 border-t border-line text-[10.5px] text-muted-2">
+                Champion: <span className="font-semibold text-ink-2">{champion}</span>
+                <span className="mx-1.5">·</span>
+                <span className="text-ink-2">{championTitle}</span>
+                <span className="mx-1.5">·</span>
+                <span className="font-semibold" style={{ color: champStatusM.tone }}>{champStatusM.label}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Expansion thesis */}
+          <div className="rounded-xl p-3.5"
+            style={{
+              background: `linear-gradient(135deg, color-mix(in srgb, ${expansionTone} 4%, var(--surface)) 0%, var(--surface) 80%)`,
+              border: `1px solid color-mix(in srgb, ${expansionTone} 18%, var(--line))`,
+            }}>
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-1.5">
+                <Flame size={11} strokeWidth={2} style={{ color: expansionTone }} />
+                <span className="text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: expansionTone }}>Expansion thesis</span>
+              </div>
+              <span className="text-[10px] tnum" style={{ color: expansionTone }}>{expansionScore}/100</span>
+            </div>
+            {isCustomer && account.arr ? (
+              <>
+                <div className="text-[11.5px] text-ink-2 leading-snug mb-2.5">
+                  {account.arr ? fmtMoneyShort(account.arr) : "—"} ARR today.
+                  {totalPipeline > 0 && <> Path to <span className="font-semibold text-ink">{fmtMoneyShort(targetArr)}</span> via <span className="font-semibold" style={{ color: expansionTone }}>{fmtMoneyShort(totalPipeline)}</span> active pipeline.</>}
+                  {totalPipeline === 0 && <> No active expansion plays yet — first move: identify use case widening opportunity.</>}
+                </div>
+                {/* Pipeline cover bar */}
+                {totalPipeline > 0 && targetArr > 0 && (
+                  <div>
+                    <div className="text-[10px] text-muted-2 mb-1 flex items-center justify-between">
+                      <span>Pipeline cover to FY26 target</span>
+                      <span className="font-mono tnum">{Math.min(100, Math.round((totalPipeline / Math.max(1, targetArr - account.arr)) * 100))}%</span>
+                    </div>
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-deep)" }}>
+                      <div className="h-full rounded-full"
+                        style={{
+                          width: `${Math.min(100, Math.round((totalPipeline / Math.max(1, targetArr - account.arr)) * 100))}%`,
+                          background: `linear-gradient(90deg, ${expansionTone}, color-mix(in srgb, ${expansionTone} 70%, white))`,
+                        }} />
+                    </div>
+                  </div>
+                )}
+                {topOpp && (
+                  <div className="mt-2.5 pt-2 border-t border-line text-[10.5px]">
+                    <span className="text-muted-2">Top play:</span>
+                    <span className="ml-1 text-ink-2">{topOpp.productName}</span>
+                    <span className="mx-1 text-muted-2">·</span>
+                    <span className="font-semibold" style={{ color: expansionTone }}>{fmtMoneyShort(topOpp.estimatedArr)}</span>
+                    <span className="mx-1 text-muted-2">·</span>
+                    <span className="text-muted-2 capitalize">{topOpp.stage}</span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-[11.5px] text-ink-2 leading-snug">
+                {account.signals[0]?.body.slice(0, 140) ?? "No expansion signals yet — focus on champion mapping and use case validation."}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Momentum + Risks */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="rounded-xl p-3.5"
+            style={{ background: "var(--surface)", border: "1px solid var(--line)" }}>
+            <div className="flex items-center gap-1.5 mb-2.5">
+              <Activity size={11} strokeWidth={2} style={{ color: "var(--accent-deep)" }} />
+              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-2">Recent momentum</span>
+            </div>
+            <div className="space-y-1.5">
+              {momentum.length === 0 ? (
+                <div className="text-[11px] text-muted-2 italic py-2">No material changes this week.</div>
+              ) : momentum.map((m, i) => (
+                <div key={i} className="flex items-start gap-2 text-[11px]">
+                  <m.Icon size={10} strokeWidth={2.4} style={{ color: m.tone }} className="mt-0.5 shrink-0" />
+                  <span className="flex-1 text-ink-2 leading-snug truncate">{m.label}</span>
+                  <span className="text-[9.5px] font-mono text-muted-2 shrink-0">{m.ago}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-xl p-3.5"
+            style={{
+              background: risks.length > 0 ? "color-mix(in srgb, var(--neg) 4%, var(--surface))" : "var(--surface)",
+              border: `1px solid ${risks.length > 0 ? "color-mix(in srgb, var(--neg) 14%, var(--line))" : "var(--line)"}`,
+            }}>
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-1.5">
+                <AlertTriangle size={11} strokeWidth={2} style={{ color: risks.length > 0 ? "var(--neg)" : "var(--muted-2)" }} />
+                <span className="text-[10px] font-semibold uppercase tracking-[0.12em]"
+                  style={{ color: risks.length > 0 ? "var(--neg)" : "var(--muted-2)" }}>Active risks</span>
+              </div>
+              <span className="text-[10px] tnum text-muted-2">{risks.length}</span>
+            </div>
+            <div className="space-y-1.5">
+              {risks.length === 0 ? (
+                <div className="text-[11px] text-pos py-1 inline-flex items-center gap-1.5">
+                  <Check size={11} strokeWidth={2.4} /> Account is clear.
+                </div>
+              ) : risks.map((r, i) => {
+                const sev = r.severity === "high" ? "var(--neg)" : r.severity === "med" ? "var(--warn)" : "var(--muted)";
+                return (
+                  <div key={i} className="flex items-start gap-2 text-[11px]">
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5" style={{ background: sev }} />
+                    <span className="text-ink-2 leading-snug flex-1">{r.label}</span>
+                    <span className="text-[9.5px] font-semibold uppercase tracking-[0.1em] shrink-0"
+                      style={{ color: sev }}>
+                      {r.severity}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Recommended actions */}
         <div className="border-t border-line pt-3">
           <div className="text-[10px] font-mono uppercase tracking-[0.06em] text-muted mb-2">Recommended actions</div>
           <div className="flex flex-wrap gap-1.5">
             {actions.map((a) => (
-              <span key={a} className="text-[11px] font-medium px-2.5 py-1 rounded-lg border border-line bg-surface hover:bg-surface-2 cursor-pointer text-ink-2">
+              <span key={a} className="text-[11px] font-medium px-2.5 py-1 rounded-lg border border-line bg-surface hover:bg-surface-2 cursor-pointer text-ink-2 transition-colors">
                 {a}
               </span>
             ))}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, unit, tone }: { label: string; value: string; unit?: string; tone: string }) {
+  return (
+    <div className="px-3 py-2.5" style={{ background: "var(--surface)" }}>
+      <div className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-muted-2 mb-0.5">{label}</div>
+      <div className="flex items-baseline gap-0.5">
+        <span className="text-[16px] font-bold tnum" style={{ color: tone, letterSpacing: "-0.012em" }}>{value}</span>
+        {unit && <span className="text-[10px] tnum" style={{ color: tone, opacity: 0.6 }}>{unit}</span>}
       </div>
     </div>
   );

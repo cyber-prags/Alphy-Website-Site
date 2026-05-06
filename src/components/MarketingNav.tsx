@@ -20,9 +20,8 @@ export function MarketingNav({ active }: { active?: string } = {}) {
           boxShadow: "0 1px 2px rgba(15,18,24,0.04)",
         }}
       >
-        <Link href="/" className="flex items-center gap-2.5" aria-label="Alphard">
-          <AlphardLogo variant="icon" size={22} fill="#0F1218" />
-          <span className="text-[18px] font-semibold tracking-tight" style={{ color: "#0F1218" }}>Alphard</span>
+        <Link href="/" className="flex items-center" aria-label="Alphard">
+          <AlphardLogo variant="full" size={20} fill="#0F1218" />
         </Link>
 
         <div className="flex items-center gap-2">

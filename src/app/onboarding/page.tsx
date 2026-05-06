@@ -122,9 +122,8 @@ export default function OnboardingPage() {
 
       <header className="relative z-10 px-6 md:px-10 py-5 flex items-center justify-between"
         style={{ borderBottom: "1px solid rgba(15,18,24,0.06)" }}>
-        <button onClick={() => router.push("/")} className="flex items-center gap-2.5" aria-label="Alphard">
-          <AlphardLogo variant="icon" size={20} fill="#0F1218" />
-          <span className="text-[16px] font-semibold tracking-tight">Alphard</span>
+        <button onClick={() => router.push("/")} className="flex items-center" aria-label="Alphard">
+          <AlphardLogo variant="full" size={18} fill="#0F1218" />
         </button>
         <button onClick={skip}
           className="text-[12px] font-medium px-3 py-1.5 rounded-lg transition-colors"

@@ -21,8 +21,31 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Alphard — Revenue Workspace",
-  description: "AI-native revenue orchestration for sales and account teams",
+  title: {
+    default: "Alphard — Run Expansion like a pipeline",
+    template: "%s · Alphard",
+  },
+  description:
+    "The Expansion OS for Account Managers. Every signal in your book — usage, champion moves, ticket velocity, renewal proximity — fused into one ranked daily list of expansion plays.",
+  applicationName: "Alphard",
+  keywords: [
+    "expansion", "account management", "revenue intelligence",
+    "AM platform", "expansion AI", "champion tracking", "expansion playbooks",
+  ],
+  authors: [{ name: "Alphard" }],
+  openGraph: {
+    type: "website",
+    siteName: "Alphard",
+    title: "Alphard — Run Expansion like a pipeline",
+    description:
+      "The Expansion OS for Account Managers. One ranked daily list of expansion plays from every signal in your book.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Alphard — Run Expansion like a pipeline",
+    description:
+      "The Expansion OS for Account Managers. One ranked daily list of expansion plays from every signal in your book.",
+  },
 };
 
 export default function RootLayout({

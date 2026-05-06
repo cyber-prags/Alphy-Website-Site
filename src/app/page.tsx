@@ -629,10 +629,9 @@ export default function LandingPage() {
         <footer className="pt-12 pb-12 mt-12"
           style={{ borderTop: "1px solid rgba(15,18,24,0.08)" }}>
           <div className="flex flex-col md:flex-row justify-between gap-6">
-            <div className="flex items-center gap-2.5">
-              <AlphardLogo variant="icon" size={20} fill="#0F1218" />
-              <span className="text-[15px] font-semibold tracking-tight">Alphard</span>
-              <span className="text-[12px] ml-2" style={{ color: "rgba(15,18,24,0.45)" }}>© {new Date().getFullYear()} Alphard Analytics</span>
+            <div className="flex items-center gap-3">
+              <AlphardLogo variant="full" size={18} fill="#0F1218" />
+              <span className="text-[12px] ml-1" style={{ color: "rgba(15,18,24,0.45)" }}>© {new Date().getFullYear()} Alphard Analytics</span>
             </div>
             <div className="flex flex-wrap gap-x-7 gap-y-3 text-[13px]"
               style={{ color: "rgba(15,18,24,0.58)" }}>
