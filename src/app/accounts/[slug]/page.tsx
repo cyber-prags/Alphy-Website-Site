@@ -2016,6 +2016,7 @@ function CSMActionMetrics({ account, adoption }: { account: AccountDetail; adopt
 // narrative the CSM can scan before a call.
 // ---------------------------------------------------------------------
 function AIOverviewCard({ account, adoption }: { account: AccountDetail; adoption: any }) {
+  const toast = useToast();
   const h = account.healthScore;
   const isCustomer = account.status === "Customer";
   const healthLabel = h >= 80 ? "Healthy" : h >= 60 ? "Watch" : "At risk";
@@ -2107,30 +2108,25 @@ function AIOverviewCard({ account, adoption }: { account: AccountDetail; adoptio
 
   return (
     <div className="card overflow-hidden">
-      {/* Header */}
-      <div className="px-5 py-3 flex items-center gap-2.5 border-b border-line"
-        style={{ background: "linear-gradient(90deg, var(--accent-soft) 0%, transparent 80%)" }}>
-        <div className="w-7 h-7 rounded-lg grid place-items-center"
-          style={{ background: "linear-gradient(135deg, var(--accent) 0%, #7C3AED 100%)" }}>
-          <Sparkles size={13} strokeWidth={1.8} style={{ color: "white" }} />
+      {/* Header — clean, no gradient bubble */}
+      <div className="px-5 py-3.5 flex items-center justify-between gap-3 border-b border-line">
+        <div className="flex items-baseline gap-2.5">
+          <span className="text-[13px] font-semibold text-ink">Account brief</span>
+          <span className="text-[10.5px] text-muted">Updated just now</span>
         </div>
-        <div className="flex-1">
-          <span className="text-[13px] font-semibold text-ink">AI Account Overview</span>
-          <span className="text-[10.5px] text-muted ml-2">Updated just now · {account.name}</span>
-        </div>
-        <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded-full"
           style={{ background: healthSoft, color: healthToneColor }}>
           <span className="w-1.5 h-1.5 rounded-full" style={{ background: healthToneColor }} />
           {healthLabel}
         </span>
       </div>
 
-      <div className="p-5 space-y-4">
+      <div className="p-5 space-y-5">
         {/* TL;DR narrative */}
-        <p className="text-[12.5px] text-ink-2 leading-relaxed">{narrative}</p>
+        <p className="text-[13px] text-ink-2 leading-relaxed">{narrative}</p>
 
         {/* Stat strip */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-px rounded-xl overflow-hidden"
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-px rounded-lg overflow-hidden"
           style={{ background: "var(--line)" }}>
           <Stat label="Health"     value={`${h}`}                            unit="/100"     tone={healthToneColor} />
           {isCustomer && <Stat label="NRR" value={`${account.nrr}`}          unit="%"        tone={account.nrr >= 100 ? "var(--pos)" : "var(--warn)"} />}
@@ -2139,146 +2135,117 @@ function AIOverviewCard({ account, adoption }: { account: AccountDetail; adoptio
           <Stat label="Expansion" value={`${expansionScore}`}                  unit="/100"   tone={expansionTone} />
         </div>
 
-        {/* 2-col context */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {/* 2-col context — no colored backgrounds */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
           {/* Stakeholder coverage */}
-          <div className="rounded-xl p-3.5"
-            style={{ background: "var(--bg-deep)", border: "1px solid var(--line)" }}>
-            <div className="flex items-center justify-between mb-2.5">
-              <div className="flex items-center gap-1.5">
-                <Users size={11} strokeWidth={2} style={{ color: "var(--muted)" }} />
-                <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-2">Stakeholder coverage</span>
-              </div>
-              <span className="text-[10px] tnum text-muted">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-2">Stakeholder coverage</span>
+              <span className="text-[10.5px] tnum text-muted">
                 {stakeholderRoles.filter(s => s.status === "won").length}/{stakeholderRoles.length}
               </span>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {stakeholderRoles.map((s) => {
-                const tone = s.status === "won" ? "var(--pos)" : s.status === "engaging" ? "var(--warn)" : s.status === "silent" ? "var(--neg)" : "var(--muted)";
-                const dot = s.status === "won" ? "✓" : s.status === "silent" ? "!" : "○";
+                const tone = s.status === "won" ? "var(--pos)" : s.status === "engaging" ? "var(--warn)" : s.status === "silent" ? "var(--neg)" : "var(--muted-2)";
                 return (
-                  <div key={s.role} className="flex items-center gap-2 text-[11px]">
-                    <span className="w-3.5 h-3.5 rounded-full grid place-items-center text-[8px] font-bold flex-shrink-0"
-                      style={{ background: `color-mix(in srgb, ${tone} 18%, transparent)`, color: tone }}>{dot}</span>
-                    <span className="font-medium text-ink-2 w-[88px] flex-shrink-0">{s.role}</span>
+                  <div key={s.role} className="flex items-center gap-2.5 text-[12px]">
+                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: tone }} />
+                    <span className="font-medium text-ink-2 w-[100px] flex-shrink-0">{s.role}</span>
                     <span className="text-muted truncate flex-1">{s.person}</span>
                   </div>
                 );
               })}
             </div>
             {champStatusM && (
-              <div className="mt-3 pt-2 border-t border-line text-[10.5px] text-muted-2">
-                Champion: <span className="font-semibold text-ink-2">{champion}</span>
-                <span className="mx-1.5">·</span>
-                <span className="text-ink-2">{championTitle}</span>
-                <span className="mx-1.5">·</span>
-                <span className="font-semibold" style={{ color: champStatusM.tone }}>{champStatusM.label}</span>
+              <div className="mt-3 pt-2.5 border-t border-line text-[11px] text-muted">
+                Champion <span className="font-medium text-ink-2">{champion}</span>
+                <span className="mx-1.5 text-muted-2">·</span>
+                {championTitle}
+                <span className="mx-1.5 text-muted-2">·</span>
+                <span className="font-medium" style={{ color: champStatusM.tone }}>{champStatusM.label.toLowerCase()}</span>
               </div>
             )}
           </div>
 
           {/* Expansion thesis */}
-          <div className="rounded-xl p-3.5"
-            style={{
-              background: `linear-gradient(135deg, color-mix(in srgb, ${expansionTone} 4%, var(--surface)) 0%, var(--surface) 80%)`,
-              border: `1px solid color-mix(in srgb, ${expansionTone} 18%, var(--line))`,
-            }}>
-            <div className="flex items-center justify-between mb-2.5">
-              <div className="flex items-center gap-1.5">
-                <Flame size={11} strokeWidth={2} style={{ color: expansionTone }} />
-                <span className="text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: expansionTone }}>Expansion thesis</span>
-              </div>
-              <span className="text-[10px] tnum" style={{ color: expansionTone }}>{expansionScore}/100</span>
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-2">Expansion thesis</span>
+              <span className="text-[10.5px] tnum text-muted">{expansionScore}/100</span>
             </div>
             {isCustomer && account.arr ? (
               <>
-                <div className="text-[11.5px] text-ink-2 leading-snug mb-2.5">
-                  {account.arr ? fmtMoneyShort(account.arr) : "—"} ARR today.
+                <div className="text-[12px] text-ink-2 leading-relaxed mb-3">
+                  {fmtMoneyShort(account.arr)} ARR today.
                   {totalPipeline > 0 && <> Path to <span className="font-semibold text-ink">{fmtMoneyShort(targetArr)}</span> via <span className="font-semibold" style={{ color: expansionTone }}>{fmtMoneyShort(totalPipeline)}</span> active pipeline.</>}
                   {totalPipeline === 0 && <> No active expansion plays yet — first move: identify use case widening opportunity.</>}
                 </div>
-                {/* Pipeline cover bar */}
                 {totalPipeline > 0 && targetArr > 0 && (
                   <div>
-                    <div className="text-[10px] text-muted-2 mb-1 flex items-center justify-between">
-                      <span>Pipeline cover to FY26 target</span>
+                    <div className="text-[10.5px] text-muted-2 mb-1 flex items-center justify-between">
+                      <span>Cover to FY26 target</span>
                       <span className="font-mono tnum">{Math.min(100, Math.round((totalPipeline / Math.max(1, targetArr - account.arr)) * 100))}%</span>
                     </div>
-                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-deep)" }}>
+                    <div className="h-1 rounded-full overflow-hidden" style={{ background: "var(--bg-deep)" }}>
                       <div className="h-full rounded-full"
                         style={{
                           width: `${Math.min(100, Math.round((totalPipeline / Math.max(1, targetArr - account.arr)) * 100))}%`,
-                          background: `linear-gradient(90deg, ${expansionTone}, color-mix(in srgb, ${expansionTone} 70%, white))`,
+                          background: expansionTone,
                         }} />
                     </div>
                   </div>
                 )}
                 {topOpp && (
-                  <div className="mt-2.5 pt-2 border-t border-line text-[10.5px]">
-                    <span className="text-muted-2">Top play:</span>
-                    <span className="ml-1 text-ink-2">{topOpp.productName}</span>
-                    <span className="mx-1 text-muted-2">·</span>
-                    <span className="font-semibold" style={{ color: expansionTone }}>{fmtMoneyShort(topOpp.estimatedArr)}</span>
-                    <span className="mx-1 text-muted-2">·</span>
-                    <span className="text-muted-2 capitalize">{topOpp.stage}</span>
+                  <div className="mt-3 pt-2.5 border-t border-line text-[11px] text-muted">
+                    Top play <span className="text-ink-2">{topOpp.productName}</span>
+                    <span className="mx-1.5 text-muted-2">·</span>
+                    <span className="font-medium" style={{ color: expansionTone }}>{fmtMoneyShort(topOpp.estimatedArr)}</span>
+                    <span className="mx-1.5 text-muted-2">·</span>
+                    <span className="capitalize">{topOpp.stage}</span>
                   </div>
                 )}
               </>
             ) : (
-              <div className="text-[11.5px] text-ink-2 leading-snug">
+              <div className="text-[12px] text-ink-2 leading-relaxed">
                 {account.signals[0]?.body.slice(0, 140) ?? "No expansion signals yet — focus on champion mapping and use case validation."}
               </div>
             )}
           </div>
         </div>
 
-        {/* Momentum + Risks */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="rounded-xl p-3.5"
-            style={{ background: "var(--surface)", border: "1px solid var(--line)" }}>
-            <div className="flex items-center gap-1.5 mb-2.5">
-              <Activity size={11} strokeWidth={2} style={{ color: "var(--accent-deep)" }} />
-              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-2">Recent momentum</span>
-            </div>
-            <div className="space-y-1.5">
+        {/* Momentum + Risks — no colored backgrounds */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 border-t border-line pt-5">
+          <div>
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-3">Recent momentum</div>
+            <div className="space-y-2">
               {momentum.length === 0 ? (
-                <div className="text-[11px] text-muted-2 italic py-2">No material changes this week.</div>
+                <div className="text-[11.5px] text-muted-2 py-1">No material changes this week.</div>
               ) : momentum.map((m, i) => (
-                <div key={i} className="flex items-start gap-2 text-[11px]">
-                  <m.Icon size={10} strokeWidth={2.4} style={{ color: m.tone }} className="mt-0.5 shrink-0" />
+                <div key={i} className="flex items-baseline gap-2.5 text-[12px]">
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0 translate-y-[5px]" style={{ background: m.tone }} />
                   <span className="flex-1 text-ink-2 leading-snug truncate">{m.label}</span>
-                  <span className="text-[9.5px] font-mono text-muted-2 shrink-0">{m.ago}</span>
+                  <span className="text-[10px] font-mono text-muted-2 shrink-0">{m.ago}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="rounded-xl p-3.5"
-            style={{
-              background: risks.length > 0 ? "color-mix(in srgb, var(--neg) 4%, var(--surface))" : "var(--surface)",
-              border: `1px solid ${risks.length > 0 ? "color-mix(in srgb, var(--neg) 14%, var(--line))" : "var(--line)"}`,
-            }}>
-            <div className="flex items-center justify-between mb-2.5">
-              <div className="flex items-center gap-1.5">
-                <AlertTriangle size={11} strokeWidth={2} style={{ color: risks.length > 0 ? "var(--neg)" : "var(--muted-2)" }} />
-                <span className="text-[10px] font-semibold uppercase tracking-[0.12em]"
-                  style={{ color: risks.length > 0 ? "var(--neg)" : "var(--muted-2)" }}>Active risks</span>
-              </div>
-              <span className="text-[10px] tnum text-muted-2">{risks.length}</span>
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-2">Active risks</span>
+              <span className="text-[10.5px] tnum text-muted">{risks.length}</span>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {risks.length === 0 ? (
-                <div className="text-[11px] text-pos py-1 inline-flex items-center gap-1.5">
-                  <Check size={11} strokeWidth={2.4} /> Account is clear.
-                </div>
+                <div className="text-[12px] text-muted-2 py-1">Account is clear.</div>
               ) : risks.map((r, i) => {
                 const sev = r.severity === "high" ? "var(--neg)" : r.severity === "med" ? "var(--warn)" : "var(--muted)";
                 return (
-                  <div key={i} className="flex items-start gap-2 text-[11px]">
-                    <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5" style={{ background: sev }} />
+                  <div key={i} className="flex items-baseline gap-2.5 text-[12px]">
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0 translate-y-[5px]" style={{ background: sev }} />
                     <span className="text-ink-2 leading-snug flex-1">{r.label}</span>
-                    <span className="text-[9.5px] font-semibold uppercase tracking-[0.1em] shrink-0"
+                    <span className="text-[9.5px] font-medium uppercase tracking-[0.12em] shrink-0"
                       style={{ color: sev }}>
                       {r.severity}
                     </span>
@@ -2290,13 +2257,15 @@ function AIOverviewCard({ account, adoption }: { account: AccountDetail; adoptio
         </div>
 
         {/* Recommended actions */}
-        <div className="border-t border-line pt-3">
-          <div className="text-[10px] font-mono uppercase tracking-[0.06em] text-muted mb-2">Recommended actions</div>
+        <div className="border-t border-line pt-4">
+          <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-2.5">Recommended next moves</div>
           <div className="flex flex-wrap gap-1.5">
             {actions.map((a) => (
-              <span key={a} className="text-[11px] font-medium px-2.5 py-1 rounded-lg border border-line bg-surface hover:bg-surface-2 cursor-pointer text-ink-2 transition-colors">
+              <button key={a}
+                onClick={() => toast({ tone: "info", title: a, body: `Action queued — your AI co-pilot will draft the first step.` })}
+                className="text-[11.5px] font-medium px-2.5 py-1.5 rounded-md border border-line bg-surface hover:bg-bg-deep text-ink-2 transition-colors">
                 {a}
-              </span>
+              </button>
             ))}
           </div>
         </div>
@@ -2307,11 +2276,11 @@ function AIOverviewCard({ account, adoption }: { account: AccountDetail; adoptio
 
 function Stat({ label, value, unit, tone }: { label: string; value: string; unit?: string; tone: string }) {
   return (
-    <div className="px-3 py-2.5" style={{ background: "var(--surface)" }}>
-      <div className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-muted-2 mb-0.5">{label}</div>
+    <div className="px-3.5 py-3" style={{ background: "var(--surface)" }}>
+      <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-2 mb-1">{label}</div>
       <div className="flex items-baseline gap-0.5">
-        <span className="text-[16px] font-bold tnum" style={{ color: tone, letterSpacing: "-0.012em" }}>{value}</span>
-        {unit && <span className="text-[10px] tnum" style={{ color: tone, opacity: 0.6 }}>{unit}</span>}
+        <span className="text-[17px] font-semibold tnum" style={{ color: tone, letterSpacing: "-0.015em" }}>{value}</span>
+        {unit && <span className="text-[10.5px] tnum text-muted-2">{unit}</span>}
       </div>
     </div>
   );
@@ -2372,65 +2341,63 @@ function LifecycleBaton({ account }: { account: AccountDetail }) {
     },
   ];
 
-  const STATUS_META_PHASE: Record<Phase["status"], { dot: string; bg: string; ink: string; ring: string }> = {
-    done:   { dot: "var(--pos)",         bg: "var(--pos-soft)",    ink: "var(--pos)",         ring: "var(--pos)20" },
-    active: { dot: "var(--accent)",      bg: "var(--accent-soft)", ink: "var(--accent-deep)", ring: "var(--accent)25" },
-    next:   { dot: "var(--warn)",        bg: "var(--warn-soft)",   ink: "var(--warn)",        ring: "var(--warn)15" },
-    later:  { dot: "var(--muted-2)",     bg: "var(--bg-deep)",     ink: "var(--muted)",       ring: "var(--line)" },
+  const STATUS_LABEL: Record<Phase["status"], string> = {
+    done:   "Done",
+    active: "Active",
+    next:   "Next",
+    later:  "Later",
+  };
+  const STATUS_TONE: Record<Phase["status"], string> = {
+    done:   "var(--pos)",
+    active: "var(--accent-deep)",
+    next:   "var(--warn)",
+    later:  "var(--muted-2)",
   };
 
   return (
-    <div className="card p-4">
-      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md grid place-items-center"
-            style={{ background: "linear-gradient(135deg, var(--accent) 0%, #7C3AED 100%)" }}>
-            <Handshake size={11} strokeWidth={2.2} className="text-white" />
-          </div>
-          <span className="text-[13px] font-semibold text-ink">Lifecycle baton</span>
-          <span className="text-[10.5px] text-muted">Who owns this account at each phase</span>
+    <div className="card p-5">
+      <div className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
+        <div className="flex items-baseline gap-2.5">
+          <span className="text-[13px] font-semibold text-ink">Lifecycle</span>
+          <span className="text-[11px] text-muted">AE → AM → CSM ownership</span>
         </div>
         <button onClick={() => toast({ tone: "info", title: "Handoff triggered", body: "Notes, intel, and signals will be packaged and sent to the next owner." })}
-          className="text-[11px] font-semibold px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-colors"
-          style={{ background: "var(--ink)", color: "white" }}>
-          <ArrowRight size={11} strokeWidth={2.4} /> Trigger handoff
+          className="text-[11.5px] font-medium px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 transition-colors hover:bg-bg-deep"
+          style={{ color: "var(--ink-2)", border: "1px solid var(--line)" }}>
+          Trigger handoff <ArrowRight size={11} strokeWidth={2.2} />
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-3">
         {phases.map((p, i) => {
-          const meta = STATUS_META_PHASE[p.status];
+          const tone = STATUS_TONE[p.status];
+          const isActive = p.status === "active";
           return (
             <div key={p.role} className="relative">
               {/* Connector line to next phase */}
               {i < phases.length - 1 && (
-                <div className="absolute top-1/2 -right-1 w-2 h-[2px] rounded-full"
-                  style={{ background: "var(--line)", zIndex: 0 }} />
+                <div className="absolute top-3 right-[-6px] w-3 h-px"
+                  style={{ background: p.status === "done" ? "var(--pos)" : "var(--line)" }} />
               )}
-              <div className="relative rounded-xl p-3"
+              <div className="relative rounded-lg p-3.5"
                 style={{
-                  background: meta.bg,
-                  border: `1px solid color-mix(in srgb, ${meta.dot} 18%, var(--line))`,
-                  boxShadow: p.status === "active" ? `0 0 0 3px ${meta.ring}` : undefined,
-                  zIndex: 1,
+                  background: "var(--surface)",
+                  border: `1px solid ${isActive ? "color-mix(in srgb, var(--accent) 25%, var(--line))" : "var(--line)"}`,
+                  boxShadow: isActive ? "0 0 0 3px color-mix(in srgb, var(--accent) 8%, transparent)" : undefined,
                 }}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[9.5px] font-bold tnum" style={{ color: meta.ink, opacity: 0.6 }}>
-                      {String(i + 1).padStart(2, "0")}
-                    </span>
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: meta.ink }}>
-                      {p.role}
-                    </span>
-                  </div>
-                  <span className="text-[9.5px] font-semibold uppercase tracking-[0.12em]" style={{ color: meta.ink, opacity: 0.7 }}>
-                    {p.status === "done" ? "✓ Done" : p.status === "active" ? "● Active" : p.status === "next" ? "○ Next" : "—"}
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="text-[10.5px] font-semibold uppercase tracking-[0.14em]" style={{ color: tone }}>
+                    {p.role}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-medium" style={{ color: tone }}>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: tone, opacity: p.status === "later" ? 0.4 : 1 }} />
+                    {STATUS_LABEL[p.status]}
                   </span>
                 </div>
-                <div className="text-[12.5px] font-semibold text-ink mb-1.5">{p.label}</div>
+                <div className="text-[13px] font-semibold text-ink mb-2">{p.label}</div>
                 <div className="flex items-center gap-2 mb-1">
-                  <div className="w-5 h-5 rounded-full grid place-items-center text-[8px] font-bold text-white shrink-0"
-                    style={{ background: meta.dot }}>
+                  <div className="w-5 h-5 rounded-full grid place-items-center text-[8px] font-semibold text-white shrink-0"
+                    style={{ background: "var(--ink)" }}>
                     {p.initials}
                   </div>
                   <span className="text-[11px] font-medium text-ink-2 truncate">{p.owner}</span>
@@ -4537,11 +4504,11 @@ type AccountNote = {
 };
 
 const NOTE_TEMPLATES = [
-  { key: "call",     label: "Call notes",        prefix: "📞 Call · {{date}} · " },
-  { key: "qbr",      label: "QBR prep",          prefix: "📋 QBR Prep · {{date}}\n• Outcomes since last QBR:\n• What changed:\n• Asks for next quarter:\n" },
-  { key: "champ",    label: "Champion intel",    prefix: "👑 Champion · " },
-  { key: "blocker",  label: "Active blocker",    prefix: "🚧 Blocker · " },
-  { key: "exec",     label: "Exec summary",      prefix: "📈 Exec summary · " },
+  { key: "call",     label: "Call notes",        prefix: "Call · {{date}}\n— Attendees:\n— Topics:\n— Outcomes:\n— Next steps:\n" },
+  { key: "qbr",      label: "QBR prep",          prefix: "QBR prep · {{date}}\n— Outcomes since last QBR:\n— What changed:\n— Asks for next quarter:\n" },
+  { key: "champ",    label: "Champion intel",    prefix: "Champion · " },
+  { key: "blocker",  label: "Blocker",           prefix: "Blocker · " },
+  { key: "exec",     label: "Exec summary",      prefix: "Exec summary · " },
 ];
 
 function NotesPanel({ slug, accountName }: { slug: string; accountName: string }) {
@@ -4563,7 +4530,7 @@ function NotesPanel({ slug, accountName }: { slug: string; accountName: string }
         setNotes([
           {
             id: "seed-1",
-            text: `Maya Chen call · 12 May\n• Confirmed Q3 expansion budget for Networking + Security\n• Wants ROI deck before next QBR — bring Databricks comparable\n• Jason Park wants security review before procurement signs\n• Action: send revised proposal Friday`,
+            text: `Maya Chen · 12 May call\n— Confirmed Q3 expansion budget for Networking + Security.\n— Wants ROI deck before next QBR; bring Databricks comparable.\n— Jason Park wants security review before procurement signs.\n— Action: send revised proposal Friday.`,
             pinned: true,
             createdAt: new Date(Date.now() - 86400_000 * 4).toISOString(),
             updatedAt: new Date(Date.now() - 86400_000 * 4).toISOString(),
@@ -4631,13 +4598,12 @@ function NotesPanel({ slug, accountName }: { slug: string; accountName: string }
     <div className="space-y-5">
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <FileText size={14} strokeWidth={2} style={{ color: "var(--accent-deep)" }} />
-            <span className="text-[14px] font-semibold text-ink">Scratchpad</span>
-            <span className="text-[10px] font-mono tnum text-muted-2 bg-bg-deep px-1.5 py-0.5 rounded">{notes.length}</span>
+          <div className="flex items-baseline gap-2.5 mb-1">
+            <span className="text-[14px] font-semibold text-ink">Notes</span>
+            <span className="text-[11px] tnum text-muted-2">{notes.length}</span>
           </div>
           <div className="text-[12px] text-muted">
-            Forgiving free-form notes for {accountName}. Saved to your browser — never leaves.
+            Free-form scratchpad for {accountName}. Saved locally.
           </div>
         </div>
         <div className="flex items-center gap-1 p-1 rounded-lg" style={{ background: "var(--bg-deep)" }}>

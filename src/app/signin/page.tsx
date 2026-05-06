@@ -81,13 +81,9 @@ export default function SignInPage() {
           <button onClick={() => router.push("/")} className="flex items-center group" aria-label="Alphard">
             <AlphardLogo variant="full" size={20} fill="#0F1218" />
           </button>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-semibold tracking-[0.12em] uppercase"
-            style={{
-              background: "rgba(38,109,240,0.08)",
-              border: "1px solid rgba(38,109,240,0.20)",
-              color: ACCENT,
-            }}>
-            <Flame size={10} strokeWidth={2.4} />
+          <span className="inline-flex items-center gap-1.5 text-[10.5px] font-medium tracking-[0.12em] uppercase"
+            style={{ color: "rgba(15,18,24,0.55)" }}>
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#0FC27B" }} />
             Live demo
           </span>
         </div>

@@ -33,7 +33,7 @@ const STEPS: Step[] = [
   {
     id: "hot-list",
     Icon: Flame,
-    iconBg: "linear-gradient(135deg, #FF8A3D 0%, #F5360F 100%)",
+    iconBg: "#0F1218",
     eyebrow: "The hot list",
     title: "Every signal in your book, ranked daily.",
     body: "Open Alphard at 8am and see exactly which accounts are heating up — usage spikes, champion moves, ticket velocity, renewal proximity, all fused into one ranked list.",
@@ -47,7 +47,7 @@ const STEPS: Step[] = [
   {
     id: "portfolio",
     Icon: LayoutGrid,
-    iconBg: "linear-gradient(135deg, #266DF0 0%, #1A5AD4 100%)",
+    iconBg: "#0F1218",
     eyebrow: "Portfolio quadrant",
     title: "Decide where to push, defend, or walk away.",
     body: "Plot every account on Health × Expansion potential. The Boston-box for AMs — instantly see which segment each account belongs in, and what the right play is.",
@@ -61,7 +61,7 @@ const STEPS: Step[] = [
   {
     id: "growth",
     Icon: TrendingUp,
-    iconBg: "linear-gradient(135deg, #0FC27B 0%, #059669 100%)",
+    iconBg: "#0F1218",
     eyebrow: "Growth plan",
     title: "Four-quarter expansion plan per account.",
     body: "ARR ladder, quarterly bets, stakeholder coverage matrix, success criteria — replaces the spreadsheet you used to keep on the side. Lives with the account.",
@@ -75,7 +75,7 @@ const STEPS: Step[] = [
   {
     id: "activity",
     Icon: Activity,
-    iconBg: "linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%)",
+    iconBg: "#0F1218",
     eyebrow: "Activity feed",
     title: "What changed overnight on your book.",
     body: "Champion moves, departures, usage spikes, renewal events — chronological feed grouped Today / Yesterday / Earlier this week. Catch up in 60 seconds.",
@@ -162,13 +162,6 @@ function WelcomeScreen({ firstName, company, onNext, onSkip }: {
 }) {
   return (
     <div className="max-w-[640px] text-center">
-      <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-7"
-        style={{
-          background: "linear-gradient(135deg, #266DF0 0%, #7C3AED 100%)",
-          boxShadow: "0 12px 40px -12px rgba(38,109,240,0.5)",
-        }}>
-        <Sparkles size={28} strokeWidth={1.8} className="text-white" />
-      </div>
       <h1 className="text-[36px] md:text-[52px] font-semibold mb-4 leading-[1.04]"
         style={{ letterSpacing: "-0.04em" }}>
         Welcome, {firstName}.

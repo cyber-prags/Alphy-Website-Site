@@ -123,16 +123,16 @@ export function AnimatedChat() {
         style={{ borderBottom: "1px solid rgba(15,18,24,0.06)" }}>
         <div className="flex items-center gap-2.5">
           <div className="relative">
-            <div className="w-7 h-7 rounded-lg grid place-items-center"
-              style={{ background: "linear-gradient(135deg, #266DF0 0%, #7C3AED 100%)" }}>
-              <Sparkles size={13} strokeWidth={2.2} className="text-white" />
+            <div className="w-7 h-7 rounded-full grid place-items-center"
+              style={{ background: "#0F1218" }}>
+              <span className="text-[10px] font-semibold text-white">RA</span>
             </div>
-            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white"
+            <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border-[1.5px] border-white"
               style={{ background: "#0FC27B" }} />
           </div>
           <div>
             <div className="text-[12.5px] font-semibold" style={{ color: "#0F1218" }}>Revenue Agent</div>
-            <div className="text-[10px]" style={{ color: "rgba(15,18,24,0.50)" }}>Always on · Cloudflare context</div>
+            <div className="text-[10.5px]" style={{ color: "rgba(15,18,24,0.50)" }}>Cloudflare context · live</div>
           </div>
         </div>
         <span className="text-[10px] font-mono" style={{ color: "rgba(15,18,24,0.40)" }}>
@@ -192,9 +192,9 @@ function Message({ msg }: { msg: ChatMessage }) {
 
   return (
     <div className="flex items-start gap-2.5 animate-slide-up">
-      <div className="w-7 h-7 rounded-lg grid place-items-center shrink-0"
-        style={{ background: "linear-gradient(135deg, #266DF0 0%, #7C3AED 100%)" }}>
-        <Sparkles size={12} strokeWidth={2.2} className="text-white" />
+      <div className="w-7 h-7 rounded-full grid place-items-center shrink-0"
+        style={{ background: "#0F1218" }}>
+        <span className="text-[10px] font-semibold text-white">RA</span>
       </div>
       <div className="max-w-[88%] flex-1">
         {msg.blocks?.map((b, i) => <BlockView key={i} block={b} />)}
@@ -256,9 +256,9 @@ function BlockView({ block }: { block: Block }) {
 function TypingIndicator() {
   return (
     <div className="flex items-start gap-2.5">
-      <div className="w-7 h-7 rounded-lg grid place-items-center shrink-0"
-        style={{ background: "linear-gradient(135deg, #266DF0 0%, #7C3AED 100%)" }}>
-        <Sparkles size={12} strokeWidth={2.2} className="text-white" />
+      <div className="w-7 h-7 rounded-full grid place-items-center shrink-0"
+        style={{ background: "#0F1218" }}>
+        <span className="text-[10px] font-semibold text-white">RA</span>
       </div>
       <div className="px-3.5 py-3 rounded-2xl rounded-bl-md flex items-center gap-1"
         style={{ background: "white", border: "1px solid rgba(15,18,24,0.08)" }}>

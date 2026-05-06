@@ -98,13 +98,11 @@ export function AnimatedEmailDraft() {
           <Mail size={13} strokeWidth={2} style={{ color: "rgba(15,18,24,0.55)" }} />
           <span className="text-[12px] font-semibold" style={{ color: "#0F1218" }}>New message</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] px-2 py-0.5 rounded-full"
-            style={{ background: phase === "drafting" ? "rgba(38,109,240,0.10)" : "rgba(15,194,123,0.10)", color: phase === "drafting" ? ACCENT : "#0FC27B" }}>
-            <Sparkles size={9} strokeWidth={2.4} />
-            {phase === "drafting" ? "Drafting…" : phase === "done" ? "Ready to send" : "Gathering context"}
-          </span>
-        </div>
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.12em]"
+          style={{ color: phase === "done" ? "#0FC27B" : ACCENT }}>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: phase === "done" ? "#0FC27B" : ACCENT }} />
+          {phase === "drafting" ? "Drafting…" : phase === "done" ? "Ready to send" : "Gathering context"}
+        </span>
       </div>
 
       {/* Top: To/From/Subject */}

@@ -97,25 +97,19 @@ export function AnimatedPlaybook() {
       <div className="px-5 py-3.5 flex items-center justify-between"
         style={{ borderBottom: "1px solid rgba(15,18,24,0.06)" }}>
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg grid place-items-center"
-            style={{ background: "linear-gradient(135deg, #7C3AED 0%, #266DF0 100%)" }}>
-            <BookOpen size={13} strokeWidth={2.2} className="text-white" />
-          </div>
+          <BookOpen size={14} strokeWidth={1.8} style={{ color: "rgba(15,18,24,0.55)" }} />
           <div>
             <div className="text-[12.5px] font-semibold" style={{ color: "#0F1218" }}>
               Cloudflare · Strategic Growth playbook
             </div>
-            <div className="text-[10px]" style={{ color: "rgba(15,18,24,0.50)" }}>
+            <div className="text-[10.5px]" style={{ color: "rgba(15,18,24,0.50)" }}>
               Auto-curated from 8 weeks of signals
             </div>
           </div>
         </div>
-        <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] px-2 py-0.5 rounded-full"
-          style={{
-            background: phase === "done" ? "rgba(15,194,123,0.10)" : "rgba(38,109,240,0.10)",
-            color: phase === "done" ? "#0FC27B" : ACCENT,
-          }}>
-          <Sparkles size={9} strokeWidth={2.4} />
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.12em]"
+          style={{ color: phase === "done" ? "#0FC27B" : ACCENT }}>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: phase === "done" ? "#0FC27B" : ACCENT }} />
           {phase === "done" ? "Ready" : phase === "writing" ? "Drafting" : "Curating"}
         </span>
       </div>
