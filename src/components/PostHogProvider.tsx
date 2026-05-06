@@ -25,7 +25,8 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (initialized) return;
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-    const host = process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com";
+    const host =
+      process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://eu.i.posthog.com";
     if (!key) {
       // No key configured — silently skip. Dev sandbox.
       return;
@@ -34,7 +35,9 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       api_host: host,
       person_profiles: "identified_only",
       capture_pageview: false, // we handle pageviews manually so SPA navigation is tracked
-      loaded: () => { initialized = true; },
+      loaded: () => {
+        initialized = true;
+      },
     });
     initialized = true;
   }, []);
