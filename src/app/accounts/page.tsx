@@ -9,6 +9,7 @@ import {
 import { AppShell } from "@/components/AppShell";
 import {
   accounts as initialAccounts, slugify, fmtMoney, type Account, type AIHealth, type Tier, type Watchlist,
+  expansionOpportunities, championChanges,
 } from "@/lib/mock";
 import { Logo } from "@/components/Logo";
 import { MiniTimeline } from "@/components/EventTimeline";
@@ -268,14 +269,13 @@ export default function AccountsPage() {
             <thead>
               <tr className="text-left">
                 {[
-                  { label: "Display name",      w: 240 },
-                  { label: "Event timelines",   w: 200 },
-                  { label: "Signal",            w: 240 },
-                  { label: "QBR date",          w: 110 },
-                  { label: "Contract value",    w: 130 },
-                  { label: "1-to-1 agendas",    w: 100 },
-                  { label: "AI chat 14d",       w: 100 },
-                  { label: "AI usage health",   w: 130 },
+                  { label: "Account",           w: 230 },
+                  { label: "Activity",          w: 170 },
+                  { label: "Hottest signal",    w: 240 },
+                  { label: "ARR",               w: 110 },
+                  { label: "Pipeline",          w: 110 },
+                  { label: "Hot signals",       w: 100 },
+                  { label: "Expansion score",   w: 140 },
                 ].map((c) => (
                   <th key={c.label} style={{ width: c.w }}
                     className="mono-label !text-[10px] font-medium px-4 py-2.5 border-b border-line bg-surface-2/40">
@@ -286,18 +286,18 @@ export default function AccountsPage() {
             </thead>
             <tbody>
               {sorted.map((a) => {
-                const ai      = aiHealthChip(a.aiHealth);
-                const qbrLate = a.qbrInDays < 0;
-                const slug    = slugify(a.name);
-                const qbrText = qbrLate
-                  ? `${Math.abs(a.qbrInDays)}d overdue`
-                  : a.qbrInDays === 0 ? "today"
-                  : a.qbrInDays < 14 ? `in ${a.qbrInDays}d`
-                  : `in ${Math.round(a.qbrInDays / 7)}w`;
+                const slug = slugify(a.name);
+                // Expansion-coded derived metrics
+                const accountOpps = expansionOpportunities.filter((o) => o.accountSlug === slug);
+                const pipeline    = accountOpps.reduce((s, o) => s + o.estimatedArr, 0);
+                const topScore    = accountOpps.reduce((m, o) => Math.max(m, o.score), 0);
+                const hotSignals  = (accountOpps.filter((o) => o.daysInStage <= 14).length)
+                                  + (championChanges.filter((c) => c.accountSlug === slug).length);
+                const scoreColor  = topScore >= 85 ? "#F5360F" : topScore >= 75 ? "#F5B900" : topScore >= 60 ? "var(--accent)" : "var(--muted)";
                 return (
                   <tr key={a.id} onClick={() => router.push(`/accounts/${slug}`)}
                     className="hover:bg-surface-2 transition-colors group cursor-pointer">
-                    {/* Display name */}
+                    {/* Account */}
                     <td className="px-4 py-3 border-b border-line">
                       <div className="flex items-center gap-2.5">
                         <Logo name={a.name} size={26} rounded={5} />
@@ -307,44 +307,53 @@ export default function AccountsPage() {
                         </div>
                       </div>
                     </td>
-                    {/* Event timelines */}
+                    {/* Activity sparkline */}
                     <td className="px-4 py-3 border-b border-line">
                       <MiniTimeline data={a.eventTimeline} cellSize={8} gap={2} />
                     </td>
-                    {/* Signal */}
+                    {/* Hottest signal */}
                     <td className="px-4 py-3 border-b border-line">
                       <div className="flex items-center gap-2 max-w-[230px]">
                         <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: healthDot(a.health) }} />
                         <span className="text-[11.5px] text-ink-2 truncate">{a.signal}</span>
                       </div>
                     </td>
-                    {/* QBR date */}
-                    <td className="px-4 py-3 border-b border-line">
-                      <span className="text-[11.5px] font-mono tnum"
-                        style={{ color: qbrLate ? "var(--neg)" : "var(--ink-2)" }}>
-                        {qbrText}
-                      </span>
-                    </td>
-                    {/* Contract value */}
+                    {/* ARR */}
                     <td className="px-4 py-3 border-b border-line">
                       <span className="text-[13px] font-medium text-ink tnum">
                         {a.arr ? `$${a.arr.toLocaleString()}` : "—"}
                       </span>
                     </td>
-                    {/* 1-to-1 agendas */}
+                    {/* Pipeline ($ in motion) */}
                     <td className="px-4 py-3 border-b border-line">
-                      <span className="text-[12px] tnum text-ink-2">{a.agendas1to1}</span>
+                      {pipeline > 0
+                        ? <span className="text-[12.5px] font-semibold tnum" style={{ color: "var(--accent-deep)" }}>{fmtMoney(pipeline)}</span>
+                        : <span className="text-[11.5px] tnum text-muted-2">—</span>
+                      }
                     </td>
-                    {/* AI chat 14d */}
+                    {/* Hot signals count */}
                     <td className="px-4 py-3 border-b border-line">
-                      <span className="text-[12px] tnum text-ink-2">{a.aiChat14d}</span>
+                      {hotSignals > 0 ? (
+                        <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold px-2 py-0.5 rounded-full"
+                          style={{ background: "var(--accent-soft)", color: "var(--accent-deep)" }}>
+                          ⚡ {hotSignals}
+                        </span>
+                      ) : (
+                        <span className="text-[11.5px] tnum text-muted-2">—</span>
+                      )}
                     </td>
-                    {/* AI usage health */}
+                    {/* Expansion score */}
                     <td className="px-4 py-3 border-b border-line">
-                      <span className="text-[10.5px] font-medium px-1.5 py-0.5 rounded"
-                        style={{ background: ai.bg, color: ai.ink }}>
-                        {a.aiHealth}
-                      </span>
+                      {topScore > 0 ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-14 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-deep)" }}>
+                            <div className="h-full rounded-full" style={{ width: `${topScore}%`, background: scoreColor }} />
+                          </div>
+                          <span className="text-[11px] font-bold tnum" style={{ color: scoreColor }}>{topScore}</span>
+                        </div>
+                      ) : (
+                        <span className="text-[11.5px] tnum text-muted-2">—</span>
+                      )}
                     </td>
                   </tr>
                 );

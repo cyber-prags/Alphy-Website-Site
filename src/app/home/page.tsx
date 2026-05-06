@@ -88,22 +88,309 @@ function AMHome() {
         </div>
       </div>
 
-      {/* ─── 1 · Hot list — RANKED DAILY ─────────────────────── */}
-      <HotListSection hot={hot} all={allRanked} />
+      {/* ─── 1 · AI co-pilot · today's plays ─────────────────── */}
+      <AICopilotTodos />
 
-      {/* ─── 2 · Three-column intelligence row ───────────────── */}
+      {/* ─── 2 · Hot list — RANKED DAILY ─────────────────────── */}
+      <div className="mt-7"><HotListSection hot={hot} all={allRanked} /></div>
+
+      {/* ─── 3 · Three-column intelligence row ───────────────── */}
       <div className="grid grid-cols-12 gap-5 mt-7">
         <div className="col-span-12 lg:col-span-4"><ChampionMoversPanel movers={movers} /></div>
         <div className="col-span-12 lg:col-span-4"><StuckDealsPanel deals={stuckDeals} /></div>
         <div className="col-span-12 lg:col-span-4"><RenewalWindowsPanel /></div>
       </div>
 
-      {/* ─── 3 · White space heatmap ────────────────────────── */}
+      {/* ─── 4 · White space heatmap ────────────────────────── */}
       <div className="mt-7"><WhiteSpaceFeed /></div>
 
-      {/* ─── 4 · Today's queue (compact) ────────────────────── */}
+      {/* ─── 5 · Today's queue (compact kanban) ─────────────── */}
       <div className="mt-7"><TodayQueue persona="am" /></div>
     </AppShell>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// AI CO-PILOT — today's plays at the top of the home
+// AI-generated to-dos ranked by signal strength, with "expires tonight"
+// urgency framing borrowed from intent-platform UX patterns.
+// ════════════════════════════════════════════════════════════════════════
+type CoPilotPlay = {
+  id: string;
+  action: string;       // verb-led headline
+  person: string;
+  personTitle: string;
+  context: string;      // why now
+  account: string;
+  accountSlug: string;
+  signals: number;      // signal count
+  urgency: "today" | "this-week" | "expires";
+  arr?: number;
+  detail?: string;      // expanded detail
+  suggestedReply?: string;
+};
+
+const COPILOT_PLAYS: CoPilotPlay[] = [
+  {
+    id: "p1",
+    action: "Reply to Maya Chen — proposal stale 5 days",
+    person: "Maya Chen",
+    personTitle: "VP Engineering",
+    context: "You sent the Revenue Intel proposal May 1 — no reply yet. She just got promoted, budget scope expanded.",
+    account: "Cloudflare",
+    accountSlug: "cloudflare-inc",
+    signals: 5,
+    urgency: "today",
+    arr: 120_000,
+    detail: "Maya was promoted to VP Eng 12d ago. Her new scope spans Networking + Security. The proposal you sent on May 1 covered Revenue Intel — consider a follow-up that bundles Networking add-on to fit her new mandate.",
+    suggestedReply: "Hi Maya — congrats on the promotion! Wanted to check in on the Revenue Intel proposal. Given your expanded scope, I have a few thoughts on bundling Networking that could simplify procurement…",
+  },
+  {
+    id: "p2",
+    action: "Loop in Jason Park — security review unblocks deal",
+    person: "Jason Park",
+    personTitle: "Security Ops Lead",
+    context: "Cloudflare procurement requires Security sign-off before May 25. Without him, deal slips past Q2 cutoff.",
+    account: "Cloudflare",
+    accountSlug: "cloudflare-inc",
+    signals: 3,
+    urgency: "today",
+    arr: 120_000,
+  },
+  {
+    id: "p3",
+    action: "Send governance gap analysis to Priya Sharma",
+    person: "Priya Sharma",
+    personTitle: "Head of Revenue Operations",
+    context: "She asked for it Apr 28 — 8 days waiting. Tableau hiring 4 ML engineers, governance gap widening.",
+    account: "Tableau",
+    accountSlug: "tableau-software",
+    signals: 4,
+    urgency: "this-week",
+    arr: 90_000,
+  },
+  {
+    id: "p4",
+    action: "Re-engage Brad Wallace — silent 14 days",
+    person: "Brad Wallace",
+    personTitle: "VP Sales Ops",
+    context: "Snowflake renewal in 47d. James Whitfield (your other sponsor) just left. Brad is your only path in.",
+    account: "Snowflake",
+    accountSlug: "snowflake-inc",
+    signals: 4,
+    urgency: "this-week",
+    arr: 480_000,
+  },
+  {
+    id: "p5",
+    action: "Send trial usage report — Cloudflare AI Copilot",
+    person: "Maya Chen",
+    personTitle: "VP Engineering",
+    context: "Trial ends May 28 with 60% weekly engagement. Convert before expiry or lose 10 active seats.",
+    account: "Cloudflare",
+    accountSlug: "cloudflare-inc",
+    signals: 3,
+    urgency: "expires",
+    arr: 95_000,
+  },
+  {
+    id: "p6",
+    action: "Schedule Tom Nakamura to unblock Akamai Data Hub",
+    person: "Tom Nakamura",
+    personTitle: "Engineering Lead",
+    context: "Deal stale 18d. Akamai evaluating 2 competing tools. Schedule a roadmap session this week.",
+    account: "Akamai",
+    accountSlug: "akamai-technologies",
+    signals: 2,
+    urgency: "this-week",
+    arr: 65_000,
+  },
+];
+
+function AICopilotTodos() {
+  const [view, setView] = useState<"plays" | "accounts">("plays");
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const todayCount = COPILOT_PLAYS.filter((p) => p.urgency === "today" || p.urgency === "expires").length;
+  const totalArr = COPILOT_PLAYS.reduce((s, p) => s + (p.arr ?? 0), 0);
+
+  return (
+    <section className="rounded-2xl overflow-hidden"
+      style={{
+        background: "linear-gradient(135deg, color-mix(in srgb, var(--accent) 4%, var(--surface)) 0%, var(--surface) 60%)",
+        border: "1px solid color-mix(in srgb, var(--accent) 18%, var(--line))",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 0 22px -8px color-mix(in srgb, var(--accent) 18%, transparent)",
+      }}
+    >
+      {/* Header */}
+      <div className="px-6 py-4 flex items-center justify-between flex-wrap gap-3"
+        style={{ borderBottom: "1px solid color-mix(in srgb, var(--accent) 12%, var(--line))" }}>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <div className="w-9 h-9 rounded-xl grid place-items-center"
+              style={{
+                background: "linear-gradient(135deg, var(--accent) 0%, #7C3AED 100%)",
+                boxShadow: "0 6px 18px -6px rgba(38,109,240,0.5)",
+              }}>
+              <Sparkles size={16} strokeWidth={2.2} className="text-white" />
+            </div>
+            <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full" style={{ background: "var(--pos)", boxShadow: "0 0 8px var(--pos)" }} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-[16px] font-semibold text-ink" style={{ letterSpacing: "-0.018em" }}>
+                AI co-pilot
+              </h2>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] px-2 py-0.5 rounded"
+                style={{ background: "var(--accent-soft)", color: "var(--accent-deep)" }}>
+                Today
+              </span>
+            </div>
+            <div className="text-[11.5px] text-muted mt-0.5">
+              <span className="font-semibold text-ink-2">{todayCount} plays</span> need attention today ·
+              <span className="ml-1">{fmtMoney(totalArr)} touched</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 p-1 rounded-lg" style={{ background: "var(--bg-deep)" }}>
+            <button onClick={() => setView("plays")}
+              className={`px-3 py-1.5 rounded text-[11.5px] font-medium ${view === "plays" ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink"}`}>
+              Plays
+            </button>
+            <button onClick={() => setView("accounts")}
+              className={`px-3 py-1.5 rounded text-[11.5px] font-medium ${view === "accounts" ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink"}`}>
+              By account
+            </button>
+          </div>
+          <button className="px-3 py-2 rounded-lg text-[11.5px] font-medium text-muted hover:text-ink inline-flex items-center gap-1"
+            style={{ border: "1px solid var(--line)", background: "var(--surface)" }}>
+            See all {COPILOT_PLAYS.length}
+            <ChevronRight size={11} />
+          </button>
+        </div>
+      </div>
+
+      {/* Plays list */}
+      <div>
+        {COPILOT_PLAYS.slice(0, 4).map((play, i) => (
+          <CoPilotRow
+            key={play.id}
+            play={play}
+            isLast={i === Math.min(3, COPILOT_PLAYS.length - 1)}
+            isExpanded={expanded === play.id}
+            onToggle={() => setExpanded((e) => (e === play.id ? null : play.id))}
+          />
+        ))}
+        {COPILOT_PLAYS.length > 4 && (
+          <button className="w-full px-6 py-3 text-[11.5px] font-medium text-muted hover:text-ink hover:bg-bg-deep transition-colors text-left">
+            +{COPILOT_PLAYS.length - 4} more plays for this week
+            <ChevronRight size={11} className="inline ml-1" />
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function CoPilotRow({ play, isLast, isExpanded, onToggle }: { play: CoPilotPlay; isLast: boolean; isExpanded: boolean; onToggle: () => void }) {
+  const urgencyTone =
+    play.urgency === "today"   ? { color: "var(--neg)", soft: "var(--neg-soft)", label: "Today" } :
+    play.urgency === "expires" ? { color: "var(--warn)", soft: "var(--warn-soft)", label: "Expires soon" } :
+                                 { color: "var(--muted)", soft: "var(--bg-deep)", label: "This week" };
+
+  return (
+    <div style={{ borderBottom: isLast ? "none" : "1px solid var(--line)" }}>
+      <div onClick={onToggle}
+        className="px-6 py-4 hover:bg-bg-deep cursor-pointer transition-colors flex items-start gap-3.5">
+        {/* AI sparkle */}
+        <div className="w-7 h-7 rounded-lg grid place-items-center shrink-0 mt-0.5"
+          style={{
+            background: "color-mix(in srgb, var(--accent) 10%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--accent) 18%, transparent)",
+          }}>
+          <Sparkles size={12} strokeWidth={2.2} style={{ color: "var(--accent-deep)" }} />
+        </div>
+
+        {/* Main */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start gap-2 mb-1">
+            <span className="text-[13.5px] font-semibold text-ink leading-snug flex-1">{play.action}</span>
+            <span className="text-[9.5px] font-semibold uppercase tracking-[0.12em] px-1.5 py-0.5 rounded shrink-0"
+              style={{ background: urgencyTone.soft, color: urgencyTone.color }}>
+              {urgencyTone.label}
+            </span>
+          </div>
+          <div className="text-[11.5px] text-muted leading-relaxed">{play.context}</div>
+          <div className="flex items-center gap-2 mt-2">
+            <Logo name={play.account} size={16} rounded={4} />
+            <span className="text-[11px] font-medium text-ink-2">{play.account}</span>
+            <span className="text-muted-2">·</span>
+            <span className="text-[10.5px] text-muted">{play.person} · {play.personTitle}</span>
+            <span className="text-muted-2">·</span>
+            <span className="inline-flex items-center gap-0.5 text-[10.5px] font-medium" style={{ color: "var(--accent-deep)" }}>
+              <Zap size={10} strokeWidth={2.4} fill="currentColor" />
+              {play.signals}
+            </span>
+            {play.arr && (
+              <>
+                <span className="text-muted-2">·</span>
+                <span className="text-[10.5px] font-mono tnum font-semibold" style={{ color: "var(--pos)" }}>
+                  {fmtMoney(play.arr)}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+
+        <ChevronDown size={14} strokeWidth={1.8}
+          className={`text-muted shrink-0 transition-transform mt-1 ${isExpanded ? "rotate-180" : ""}`} />
+      </div>
+
+      {/* Expanded panel */}
+      {isExpanded && (
+        <div className="px-6 pb-4 -mt-1 pt-0">
+          <div className="rounded-xl p-4 ml-10"
+            style={{ background: "var(--bg-deep)", border: "1px solid var(--line)" }}>
+            {play.detail && (
+              <div className="mb-3">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1.5">Why now</div>
+                <div className="text-[12px] text-ink-2 leading-relaxed">{play.detail}</div>
+              </div>
+            )}
+            {play.suggestedReply && (
+              <div className="mb-3">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1.5 flex items-center gap-1.5">
+                  <Sparkles size={10} strokeWidth={2.2} style={{ color: "var(--accent-deep)" }} />
+                  Suggested reply
+                </div>
+                <div className="rounded-lg px-3 py-2.5 text-[11.5px] text-ink-2 leading-relaxed font-mono"
+                  style={{ background: "var(--surface)", border: "1px solid var(--line)" }}>
+                  {play.suggestedReply}
+                </div>
+              </div>
+            )}
+            <div className="flex items-center gap-2 flex-wrap">
+              <button className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg text-white"
+                style={{ background: "var(--accent-deep)" }}>
+                <Sparkles size={11} strokeWidth={2} /> Draft reply
+              </button>
+              <Link href={`/accounts/${play.accountSlug}`}
+                className="inline-flex items-center gap-1.5 text-[11.5px] font-medium px-3 py-1.5 rounded-lg"
+                style={{ background: "var(--surface)", color: "var(--ink-2)", border: "1px solid var(--line)" }}>
+                Open account <ArrowRight size={10} strokeWidth={2.2} />
+              </Link>
+              <button className="inline-flex items-center gap-1.5 text-[11.5px] font-medium px-3 py-1.5 rounded-lg text-muted hover:text-ink">
+                Snooze 1d
+              </button>
+              <button className="inline-flex items-center gap-1.5 text-[11.5px] font-medium px-3 py-1.5 rounded-lg text-muted hover:text-ink ml-auto">
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

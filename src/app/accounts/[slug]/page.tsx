@@ -14,7 +14,8 @@ import { OrgChart } from "@/components/OrgChart";
 import { Popover, MenuItem } from "@/components/Popover";
 import { DraftDeckModal, type DeckTemplate } from "@/components/DraftDeckModal";
 import { AdoptionPanel } from "@/components/AdoptionPanel";
-import { accountAdoption } from "@/lib/mock";
+import { accountAdoption, expansionOpportunities, fmtMoney as fmtMoneyShort, slugify as slugifyMock } from "@/lib/mock";
+import { Flame } from "lucide-react";
 import { SourceChip } from "@/components/SourceChip";
 import { StakeholderEditor } from "@/components/StakeholderEditor";
 import { WhiteSpaceMatrix } from "@/components/WhiteSpaceMatrix";
@@ -259,6 +260,28 @@ function NotionAccountHeader({
             </div>
           </div>
         </PropertyRow>
+        {(() => {
+          const opps = expansionOpportunities.filter(o => o.accountName === account.name);
+          if (opps.length === 0) return null;
+          const topScore = Math.max(...opps.map(o => o.score));
+          const pipeline = opps.reduce((s, o) => s + o.estimatedArr, 0);
+          const sc = topScore >= 85 ? "#F5360F" : topScore >= 75 ? "#F5B900" : "var(--accent)";
+          return (
+            <PropertyRow icon={<Flame size={12} strokeWidth={1.7} />} label="Expansion">
+              <div className="flex items-center gap-2">
+                <span className="text-[12px] font-semibold tnum" style={{ color: sc }}>
+                  {topScore}/100
+                </span>
+                <div className="w-20 h-1 rounded-full overflow-hidden" style={{ background: "var(--bg-deep)" }}>
+                  <div style={{ width: `${topScore}%`, height: "100%", background: sc }} />
+                </div>
+                <span className="text-[10.5px] font-mono tnum text-muted ml-1">
+                  {fmtMoneyShort(pipeline)} pipeline
+                </span>
+              </div>
+            </PropertyRow>
+          );
+        })()}
         <PropertyRow icon={<Users size={12} strokeWidth={1.7} />} label="Owner">
           <div className="flex items-center gap-1.5">
             <div className="w-4 h-4 rounded-full bg-ink text-white grid place-items-center text-[7.5px] font-semibold">

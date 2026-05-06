@@ -121,7 +121,7 @@ export default function SignalsPage() {
           What changed across <span className="italic-emph">your book</span>
         </h1>
         <div className="text-[12.5px] text-muted mt-1.5 mb-3 max-w-2xl">
-          Every Risk, Strength, and Opportunity is a signal with an evidence chain. Closure status tracks whether the receiving human acted.
+          The events that move expansion. Each signal has the evidence behind it and the next move you should make.
         </div>
         <DataFreshness minutesAgo={9} sources={["Gong", "Salesforce", "LinkedIn", "Mixpanel"]} />
       </div>
