@@ -2310,6 +2310,7 @@ function JourneyPanel({ account }: { account: AccountDetail }) {
 }
 
 function OutcomesPanel({ account, outcomes, slug }: { account: AccountDetail; outcomes: any[]; slug: string }) {
+  const toast = useToast();
   const plan = successPlans.find((p) => p.accountSlug === slug);
   return (
     <div>
@@ -2319,7 +2320,8 @@ function OutcomesPanel({ account, outcomes, slug }: { account: AccountDetail; ou
           <Target size={20} strokeWidth={1.5} className="mx-auto text-muted-2 mb-2" />
           <div className="text-[13px] font-semibold text-ink">No customer outcomes yet</div>
           <div className="text-[12px] text-muted mt-1">Define measurable success goals — TTFV, retention metrics, expansion targets.</div>
-          <button className="mt-4 text-[12px] font-medium h-8 px-3 rounded-md bg-ink text-white inline-flex items-center gap-1.5">
+          <button onClick={() => toast({ tone: "info", title: "Add outcome", body: "Outcome editor opens with templates for adoption, expansion, and retention goals." })}
+            className="mt-4 text-[12px] font-medium h-8 px-3 rounded-md bg-ink text-white inline-flex items-center gap-1.5">
             <Plus size={11} /> Add outcome
           </button>
         </div>
@@ -3521,7 +3523,8 @@ function PlansPanel({ slug }: { slug: string }) {
         </div>
         <h3 className="text-[15px] font-semibold text-ink mb-1">No plans yet</h3>
         <p className="text-[12.5px] text-muted mb-4">Create an expansion or retention plan to track milestones and tasks for this account.</p>
-        <button className="btn-accent h-9 px-4 text-[12.5px]">
+        <button onClick={() => toast({ tone: "info", title: "Create plan", body: "Plan editor opens with expansion / retention / onboarding templates." })}
+          className="btn-accent h-9 px-4 text-[12.5px]">
           <Plus size={13} strokeWidth={2} /> Create Plan
         </button>
       </div>
@@ -3541,8 +3544,10 @@ function PlansPanel({ slug }: { slug: string }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button className="h-8 px-3 rounded-lg border border-line text-[11.5px] font-medium text-ink hover:bg-bg-deep transition-colors">Filter</button>
-          <button className="h-8 px-3 rounded-lg border border-line text-[11.5px] font-medium text-ink hover:bg-bg-deep transition-colors">Rows: None</button>
+          <button onClick={() => toast({ tone: "info", title: "Filters", body: "Filter by assignee, priority, and status — coming soon" })}
+            className="h-8 px-3 rounded-lg border border-line text-[11.5px] font-medium text-ink hover:bg-bg-deep transition-colors">Filter</button>
+          <button onClick={() => toast({ tone: "info", title: "Group by", body: "Group rows by milestone, owner, or due window — coming soon" })}
+            className="h-8 px-3 rounded-lg border border-line text-[11.5px] font-medium text-ink hover:bg-bg-deep transition-colors">Rows: None</button>
           <button onClick={() => toast({ tone: "info", title: "New task" })}
             className="h-8 px-3 rounded-lg text-[11.5px] font-semibold inline-flex items-center gap-1.5"
             style={{ background: "var(--accent)", color: "var(--accent-ink)" }}>
@@ -3635,25 +3640,6 @@ function PlansPanel({ slug }: { slug: string }) {
         })}
       </div>
 
-      {/* Floating Ask Signal bar */}
-      <div className="mt-5 flex items-center justify-center">
-        <div className="w-full max-w-[620px] flex items-center gap-2.5 h-11 px-5 rounded-full border border-line shadow-lg" style={{ background: "var(--surface)" }}>
-          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "var(--accent)" }} />
-          <input
-            placeholder={`Ask Signal — 'what changed at ${accountName} this week?'`}
-            className="flex-1 bg-transparent outline-none text-[12.5px] placeholder:text-muted-2"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.target as HTMLInputElement).value.trim()) {
-                toast({ tone: "info", title: "Signal query sent", body: (e.target as HTMLInputElement).value });
-                (e.target as HTMLInputElement).value = "";
-              }
-            }}
-          />
-          <button className="w-8 h-8 rounded-full grid place-items-center" style={{ background: "var(--accent)", color: "var(--accent-ink)" }}>
-            <Send size={13} strokeWidth={2} />
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -3847,21 +3833,6 @@ function DocumentsPanel({ slug }: { slug: string }) {
                   {renderDocContent(editContent || openDoc.content || "")}
                 </div>
               )}
-            </div>
-            {/* Floating Signal input */}
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-[90%] max-w-[600px]">
-              <div className="flex items-center gap-2 h-10 px-4 rounded-full bg-surface border border-line shadow-lg">
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "var(--accent)" }} />
-                <input value={signalQuery} onChange={e => setSignalQuery(e.target.value)}
-                  placeholder={`Ask Signal — 'what changed at ${accountName} this week?'`}
-                  onKeyDown={e => { if (e.key === "Enter" && signalQuery.trim()) { toast({ tone: "info", title: "Signal query sent", body: signalQuery }); setSignalQuery(""); } }}
-                  className="flex-1 bg-transparent outline-none text-[12.5px] placeholder:text-muted-2" />
-                <button onClick={() => { if (signalQuery.trim()) { toast({ tone: "info", title: "Signal query sent" }); setSignalQuery(""); } }}
-                  className="w-7 h-7 rounded-full grid place-items-center hover:bg-bg-deep transition-colors"
-                  style={{ background: signalQuery.trim() ? "var(--accent)" : "transparent", color: signalQuery.trim() ? "var(--accent-ink)" : "var(--muted)" }}>
-                  <Send size={12} strokeWidth={2} />
-                </button>
-              </div>
             </div>
           </>
         ) : (

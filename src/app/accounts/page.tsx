@@ -190,10 +190,12 @@ export default function AccountsPage() {
 
         <span className="text-[10.5px] font-mono text-muted-2 tnum">{sorted.length} / {accounts.length}</span>
 
-        <button className="text-[11.5px] font-medium text-muted hover:text-ink h-8 px-2.5 rounded-md inline-flex items-center gap-1.5">
+        <button onClick={() => toast({ tone: "info", title: "Refreshed", body: "Account data is up to date" })}
+          className="text-[11.5px] font-medium text-muted hover:text-ink h-8 px-2.5 rounded-md inline-flex items-center gap-1.5">
           <RefreshCw size={11} strokeWidth={1.6} /> Refresh
         </button>
-        <button className="text-[11.5px] font-medium text-muted hover:text-ink h-8 px-2.5 rounded-md inline-flex items-center gap-1.5">
+        <button onClick={() => toast({ tone: "info", title: "Column settings", body: "Column visibility editor coming soon" })}
+          className="text-[11.5px] font-medium text-muted hover:text-ink h-8 px-2.5 rounded-md inline-flex items-center gap-1.5">
           <Settings2 size={11} strokeWidth={1.6} /> Columns
         </button>
       </div>

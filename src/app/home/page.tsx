@@ -665,11 +665,16 @@ const GOAL_CATEGORY_STYLE: Record<EnhancedGoal["category"], { bg: string; color:
 };
 
 function GoalsSection({ persona }: { persona: string }) {
-  const all = persona === "ae" ? GOALS_AE_X : GOALS_CSM_X;
+  const allGoals = persona === "ae" ? GOALS_AE_X : GOALS_CSM_X;
+  const [view, setView] = useState<"live" | "completed">("live");
+  // "Completed" = goals with progress >= 100 (none in mock by default — empty state)
+  const all = view === "live"
+    ? allGoals.filter(g => g.progress < 100)
+    : allGoals.filter(g => g.progress >= 100);
   const overdue   = all.filter(g => g.daysLeft <= 1);
   const thisWeek  = all.filter(g => g.daysLeft > 1 && g.daysLeft <= 7);
   const upcoming  = all.filter(g => g.daysLeft > 7);
-  const avgProg   = Math.round(all.reduce((s, g) => s + g.progress, 0) / all.length);
+  const avgProg   = all.length ? Math.round(all.reduce((s, g) => s + g.progress, 0) / all.length) : 0;
   const [expandedGoal, setExpandedGoal] = useState<string | null>(null);
 
   return (
@@ -685,9 +690,16 @@ function GoalsSection({ persona }: { persona: string }) {
           <span className="text-[11.5px] text-muted">{all.length} active · {avgProg}% avg</span>
         </div>
         <div className="flex items-center gap-1.5 text-[11.5px]">
-          <button className="px-3 py-1.5 rounded-lg font-medium text-ink bg-bg-deep">Live goals</button>
-          <button className="px-3 py-1.5 rounded-lg text-muted hover:text-ink">Completed</button>
-          <button className="ml-2 h-8 px-3 rounded-lg text-[11.5px] font-medium inline-flex items-center gap-1.5 border border-line bg-surface hover:bg-bg-deep">
+          <button onClick={() => setView("live")}
+            className={`px-3 py-1.5 rounded-lg font-medium ${view === "live" ? "text-ink bg-bg-deep" : "text-muted hover:text-ink"}`}>
+            Live goals
+          </button>
+          <button onClick={() => setView("completed")}
+            className={`px-3 py-1.5 rounded-lg ${view === "completed" ? "text-ink bg-bg-deep font-medium" : "text-muted hover:text-ink"}`}>
+            Completed
+          </button>
+          <button onClick={() => alert("Goal creation coming soon — for now, goals are seeded from your active plays.")}
+            className="ml-2 h-8 px-3 rounded-lg text-[11.5px] font-medium inline-flex items-center gap-1.5 border border-line bg-surface hover:bg-bg-deep">
             <Plus size={12} strokeWidth={2} /> Add goal
           </button>
         </div>

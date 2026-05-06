@@ -4,9 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { Search, Filter, Plus, Inbox as InboxIcon, Mail, MessageSquare, Phone, AlertTriangle } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { useToast } from "@/components/Toast";
 import { Logo } from "@/components/Logo";
 import { slugify } from "@/lib/mock";
-import { useToast } from "@/components/Toast";
 
 type Item = {
   id: string;
@@ -103,7 +103,8 @@ export default function InboxPage() {
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search inbox…"
             className="flex-1 bg-transparent outline-none text-[12px] placeholder:text-muted-2" />
         </div>
-        <button className="inline-flex items-center gap-1.5 h-9 px-2.5 rounded-md border border-line bg-surface text-[11.5px] font-medium text-ink-2 hover:bg-bg-deep">
+        <button onClick={() => toast({ tone: "info", title: "Filter inbox", body: "Filter by channel, status, sender, and account — coming soon" })}
+          className="inline-flex items-center gap-1.5 h-9 px-2.5 rounded-md border border-line bg-surface text-[11.5px] font-medium text-ink-2 hover:bg-bg-deep">
           <Filter size={11} className="text-muted" /> Filter
         </button>
       </div>

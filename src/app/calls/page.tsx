@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Search, Filter, Phone, PhoneIncoming, PhoneOutgoing, ArrowUpDown, Play } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { useToast } from "@/components/Toast";
 import { calls, fmtDate, type Call } from "@/lib/mock";
 
 const fmtDuration = (s: number) => {
@@ -25,7 +26,9 @@ const OUTCOME: Record<Call["outcome"], { bg: string; ink: string }> = {
 };
 
 export default function CallsPage() {
+  const toast = useToast();
   const [search, setSearch] = useState("");
+  const [sortDir, setSortDir] = useState<"newest" | "oldest">("newest");
 
   const filtered = useMemo(() => {
     const lc = search.trim().toLowerCase();
@@ -62,10 +65,12 @@ export default function CallsPage() {
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search calls…"
                  className="flex-1 bg-transparent outline-none text-[12px] placeholder:text-muted-2" />
         </div>
-        <button className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-line bg-surface text-[11.5px] font-medium text-ink-2 hover:bg-bg-deep">
-          <ArrowUpDown size={11} className="text-muted" /> Sort
+        <button onClick={() => { setSortDir(s => s === "newest" ? "oldest" : "newest"); toast({ tone: "info", title: `Sorted by ${sortDir === "newest" ? "oldest" : "newest"} first` }); }}
+          className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-line bg-surface text-[11.5px] font-medium text-ink-2 hover:bg-bg-deep">
+          <ArrowUpDown size={11} className="text-muted" /> {sortDir === "newest" ? "Newest" : "Oldest"}
         </button>
-        <button className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-line bg-surface text-[11.5px] font-medium text-ink-2 hover:bg-bg-deep">
+        <button onClick={() => toast({ tone: "info", title: "Filters", body: "Filter by sentiment, topic, and outcome — coming soon" })}
+          className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-line bg-surface text-[11.5px] font-medium text-ink-2 hover:bg-bg-deep">
           <Filter size={11} className="text-muted" /> Filter
         </button>
       </div>

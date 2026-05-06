@@ -387,7 +387,8 @@ function DetailModal({ integration, onClose }: { integration: Integration; onClo
                 </select>
               </SettingRow>
               <SettingRow label="Field mapping" description="Control which fields are synced.">
-                <button className="text-[11.5px] font-medium px-3 py-1.5 rounded-lg border border-line hover:bg-bg-deep transition-colors inline-flex items-center gap-1.5">
+                <button onClick={() => toast({ tone: "info", title: "Field mapping", body: "Field-mapping editor opens — coming soon" })}
+                  className="text-[11.5px] font-medium px-3 py-1.5 rounded-lg border border-line hover:bg-bg-deep transition-colors inline-flex items-center gap-1.5">
                   Configure <ArrowRight size={10} strokeWidth={2} />
                 </button>
               </SettingRow>

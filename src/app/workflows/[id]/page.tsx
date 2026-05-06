@@ -10,6 +10,7 @@ import {
   CheckCircle2, AlertTriangle, XCircle, Clock, X, Settings,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { useToast } from "@/components/Toast";
 import {
   workflowDefinitions, workflows, workflowRuns,
   type WfCanvasNode, type WfCanvasEdge, type WorkflowDefinition,
@@ -45,6 +46,7 @@ const STATUS_CFG: Record<WorkflowStatus, { color: string; icon: typeof CheckCirc
 };
 
 export default function WorkflowBuilderPage() {
+  const toast = useToast();
   const { id } = useParams<{ id: string }>();
   const def = workflowDefinitions.find((d) => d.id === id);
   const wfMeta = workflows.find((w) => w.id === id);
@@ -111,11 +113,13 @@ export default function WorkflowBuilderPage() {
               <History size={12} />
               History
             </button>
-            <button className="h-7 px-2.5 text-[11px] rounded-lg border border-line text-muted-2 hover:text-ink flex items-center gap-1.5 transition-colors">
+            <button onClick={() => toast({ tone: "info", title: "Workflow run queued", body: "First execution will start within 30 seconds." })}
+              className="h-7 px-2.5 text-[11px] rounded-lg border border-line text-muted-2 hover:text-ink flex items-center gap-1.5 transition-colors">
               <Play size={12} />
               Run
             </button>
-            <button className="h-7 px-2.5 text-[11px] rounded-lg bg-accent text-bg font-medium flex items-center gap-1.5">
+            <button onClick={() => toast({ tone: "info", title: "Workflow saved", body: "Changes are live on the next run." })}
+              className="h-7 px-2.5 text-[11px] rounded-lg bg-accent text-bg font-medium flex items-center gap-1.5">
               <Save size={12} />
               Save
             </button>

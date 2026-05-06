@@ -18,15 +18,16 @@ export function MarketingNav({ active }: { active?: string }) {
       <nav
         className="rounded-2xl px-5 py-3 flex items-center justify-between"
         style={{
-          background: "rgba(20, 22, 26, 0.55)",
+          background: "rgba(255, 255, 255, 0.75)",
           backdropFilter: "blur(20px) saturate(140%)",
           WebkitBackdropFilter: "blur(20px) saturate(140%)",
-          border: "1px solid rgba(255,255,255,0.08)",
+          border: "1px solid rgba(15,18,24,0.08)",
+          boxShadow: "0 1px 2px rgba(15,18,24,0.04)",
         }}
       >
         <Link href="/" className="flex items-center gap-2.5" aria-label="Alphard">
-          <AlphardLogo variant="icon" size={22} fill="#fff" />
-          <span className="text-[18px] font-semibold tracking-tight text-white">Alphard</span>
+          <AlphardLogo variant="icon" size={22} fill="#0F1218" />
+          <span className="text-[18px] font-semibold tracking-tight" style={{ color: "#0F1218" }}>Alphard</span>
         </Link>
 
         <div className="hidden md:flex items-center gap-9 text-[13.5px]">
@@ -36,10 +37,13 @@ export function MarketingNav({ active }: { active?: string }) {
               <Link
                 key={link.label}
                 href={link.href}
-                className={`transition-colors duration-150 ${
-                  isActive ? "text-white" : "text-white/65 hover:text-white"
-                }`}
-                style={isActive ? { fontWeight: 500 } : undefined}
+                className="transition-colors duration-150"
+                style={{
+                  color: isActive ? "#0F1218" : "rgba(15,18,24,0.62)",
+                  fontWeight: isActive ? 500 : 400,
+                }}
+                onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.color = "#0F1218"; }}
+                onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.color = "rgba(15,18,24,0.62)"; }}
               >
                 {link.label}
               </Link>
@@ -50,13 +54,19 @@ export function MarketingNav({ active }: { active?: string }) {
         <div className="flex items-center gap-2">
           <button
             onClick={() => router.push("/signin")}
-            className="hidden md:inline-flex text-white/75 hover:text-white px-3 py-2 rounded-lg text-[13.5px] font-medium transition-colors"
+            className="hidden md:inline-flex px-3 py-2 rounded-lg text-[13.5px] font-medium transition-colors"
+            style={{ color: "rgba(15,18,24,0.65)" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#0F1218")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(15,18,24,0.65)")}
           >
             Sign in
           </button>
           <button
             onClick={() => router.push("/home")}
-            className="bg-white text-black px-5 py-2 rounded-lg text-[13.5px] font-semibold hover:bg-white/90 transition-colors duration-150"
+            className="px-5 py-2 rounded-lg text-[13.5px] font-semibold transition-colors duration-150 text-white"
+            style={{ background: "#0F1218" }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "#000")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "#0F1218")}
           >
             Launch demo
           </button>

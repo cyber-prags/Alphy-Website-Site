@@ -685,6 +685,7 @@ function AppearanceSection() {
 // Billing
 // -----------------------------------------------------------------------
 function BillingSection() {
+  const toast = useToast();
   return (
     <>
       <SectionCard title="Current plan" description="You are on the Growth plan.">
@@ -696,7 +697,8 @@ function BillingSection() {
             </div>
             <div className="text-[12.5px] text-muted mt-1">$79 / seat / month · billed annually</div>
           </div>
-          <button className="h-8 px-4 rounded-lg border border-line text-[12px] font-medium text-ink hover:bg-bg-deep inline-flex items-center gap-1.5">
+          <button onClick={() => toast({ tone: "info", title: "Talk to sales", body: "We'll reach out about Enterprise tier — unlimited seats, SSO, dedicated support." })}
+            className="h-8 px-4 rounded-lg border border-line text-[12px] font-medium text-ink hover:bg-bg-deep inline-flex items-center gap-1.5">
             Upgrade <ArrowUpRight size={11} strokeWidth={1.7} />
           </button>
         </div>

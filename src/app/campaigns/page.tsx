@@ -5,6 +5,7 @@ import {
   Mail, Clock, GitBranch, Target, Play, Pause, Plus, ChevronRight,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { useToast } from "@/components/Toast";
 import { campaigns, type Campaign, type JourneyStep } from "@/lib/mock";
 
 const STATUS_STYLE: Record<Campaign["status"], { bg: string; ink: string }> = {
@@ -21,6 +22,7 @@ const STEP_ICON: Record<string, typeof Mail> = {
 };
 
 export default function CampaignsPage() {
+  const toast = useToast();
   const [expanded, setExpanded] = useState<string | null>(campaigns[0].id);
 
   const activeCampaigns = campaigns.filter((c) => c.status === "active").length;
@@ -37,7 +39,8 @@ export default function CampaignsPage() {
           <div className="mono-label mb-1.5">Campaigns</div>
           <h1 className="display" style={{ fontSize: 22 }}>Journey Orchestration</h1>
         </div>
-        <button className="h-8 px-4 rounded-lg text-[12px] font-semibold inline-flex items-center gap-1.5"
+        <button onClick={() => toast({ tone: "info", title: "New campaign", body: "Campaign builder opens with templates for adoption, expansion, onboarding, and re-engagement." })}
+          className="h-8 px-4 rounded-lg text-[12px] font-semibold inline-flex items-center gap-1.5"
           style={{ background: "var(--accent)", color: "var(--bg)" }}>
           <Plus size={12} strokeWidth={2} /> New Campaign
         </button>

@@ -441,6 +441,7 @@ function NewRequestModal({ open, onClose, onSubmit }: { open: boolean; onClose: 
 function RequestDetailDrawer({ request, onClose, onStatusChange, onComment }:
   { request: Request; onClose: () => void; onStatusChange: (s: RequestStatus) => void; onComment: (t: string) => void }) {
 
+  const toast = useToast();
   const sm = STATUS_META[request.status];
   const um = URGENCY_META[request.urgency];
   const [draft, setDraft] = useState("");
@@ -553,7 +554,8 @@ function RequestDetailDrawer({ request, onClose, onStatusChange, onComment }:
                 Hey [contact], our product team shipped {request.title.toLowerCase()} — the feature you flagged on {request.capturedAt}.
                 Here's how to find it: …
               </p>
-              <button className="text-[11px] font-semibold mt-2 h-7 px-2.5 rounded-md inline-flex items-center gap-1.5 bg-ink text-white">
+              <button onClick={() => toast({ tone: "info", title: "Update sent", body: `Notification queued for ${request.customerContact?.split(" · ")[0] || "the customer"}.` })}
+                className="text-[11px] font-semibold mt-2 h-7 px-2.5 rounded-md inline-flex items-center gap-1.5 bg-ink text-white">
                 <Send size={11} strokeWidth={1.8} /> Send to {request.customerContact?.split(" · ")[0] || "customer"}
               </button>
             </div>
