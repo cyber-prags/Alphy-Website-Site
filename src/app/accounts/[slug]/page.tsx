@@ -9,6 +9,7 @@ import {
   Plus, Star, Pin, Target, Network, Presentation, Download, ArrowRight, Check, X, Send, Hash,
   Clock, Zap, DollarSign, BarChart3, Play, Pause, ChevronRight, ExternalLink,
   MessageSquare, Milestone, Eye, ThumbsUp, ThumbsDown, Handshake, Award, Flag, Shield,
+  Crown, CheckCircle2, Circle,
 } from "lucide-react";
 import { OrgChart } from "@/components/OrgChart";
 import { Popover, MenuItem } from "@/components/Popover";
@@ -33,6 +34,7 @@ import { useToast } from "@/components/Toast";
 
 const TABS = [
   { id: "brief"      as const, label: "Brief" },
+  { id: "growth"     as const, label: "Growth Plan" },
   { id: "analytics"  as const, label: "Analytics" },
   { id: "whitespace" as const, label: "White Space" },
   { id: "journey"    as const, label: "Journey" },
@@ -157,6 +159,7 @@ function AccountWorkspace({ account, slug, backHref }: { account: AccountDetail;
       </div>
 
       {tab === "brief"      && <BriefPanel account={liveAccount} outcomes={accountOutcomes} deals={accountDeals} adoption={adoption} onJumpTab={setTab} />}
+      {tab === "growth"     && <GrowthPlanPanel account={liveAccount} slug={slug} />}
       {tab === "analytics"  && <AnalyticsPanel account={liveAccount} adoption={adoption} />}
       {tab === "whitespace" && <WhiteSpaceMatrix account={liveAccount} slug={slug} />}
       {tab === "journey"    && <JourneyPanel account={liveAccount} />}
@@ -3920,6 +3923,262 @@ function AccountWorkflowsPanel({ slug }: { slug: string }) {
           <ChevronRight size={14} className="text-muted-2 group-hover:text-ink shrink-0" />
         </Link>
       ))}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// GROWTH PLAN PANEL — quarterly expansion roadmap, target ladder,
+// active plays, stakeholder buy-in matrix.
+// Inspired by classic key-account-management plans (DemandFarm Growth
+// Planner) but built around expansion-first AM workflow.
+// ═══════════════════════════════════════════════════════════════════════
+function GrowthPlanPanel({ account, slug }: { account: AccountDetail; slug: string }) {
+  const opps = expansionOpportunities.filter((o) => o.accountSlug === slug);
+  const totalPipeline = opps.reduce((s, o) => s + o.estimatedArr, 0);
+  const targetArr = account.arr ? Math.round(account.arr * 1.30) : 0; // 30% growth ambition
+  const gap = targetArr - account.arr;
+  const progressPct = totalPipeline > 0 ? Math.min(100, Math.round((totalPipeline / gap) * 100)) : 0;
+
+  // Synthetic quarterly bets — mix real opps with placeholder "future bets"
+  const quarters: { label: string; window: string; target: number; status: "current" | "next" | "future"; bets: { name: string; arr: number; status: "in-flight" | "planned" | "validated" }[] }[] = [
+    {
+      label: "Q2 2026", window: "Apr → Jun", target: opps.filter(o => o.stage === "negotiation" || o.stage === "proposal").reduce((s, o) => s + o.estimatedArr, 0),
+      status: "current",
+      bets: opps.filter(o => o.stage === "negotiation" || o.stage === "proposal").map(o => ({
+        name: o.productName, arr: o.estimatedArr, status: "in-flight" as const,
+      })),
+    },
+    {
+      label: "Q3 2026", window: "Jul → Sep", target: opps.filter(o => o.stage === "qualified").reduce((s, o) => s + o.estimatedArr, 0),
+      status: "next",
+      bets: opps.filter(o => o.stage === "qualified").map(o => ({
+        name: o.productName, arr: o.estimatedArr, status: "validated" as const,
+      })),
+    },
+    {
+      label: "Q4 2026", window: "Oct → Dec", target: opps.filter(o => o.stage === "identified").reduce((s, o) => s + o.estimatedArr, 0),
+      status: "future",
+      bets: opps.filter(o => o.stage === "identified").map(o => ({
+        name: o.productName, arr: o.estimatedArr, status: "planned" as const,
+      })),
+    },
+    {
+      label: "Q1 2027", window: "Jan → Mar", target: 0, status: "future",
+      bets: [],
+    },
+  ];
+
+  // Stakeholder buy-in matrix
+  const stakeholderRoles: { role: string; needed: string; status: "won" | "engaging" | "needed" }[] = [
+    { role: "Executive Champion", needed: opps[0]?.champion ?? "—", status: opps[0] ? "won" : "needed" },
+    { role: "Economic Buyer",     needed: "VP / CFO sign-off",     status: account.healthScore >= 80 ? "engaging" : "needed" },
+    { role: "Technical Buyer",    needed: "Eng / Security review", status: "engaging" },
+    { role: "End-user Sponsor",   needed: "Day-to-day product user", status: "won" },
+    { role: "Procurement",        needed: "Contract owner",         status: "needed" },
+  ];
+
+  return (
+    <div className="space-y-5">
+      {/* Hero card — current vs target ARR */}
+      <div className="rounded-2xl overflow-hidden"
+        style={{
+          background: "linear-gradient(135deg, color-mix(in srgb, var(--accent) 5%, var(--surface)) 0%, var(--surface) 60%)",
+          border: "1px solid color-mix(in srgb, var(--accent) 18%, var(--line))",
+        }}>
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-1 flex-wrap gap-3">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Flame size={14} strokeWidth={2.2} style={{ color: "var(--accent-deep)" }} />
+                <span className="text-[14px] font-semibold text-ink">Growth plan · {account.name}</span>
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] px-2 py-0.5 rounded ml-1"
+                  style={{ background: "var(--accent-soft)", color: "var(--accent-deep)" }}>FY 2026</span>
+              </div>
+              <div className="text-[12px] text-muted">
+                Quarterly expansion bets, stakeholder coverage, and the path to target ARR.
+              </div>
+            </div>
+            <button className="text-[11.5px] font-semibold inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-white"
+              style={{ background: "var(--accent-deep)" }}>
+              <Sparkles size={11} strokeWidth={2.2} /> Brief me on the plan
+            </button>
+          </div>
+
+          {/* ARR ladder */}
+          <div className="grid grid-cols-3 gap-5 mt-5 mb-3">
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.12em] text-muted-2 font-semibold mb-1">Current ARR</div>
+              <div className="text-[26px] font-bold tnum text-ink" style={{ letterSpacing: "-0.022em" }}>
+                {account.arr ? fmtMoneyShort(account.arr) : "—"}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.12em] text-muted-2 font-semibold mb-1">FY26 target</div>
+              <div className="text-[26px] font-bold tnum" style={{ color: "var(--pos)", letterSpacing: "-0.022em" }}>
+                {targetArr ? fmtMoneyShort(targetArr) : "—"}
+              </div>
+              <div className="text-[10.5px] text-muted mt-0.5">+30% growth ambition</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.12em] text-muted-2 font-semibold mb-1">Pipeline cover</div>
+              <div className="flex items-baseline gap-1.5">
+                <div className="text-[26px] font-bold tnum" style={{ color: "var(--accent-deep)", letterSpacing: "-0.022em" }}>
+                  {totalPipeline ? fmtMoneyShort(totalPipeline) : "$0"}
+                </div>
+                <div className="text-[12px] font-semibold tnum" style={{ color: progressPct >= 80 ? "var(--pos)" : progressPct >= 50 ? "var(--warn)" : "var(--neg)" }}>
+                  {progressPct}%
+                </div>
+              </div>
+              <div className="text-[10.5px] text-muted mt-0.5">of gap-to-target covered</div>
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div className="mt-4">
+            <div className="flex items-center justify-between text-[10px] text-muted-2 mb-1.5">
+              <span>{fmtMoneyShort(account.arr ?? 0)}</span>
+              <span>Gap to target: {fmtMoneyShort(gap)}</span>
+              <span>{fmtMoneyShort(targetArr)}</span>
+            </div>
+            <div className="relative h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-deep)" }}>
+              <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: "100%", background: "linear-gradient(90deg, var(--accent-soft), var(--accent-soft))" }} />
+              <div className="absolute inset-y-0 left-0 rounded-full"
+                style={{ width: `${progressPct}%`, background: "linear-gradient(90deg, var(--accent), var(--accent-deep))" }} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Quarterly roadmap */}
+      <div className="card p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <Calendar size={14} strokeWidth={2} style={{ color: "var(--accent-deep)" }} />
+            <span className="text-[14px] font-semibold text-ink">Quarterly roadmap</span>
+          </div>
+          <span className="text-[10.5px] text-muted">Drag bets between quarters to re-plan</span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          {quarters.map((q) => {
+            const isCurrent = q.status === "current";
+            const accentColor = isCurrent ? "var(--accent-deep)" : q.status === "next" ? "var(--accent)" : "var(--muted-2)";
+            return (
+              <div key={q.label} className="rounded-xl p-3.5 flex flex-col gap-3"
+                style={{
+                  background: isCurrent ? "color-mix(in srgb, var(--accent) 4%, var(--bg-deep))" : "var(--bg-deep)",
+                  border: `1px solid ${isCurrent ? "color-mix(in srgb, var(--accent) 25%, var(--line))" : "var(--line)"}`,
+                }}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-[11.5px] font-semibold text-ink flex items-center gap-1.5">
+                      {q.label}
+                      {isCurrent && <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--accent-deep)" }} />}
+                    </div>
+                    <div className="text-[9.5px] text-muted mt-0.5">{q.window}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[12.5px] font-bold tnum" style={{ color: accentColor }}>
+                      {q.target ? fmtMoneyShort(q.target) : "—"}
+                    </div>
+                    <div className="text-[9px] text-muted-2 uppercase tracking-[0.12em] font-semibold">target</div>
+                  </div>
+                </div>
+
+                {/* Bets in quarter */}
+                <div className="flex flex-col gap-1.5 min-h-[60px]">
+                  {q.bets.length === 0 && (
+                    <div className="text-[10.5px] text-muted-2 italic py-2 text-center rounded border border-dashed"
+                      style={{ borderColor: "var(--line)" }}>
+                      Open lane · drag bets here
+                    </div>
+                  )}
+                  {q.bets.map((b, i) => {
+                    const tone = b.status === "in-flight" ? "var(--pos)" : b.status === "validated" ? "var(--accent)" : "var(--muted)";
+                    return (
+                      <div key={i} className="rounded-lg px-2.5 py-2 cursor-grab"
+                        style={{ background: "var(--surface)", border: "1px solid var(--line)" }}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] font-semibold text-ink truncate">{b.name}</span>
+                          <span className="text-[10.5px] font-bold tnum text-ink ml-2 shrink-0">{fmtMoneyShort(b.arr)}</span>
+                        </div>
+                        <div className="text-[9.5px] font-medium uppercase tracking-[0.12em]" style={{ color: tone }}>
+                          {b.status === "in-flight" ? "● In flight" : b.status === "validated" ? "● Validated" : "○ Planned"}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Stakeholder coverage matrix + Active plays side-by-side */}
+      <div className="grid grid-cols-12 gap-5">
+        {/* Stakeholder coverage */}
+        <div className="col-span-12 lg:col-span-7 card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2.5">
+              <Crown size={14} strokeWidth={2} style={{ color: "#7C3AED" }} />
+              <span className="text-[14px] font-semibold text-ink">Stakeholder coverage</span>
+            </div>
+            <span className="text-[10.5px] text-muted">Who needs to say yes</span>
+          </div>
+          <div className="space-y-2">
+            {stakeholderRoles.map((s) => {
+              const tone = s.status === "won" ? "var(--pos)" : s.status === "engaging" ? "var(--warn)" : "var(--muted)";
+              const soft = s.status === "won" ? "var(--pos-soft)" : s.status === "engaging" ? "var(--warn-soft)" : "var(--bg-deep)";
+              const Icon = s.status === "won" ? CheckCircle2 : s.status === "engaging" ? Clock : Circle;
+              return (
+                <div key={s.role} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                  style={{ border: "1px solid var(--line)" }}>
+                  <div className="w-7 h-7 rounded-lg grid place-items-center shrink-0" style={{ background: soft }}>
+                    <Icon size={13} strokeWidth={2} style={{ color: tone }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[12.5px] font-semibold text-ink">{s.role}</div>
+                    <div className="text-[10.5px] text-muted truncate">{s.needed}</div>
+                  </div>
+                  <span className="text-[9.5px] font-semibold uppercase tracking-[0.12em] px-1.5 py-0.5 rounded shrink-0"
+                    style={{ background: soft, color: tone }}>
+                    {s.status === "won" ? "Won" : s.status === "engaging" ? "Engaging" : "Needed"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Success criteria / KPIs */}
+        <div className="col-span-12 lg:col-span-5 card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2.5">
+              <Target size={14} strokeWidth={2} style={{ color: "var(--pos)" }} />
+              <span className="text-[14px] font-semibold text-ink">Success criteria</span>
+            </div>
+          </div>
+          <div className="space-y-2.5">
+            {[
+              { label: "WAU/MAU ratio",       target: "≥ 0.65",   actual: "0.74",    on: true },
+              { label: "Net Promoter Score",  target: "≥ 50",     actual: "+47",     on: true },
+              { label: "Champion engagement", target: "Weekly",   actual: "Active",  on: true },
+              { label: "Exec sponsor calls",  target: "≥ 1 / qtr", actual: "1 done", on: true },
+              { label: "Pricing exposure",    target: "Zero",     actual: "1 flag",  on: false },
+            ].map((kpi, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: kpi.on ? "var(--pos)" : "var(--neg)" }} />
+                <span className="text-[12px] text-ink-2 flex-1 truncate">{kpi.label}</span>
+                <span className="text-[10px] text-muted-2 tnum">{kpi.target}</span>
+                <span className="text-[11px] font-mono tnum font-semibold w-14 text-right"
+                  style={{ color: kpi.on ? "var(--pos)" : "var(--neg)" }}>{kpi.actual}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

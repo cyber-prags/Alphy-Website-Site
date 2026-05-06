@@ -7,6 +7,7 @@ import {
   Bell, X, ArrowUp, LogOut, CircleUser, KeyRound, MessageSquare, Check, Briefcase,
   Building2, Phone, Library, FileBarChart2, Rocket, Home, Target, Radio, UserCog,
   Inbox as InboxIcon, Plug, RefreshCw, MessageSquarePlus, Sun, Moon, Workflow, Mail, Send, BarChart3, Zap,
+  LayoutGrid,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -42,6 +43,7 @@ const sections: { label: string; items: NavItem[]; personas?: Persona[] }[] = [
       { icon: Home,              label: "Home",     href: "/home" },
       { icon: MessageSquare,     label: "Chat",     href: "/analyst" },
       { icon: Building2,         label: "Accounts", href: "/accounts" },
+      { icon: LayoutGrid,        label: "Portfolio", href: "/portfolio", personas: ["am", "manager"] },
       { icon: Radio,             label: "Signals",  href: "/signals" },
       { icon: Telescope,         label: "Blueprints", href: "/blueprints", personas: ["ae", "am", "manager"] },
 
