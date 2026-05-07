@@ -1,14 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight, ArrowLeft, Check, Flame, LayoutGrid, TrendingUp,
-  Activity, Sparkles,
+  Activity, Sparkles, ShieldCheck, Calendar, Heart, Users, BarChart3,
+  Briefcase, LifeBuoy,
 } from "lucide-react";
 import { Inter } from "next/font/google";
 import { AlphardLogo } from "@/components/AlphardLogo";
 import { useUser } from "@/components/UserContext";
+import { usePersona, PERSONA_LABEL } from "@/components/PersonaContext";
+import type { Persona } from "@/lib/mock";
 import { asset } from "@/lib/asset";
 
 const inter = Inter({ subsets: ["latin"], weight: ["300", "400", "500", "600", "700"], display: "swap" });
@@ -30,11 +33,13 @@ type Step = {
   screenshot: string;
 };
 
-const STEPS: Step[] = [
+// Persona-aware step decks. Each persona gets a 4-step tour highlighting
+// the surfaces most relevant to their daily workflow.
+
+const STEPS_AM: Step[] = [
   {
     id: "hot-list",
-    Icon: Flame,
-    iconBg: "#0F1218",
+    Icon: Flame, iconBg: "#0F1218",
     eyebrow: "The hot list",
     title: "Every signal in your book, ranked daily.",
     body: "Open Alphard at 8am and see exactly which accounts are heating up — usage spikes, champion moves, ticket velocity, renewal proximity, all fused into one ranked list.",
@@ -47,8 +52,7 @@ const STEPS: Step[] = [
   },
   {
     id: "portfolio",
-    Icon: LayoutGrid,
-    iconBg: "#0F1218",
+    Icon: LayoutGrid, iconBg: "#0F1218",
     eyebrow: "Portfolio quadrant",
     title: "Decide where to push, defend, or walk away.",
     body: "Plot every account on Health × Expansion potential. The Boston-box for AMs — instantly see which segment each account belongs in, and what the right play is.",
@@ -61,8 +65,7 @@ const STEPS: Step[] = [
   },
   {
     id: "growth",
-    Icon: TrendingUp,
-    iconBg: "#0F1218",
+    Icon: TrendingUp, iconBg: "#0F1218",
     eyebrow: "Growth plan",
     title: "Four-quarter expansion plan per account.",
     body: "ARR ladder, quarterly bets, stakeholder coverage matrix, success criteria — replaces the spreadsheet you used to keep on the side. Lives with the account.",
@@ -75,8 +78,7 @@ const STEPS: Step[] = [
   },
   {
     id: "activity",
-    Icon: Activity,
-    iconBg: "#0F1218",
+    Icon: Activity, iconBg: "#0F1218",
     eyebrow: "Activity feed",
     title: "What changed overnight on your book.",
     body: "Champion moves, departures, usage spikes, renewal events — chronological feed grouped Today / Yesterday / Earlier this week. Catch up in 60 seconds.",
@@ -89,12 +91,194 @@ const STEPS: Step[] = [
   },
 ];
 
+const STEPS_CSM: Step[] = [
+  {
+    id: "saves",
+    Icon: ShieldCheck, iconBg: "#0F1218",
+    eyebrow: "Today's saves",
+    title: "The accounts that need you most, ranked.",
+    body: "Every morning we surface the highest-ARR-at-risk accounts: renewal slipping, adoption decaying, champion drifting, ticket spikes. One ranked queue, with the suggested save play on each.",
+    bullets: [
+      "Risk-kind chips: renewal, adoption, champion, QBR, tickets",
+      "Suggested message + recovery play, drafted for you",
+      "Sponsor coverage tracked across email + calendar + LinkedIn",
+    ],
+    screenshot: "/screenshots/home-am.png",
+  },
+  {
+    id: "renewal-runway",
+    Icon: Calendar, iconBg: "#0F1218",
+    eyebrow: "Renewal runway",
+    title: "Every renewal in the next 90 days, in one strip.",
+    body: "Stop tracking renewals in a spreadsheet. The runway shows ARR-at-stake, days-to-renewal, and current health for each upcoming renewal — colour-coded by urgency.",
+    bullets: [
+      "Days-to-renewal with urgency colour coding",
+      "Real renewal dates from CRM, estimated for the rest",
+      "One click into the full renewal workspace",
+    ],
+    screenshot: "/screenshots/account-detail.png",
+  },
+  {
+    id: "health-distribution",
+    Icon: Heart, iconBg: "#0F1218",
+    eyebrow: "Health distribution",
+    title: "Three columns: at risk, watch, healthy.",
+    body: "Your whole book grouped by health bracket. Worst-first in the at-risk column so you know where to focus. Per-column actions: build save plan, add to QBR, surface advocacy.",
+    bullets: [
+      "At-risk accounts sorted worst-first",
+      "Healthy accounts sorted by score for advocacy candidates",
+      "One-line current signal on every row",
+    ],
+    screenshot: "/screenshots/portfolio.png",
+  },
+  {
+    id: "activity-csm",
+    Icon: Activity, iconBg: "#0F1218",
+    eyebrow: "Activity feed",
+    title: "What changed overnight on your book.",
+    body: "Sponsor silence, WAU/MAU drops, ticket spikes, QBR overdue, champion changes — chronological feed grouped Today / Yesterday / Earlier. Catch up in 60 seconds.",
+    bullets: [
+      "Cross-source signal aggregation (CRM, product, support)",
+      "Champion-change detection from LinkedIn + email",
+      "Click any row to jump to the account",
+    ],
+    screenshot: "/screenshots/home-am.png",
+  },
+];
+
+const STEPS_AE: Step[] = [
+  {
+    id: "pipeline",
+    Icon: Flame, iconBg: "#0F1218",
+    eyebrow: "Today's pipeline",
+    title: "The deals that need you most, ranked.",
+    body: "Open Alphard at 8am and see every open deal sorted by what changed: stakeholder moves, prospect signals, MEDDPICC gaps, deal age.",
+    bullets: [
+      "AI drafts your next follow-up per deal",
+      "Reason chips on every opportunity",
+      "Stalled-deal detection on opps you've gone silent on",
+    ],
+    screenshot: "/screenshots/home-am.png",
+  },
+  {
+    id: "forecast",
+    Icon: BarChart3, iconBg: "#0F1218",
+    eyebrow: "Forecast confidence",
+    title: "Your number, with the gap explained.",
+    body: "Commit, best-case, plan — with each deal's confidence call generated from real activity, not just the AE's gut. See the gap, see the deals that close it.",
+    bullets: [
+      "Commit / best-case / plan with bridge to target",
+      "Per-deal confidence based on signal density",
+      "Roll-up to manager, drilled-down per AE",
+    ],
+    screenshot: "/screenshots/forecast.png",
+  },
+  {
+    id: "activity-ae",
+    Icon: Activity, iconBg: "#0F1218",
+    eyebrow: "Activity feed",
+    title: "What changed overnight on your deals.",
+    body: "New stakeholders surfaced, champion moves, prospect website visits, technical-eval signals — chronological feed grouped by recency.",
+    bullets: [
+      "Buying-committee mapping from email + calendar",
+      "Champion-change detection from LinkedIn",
+      "Click any row to jump to the deal",
+    ],
+    screenshot: "/screenshots/home-am.png",
+  },
+  {
+    id: "portfolio-ae",
+    Icon: LayoutGrid, iconBg: "#0F1218",
+    eyebrow: "Pipeline coverage",
+    title: "See where your pipeline is over- and under-covered.",
+    body: "Every stage, every segment, every quarter. Spot the gap before your manager does, and know which discos to prioritise this week.",
+    bullets: [
+      "Coverage ratio by stage and segment",
+      "Stalled-stage detection",
+      "Recommended plays per coverage gap",
+    ],
+    screenshot: "/screenshots/portfolio.png",
+  },
+];
+
+const STEPS_MANAGER: Step[] = [
+  {
+    id: "capacity",
+    Icon: Users, iconBg: "#0F1218",
+    eyebrow: "Team capacity",
+    title: "Who's overloaded, who has room.",
+    body: "Every rep on one heatmap. ARR managed, accounts in flight, renewals next 90, weekly workload score. Reassign accounts in two clicks.",
+    bullets: [
+      "Workload heatmap: 6 weeks × every rep",
+      "Health mix per rep — healthy / watch / at-risk dots",
+      "One-click account reassignment with drawer-animated handoff",
+    ],
+    screenshot: "/screenshots/capacity.png",
+  },
+  {
+    id: "portfolio-mgr",
+    Icon: LayoutGrid, iconBg: "#0F1218",
+    eyebrow: "Portfolio quadrant",
+    title: "Where to push, defend, or walk away — across the team.",
+    body: "Plot every account on Health × Expansion potential. Per-quadrant plays roll up across the whole book.",
+    bullets: [
+      "Strategic Growth · Steady State · Save & Grow · Reassess",
+      "Bubbles sized by ARR, filterable by AM/CSM owner",
+      "Recommended plays per quadrant",
+    ],
+    screenshot: "/screenshots/portfolio.png",
+  },
+  {
+    id: "revenue-mgr",
+    Icon: TrendingUp, iconBg: "#0F1218",
+    eyebrow: "Revenue waterfall",
+    title: "ARR movement, in one chart.",
+    body: "Starting ARR → New → Expansion → Contraction → Churn → Ending ARR. The single chart that explains your quarter to the CRO without a slide deck.",
+    bullets: [
+      "Quarter-over-quarter waterfall",
+      "Drill into per-account movement",
+      "Roll-up across teams or by segment",
+    ],
+    screenshot: "/screenshots/revenue.png",
+  },
+  {
+    id: "activity-mgr",
+    Icon: Activity, iconBg: "#0F1218",
+    eyebrow: "Team activity",
+    title: "What changed across the team overnight.",
+    body: "Champion moves, deal stage changes, save plays fired, renewals advanced — one chronological feed. Spot the patterns before the QBR.",
+    bullets: [
+      "Cross-team signal aggregation",
+      "Filter by rep, account, or signal type",
+      "Click any row to jump to the account",
+    ],
+    screenshot: "/screenshots/home-am.png",
+  },
+];
+
+const STEPS_BY_PERSONA: Record<Persona, Step[]> = {
+  am: STEPS_AM,
+  csm: STEPS_CSM,
+  ae: STEPS_AE,
+  manager: STEPS_MANAGER,
+};
+
+// Two-part copy so we can inject the company name in the middle.
+const ROLE_BLURB: Record<Persona, { lead: string; tail: string }> = {
+  am:      { lead: "We've spun up a sandbox book of business for", tail: " with realistic accounts, expansion signals, and growth plays." },
+  csm:     { lead: "We've spun up a sandbox book of customers for", tail: " with realistic adoption, renewal, and health signals." },
+  ae:      { lead: "We've spun up a sandbox pipeline for",          tail: " with realistic deals, prospect signals, and forecasting context." },
+  manager: { lead: "We've spun up a sandbox team for",              tail: " with realistic capacity, portfolio, and revenue-movement signals." },
+};
+
 export default function OnboardingPage() {
   const router = useRouter();
   const { user } = useUser();
+  const { persona } = usePersona();
   const [step, setStep] = useState(0);
   const [showWelcome, setShowWelcome] = useState(true);
 
+  const STEPS = useMemo(() => STEPS_BY_PERSONA[persona] ?? STEPS_AM, [persona]);
   const isLast = step === STEPS.length - 1;
   const current = STEPS[step];
 
@@ -138,6 +322,7 @@ export default function OnboardingPage() {
           <WelcomeScreen
             firstName={user.firstName}
             company={user.company}
+            persona={persona}
             onNext={next}
             onSkip={skip}
           />
@@ -158,21 +343,27 @@ export default function OnboardingPage() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-function WelcomeScreen({ firstName, company, onNext, onSkip }: {
-  firstName: string; company: string; onNext: () => void; onSkip: () => void;
+function WelcomeScreen({ firstName, company, persona, onNext, onSkip }: {
+  firstName: string; company: string; persona: Persona;
+  onNext: () => void; onSkip: () => void;
 }) {
+  const blurb = ROLE_BLURB[persona] ?? ROLE_BLURB.am;
   return (
     <div className="max-w-[640px] text-center">
+      <span className="inline-flex items-center gap-1.5 text-[10.5px] font-semibold tracking-[0.14em] uppercase px-3 py-1 rounded-full mb-5"
+        style={{ background: "rgba(38,109,240,0.10)", color: "#266DF0" }}>
+        <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#266DF0" }} />
+        Tour for {PERSONA_LABEL[persona]}
+      </span>
       <h1 className="text-[36px] md:text-[52px] font-semibold mb-4 leading-[1.04]"
         style={{ letterSpacing: "-0.04em" }}>
         Welcome, {firstName}.
       </h1>
-      <p className="text-[16.5px] md:text-[18px] mb-9 leading-relaxed max-w-[520px] mx-auto"
+      <p className="text-[16.5px] md:text-[18px] mb-9 leading-relaxed max-w-[540px] mx-auto"
         style={{ color: "rgba(15,18,24,0.62)" }}>
-        We've spun up a sandbox book of business for{" "}
-        <span className="font-semibold" style={{ color: "#0F1218" }}>{company}</span> with
-        realistic accounts, signals, and expansion opportunities.
-        Let's take 60 seconds to show you around.
+        {blurb.lead}{" "}
+        <span className="font-semibold" style={{ color: "#0F1218" }}>{company}</span>
+        {blurb.tail} Let's take 60 seconds to show you around.
       </p>
 
       <div className="flex flex-col sm:flex-row items-center justify-center gap-3">

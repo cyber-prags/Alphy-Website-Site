@@ -5,6 +5,7 @@ import { Search, Sparkles, ArrowUp, Eye, Copy, Bot } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { agents as initialAgents, type Agent } from "@/lib/mock";
 import { useToast } from "@/components/Toast";
+import { AgentDetail } from "@/components/AgentDetail";
 
 const agents = initialAgents;
 
@@ -21,6 +22,10 @@ export default function AgentsPage() {
   const [filter, setFilter] = useState<"all" | "ours" | "sales" | "ops" | "cs">("all");
   const [search, setSearch] = useState("");
   const [prompt, setPrompt] = useState("");
+  const [activeAgent, setActiveAgent] = useState<Agent | null>(null);
+  const [installState, setInstallState] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(agents.map((a) => [a.id, a.installed]))
+  );
   const submitPrompt = () => {
     if (!prompt.trim()) return;
     toast({ tone: "success", title: "Agent generated", body: `Drafting "${prompt.slice(0, 60)}…" — review and install.` });
@@ -86,36 +91,77 @@ export default function AgentsPage() {
       </div>
 
       {/* Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filtered.map((a) => <AgentCard key={a.id} agent={a} />)}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 auto-rows-fr pb-6">
+        {filtered.map((a) => (
+          <AgentCard
+            key={a.id}
+            agent={{ ...a, installed: installState[a.id] ?? a.installed }}
+            onView={() => setActiveAgent({ ...a, installed: installState[a.id] ?? a.installed })}
+          />
+        ))}
       </div>
+
+      {/* Agent count footer — confirms full library is visible */}
+      <div className="text-center text-[11px] text-muted-2 pb-4">
+        Showing {filtered.length} of {agents.length} agents
+        {filter !== "all" && (
+          <> · <button onClick={() => setFilter("all")} className="text-ink-2 hover:text-ink underline">show all</button></>
+        )}
+      </div>
+
+      <AgentDetail
+        agent={activeAgent}
+        onClose={() => setActiveAgent(null)}
+        onToggleInstall={(id, installed) => {
+          setInstallState((s) => ({ ...s, [id]: installed }));
+          setActiveAgent((a) => (a && a.id === id ? { ...a, installed } : a));
+          toast({
+            tone: "success",
+            title: installed ? "Agent installed" : "Agent uninstalled",
+            body: installed
+              ? "It will start running on the next trigger."
+              : "Removed from your roster.",
+          });
+        }}
+      />
     </AppShell>
   );
 }
 
-function AgentCard({ agent }: { agent: Agent }) {
-  const [installed, setInstalled] = useState(agent.installed);
+function AgentCard({ agent, onView }: { agent: Agent; onView: () => void }) {
   return (
-    <div className="card p-4 flex flex-col hover:bg-surface-2 transition-colors">
-      <div className="flex items-start gap-2.5 mb-2.5">
-        <div className="w-8 h-8 rounded-md grid place-items-center"
+    <button
+      type="button"
+      onClick={onView}
+      className="card p-4 flex flex-col hover:bg-surface-2 hover:-translate-y-px hover:shadow-sm transition-all text-left">
+      <div className="flex items-start justify-between mb-2.5">
+        <div className="w-8 h-8 rounded-md grid place-items-center relative"
              style={{ background: agent.ours ? "var(--accent-soft)" : "var(--bg-deep)" }}>
           <Bot size={14} strokeWidth={1.6} style={{ color: agent.ours ? "var(--accent)" : "var(--muted)" }} />
+          {agent.installed && (
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
+              style={{ background: "var(--pos)", boxShadow: "0 0 0 1.5px var(--surface)" }} />
+          )}
         </div>
+        {agent.ours && (
+          <span className="text-[9px] font-semibold uppercase tracking-[0.1em] px-1.5 py-0.5 rounded"
+            style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
+            Native
+          </span>
+        )}
       </div>
       <h3 className="text-[13.5px] font-semibold text-ink mb-1 leading-tight">{agent.name}</h3>
       <div className="text-[12px] text-muted leading-relaxed flex-1">{agent.description}</div>
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-line">
         <span className="text-[10.5px] font-medium text-muted">{agent.role}</span>
-        <button
-          onClick={() => setInstalled(!installed)}
-          className={`text-[11.5px] font-medium inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md ${
-            installed ? "border border-line bg-surface text-ink-2 hover:bg-bg-deep" : "bg-ink text-white hover:bg-ink-2"
+        <span
+          className={`text-[11px] font-medium inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md ${
+            agent.installed ? "border border-line bg-surface text-ink-2" : "bg-ink text-white"
           }`}
         >
-          {installed ? <><Eye size={11} strokeWidth={1.8} /> View</> : <><Copy size={11} strokeWidth={1.8} /> Clone</>}
-        </button>
+          {agent.installed ? <><Eye size={11} strokeWidth={1.8} /> View</> : <><Copy size={11} strokeWidth={1.8} /> Clone</>}
+        </span>
       </div>
-    </div>
+    </button>
   );
 }

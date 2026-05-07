@@ -6,7 +6,8 @@ import {
   ChevronRight, Sparkles, AlertTriangle, Bell, Target, Plus, CheckCircle2,
   Circle, Clock, ArrowRight, ChevronDown, ChevronUp, Zap, TrendingUp,
   TrendingDown, Crown, Calendar, Flame, ArrowUpRight, Users, FileText,
-  AlertCircle, MoveRight, ExternalLink, Eye,
+  AlertCircle, MoveRight, ExternalLink, Eye, ShieldCheck, LifeBuoy,
+  Activity as ActivityIcon, MessageSquare, RefreshCw, Mail,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { TodayQueue } from "@/components/TodayQueue";
@@ -16,15 +17,36 @@ import { DataFreshness } from "@/components/SourceChip";
 import { usePersona, PERSONA_LABEL } from "@/components/PersonaContext";
 import { useUser } from "@/components/UserContext";
 import { ExecutionDrawer, type DrawerConfig, type DrawerFlow } from "@/components/ExecutionDrawer";
+import { AccountPeek, type PeekConfig, type PeekActivity } from "@/components/AccountPeek";
+import { SignalDetail, type SignalDetailItem } from "@/components/SignalDetail";
 
 // Drawer context — any sub-component can open the animated execution drawer
 const DrawerCtx = createContext<{ open: (cfg: DrawerConfig) => void }>({ open: () => {} });
 const useDrawer = () => useContext(DrawerCtx);
+
+// Peek context — any sub-component can open the AccountPeek side panel.
+// Sub-components don't have to know how the peek is constructed; they
+// just hand over an account name + the source (renewal / health / default).
+type PeekOpener = (accountName: string, source?: PeekConfig["source"]) => void;
+const PeekCtx = createContext<{ open: PeekOpener }>({ open: () => {} });
+const usePeek = () => useContext(PeekCtx);
+
+// Map a display-name (e.g. "Cloudflare") to a real Account record.
+// Tries exact match, then prefix, then case-insensitive.
+function resolveAccountByName(name: string): import("@/lib/mock").Account | undefined {
+  const lc = name.toLowerCase();
+  return (
+    accounts.find((a) => a.name === name) ??
+    accounts.find((a) => a.name.toLowerCase() === lc) ??
+    accounts.find((a) => a.name.toLowerCase().startsWith(lc)) ??
+    accounts.find((a) => lc.startsWith(a.name.toLowerCase().split(" ")[0]))
+  );
+}
 import {
   pinnedAccounts, accountDetails, fmtMoney, outcomes, accounts, myNumber,
   slugify, championChanges, csmWorkloads, accountPlans,
   expansionOpportunities, EXPANSION_STAGES,
-  type PlanTask, type ExpansionOpportunity, type ExpansionStage, type ChampionChange,
+  type Account, type PlanTask, type ExpansionOpportunity, type ExpansionStage, type ChampionChange,
 } from "@/lib/mock";
 
 // ════════════════════════════════════════════════════════════════════════
@@ -33,9 +55,13 @@ import {
 export default function HomePage() {
   const { persona } = usePersona();
 
-  // The AM persona gets the entirely new expansion-first home.
+  // The AM persona gets the expansion-first home.
+  // The CSM persona gets the retention/save-first home.
+  // The Manager persona gets the team-performance home.
   // Other personas keep the previous layout for now.
   if (persona === "am") return <AMHome />;
+  if (persona === "csm") return <CSMHome />;
+  if (persona === "manager") return <ManagerHome />;
 
   return <DefaultHome />;
 }
@@ -138,6 +164,17 @@ function AMHome() {
   const greeting = greetingFor();
   const { user } = useUser();
   const [drawerCfg, setDrawerCfg] = useState<DrawerConfig | null>(null);
+  const [peekCfg, setPeekCfg] = useState<PeekConfig | null>(null);
+
+  const openPeek: PeekOpener = (accountName, source = "default") => {
+    const acct = resolveAccountByName(accountName);
+    if (!acct) return;
+    const activity: PeekActivity[] = ACTIVITY
+      .filter((a) => a.account === accountName || a.account.toLowerCase() === accountName.toLowerCase())
+      .map((a) => ({ id: a.id, text: a.text, ago: a.ago, tone: amActivityTone(a.kind) }));
+    setPeekCfg({ account: acct, source, activity });
+  };
+
   const ranked = useMemo(
     () => [...expansionOpportunities].sort((a, b) => b.score - a.score).slice(0, 6),
     []
@@ -157,6 +194,7 @@ function AMHome() {
 
   return (
     <DrawerCtx.Provider value={{ open: setDrawerCfg }}>
+    <PeekCtx.Provider value={{ open: openPeek }}>
     <AppShell>
       {/* ─── Header ──────────────────────────────────────────── */}
       <header className="mb-9">
@@ -210,9 +248,47 @@ function AMHome() {
         detail={`${totalSignals} signals this week`}
         right={<Link href="/signals" className="text-[11.5px] font-medium text-muted hover:text-ink inline-flex items-center gap-1">All signals <ChevronRight size={11} /></Link>}
       />
-      <ActivityFeed items={ACTIVITY} />
+      <ActivityFeed
+        items={ACTIVITY}
+        onSignalAction={(actionId, accountName, item) => {
+          if (actionId === "open") {
+            openPeek(accountName, "default");
+            return;
+          }
+          const flowMap: Record<string, DrawerFlow> = {
+            "draft-email":   "email-draft",
+            "build-case":    "build-case",
+            "schedule-qbr":  "schedule-qbr",
+            "value-snap":    "share-metrics",
+            "loop-exec":     "recovery-play",
+            "escalate":      "recovery-play",
+          };
+          const flow = flowMap[actionId] ?? "email-draft";
+          setDrawerCfg({
+            flow,
+            account: accountName,
+            title: item.text,
+          });
+        }}
+      />
       <ExecutionDrawer config={drawerCfg} onClose={() => setDrawerCfg(null)} />
+      <AccountPeek
+        config={peekCfg}
+        onClose={() => setPeekCfg(null)}
+        onAction={(action, account) => {
+          setPeekCfg(null);
+          const flow = action === "outreach" ? "email-draft" : "recovery-play";
+          setDrawerCfg({
+            flow,
+            account: account.name,
+            title: action === "outreach"
+              ? `Outreach to ${account.name}`
+              : `Save play for ${account.name}`,
+          });
+        }}
+      />
     </AppShell>
+    </PeekCtx.Provider>
     </DrawerCtx.Provider>
   );
 }
@@ -235,6 +311,7 @@ function SectionHeader({ label, detail, right }: { label: string; detail?: strin
 // ─────────────────────────────────────────────────────────────────────
 function FeaturedPlay({ play }: { play: CoPilotPlay }) {
   const drawer = useDrawer();
+  const peek = usePeek();
   const [open, setOpen] = useState(false);
   const stale = play.staleDays && play.staleDays >= 5;
   return (
@@ -292,11 +369,11 @@ function FeaturedPlay({ play }: { play: CoPilotPlay }) {
                 style={{ background: "var(--accent-deep)" }}>
                 <Sparkles size={11} strokeWidth={2.2} /> Draft follow-up
               </button>
-              <Link href={`/accounts/${play.accountSlug}`}
-                className="inline-flex items-center gap-1.5 text-[12px] font-medium px-3.5 py-2 rounded-lg"
+              <button onClick={() => peek.open(play.account, "default")}
+                className="inline-flex items-center gap-1.5 text-[12px] font-medium px-3.5 py-2 rounded-lg transition-colors hover:bg-bg-deep"
                 style={{ background: "var(--surface)", color: "var(--ink-2)", border: "1px solid var(--line)" }}>
                 Open account <ArrowRight size={11} strokeWidth={2.2} />
-              </Link>
+              </button>
               <button onClick={() => setOpen((v) => !v)}
                 className="text-[11.5px] text-muted hover:text-ink ml-1 inline-flex items-center gap-1">
                 {open ? "Hide context" : "Why now"} <ChevronDown size={11} strokeWidth={2} className={`transition-transform ${open ? "rotate-180" : ""}`} />
@@ -348,10 +425,13 @@ function FeaturedPlay({ play }: { play: CoPilotPlay }) {
 // PlayRow — a simple one-liner play
 // ─────────────────────────────────────────────────────────────────────
 function PlayRow({ play, isLast }: { play: CoPilotPlay; isLast: boolean }) {
+  const peek = usePeek();
   const stale = play.staleDays && play.staleDays >= 5;
   return (
-    <Link href={`/accounts/${play.accountSlug}`}
-      className="group flex items-center gap-3 px-3 py-3 hover:bg-bg-deep transition-colors rounded-lg"
+    <button
+      type="button"
+      onClick={() => peek.open(play.account, "default")}
+      className="group w-full flex items-center gap-3 px-3 py-3 hover:bg-bg-deep transition-colors rounded-lg text-left"
       style={{ borderBottom: isLast ? "none" : "1px solid var(--line)" }}>
       <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: stale ? "var(--neg)" : "var(--muted-2)" }} />
       <div className="flex-1 min-w-0">
@@ -374,7 +454,7 @@ function PlayRow({ play, isLast }: { play: CoPilotPlay; isLast: boolean }) {
         <span className="text-[11.5px] font-mono tnum text-muted-2 shrink-0">{fmtMoney(play.arr)}</span>
       )}
       <ChevronRight size={13} strokeWidth={1.8} className="text-muted-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-    </Link>
+    </button>
   );
 }
 
@@ -390,11 +470,14 @@ const STAGE_LABEL_SHORT: Record<string, string> = {
 };
 
 function PipelineTile({ opp }: { opp: typeof expansionOpportunities[number] }) {
+  const peek = usePeek();
   const stale = opp.daysInStage >= 14;
   const scoreTone = opp.score >= 85 ? "var(--pos)" : opp.score >= 70 ? "var(--accent)" : "var(--muted)";
   return (
-    <Link href={`/accounts/${opp.accountSlug}`}
-      className="group rounded-xl p-4 transition-all hover:shadow-sm shrink-0"
+    <button
+      type="button"
+      onClick={() => peek.open(opp.accountName, "default")}
+      className="group rounded-xl p-4 transition-all hover:shadow-sm hover:border-line-strong shrink-0 text-left"
       style={{
         width: 200,
         background: "var(--surface)",
@@ -421,14 +504,22 @@ function PipelineTile({ opp }: { opp: typeof expansionOpportunities[number] }) {
           {opp.daysInStage}d
         </span>
       </div>
-    </Link>
+    </button>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// ActivityFeed — chronological signal log grouped by recency
+// ActivityFeed — chronological signal log grouped by recency.
+// Rows are expandable inline — click reveals a kind-specific detail panel.
 // ─────────────────────────────────────────────────────────────────────
-function ActivityFeed({ items }: { items: ActivityItem[] }) {
+function ActivityFeed({
+  items,
+  onSignalAction,
+}: {
+  items: ActivityItem[];
+  onSignalAction?: (actionId: string, account: string, item: ActivityItem) => void;
+}) {
+  const [openId, setOpenId] = useState<string>("");
   const buckets: { label: string; items: ActivityItem[] }[] = [
     { label: "Today",              items: items.filter((i) => i.bucket === "today") },
     { label: "Yesterday",          items: items.filter((i) => i.bucket === "yesterday") },
@@ -441,8 +532,16 @@ function ActivityFeed({ items }: { items: ActivityItem[] }) {
           <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-2">
             {b.label}
           </div>
-          <div className="space-y-px">
-            {b.items.map((i) => <ActivityRow key={i.id} item={i} />)}
+          <div>
+            {b.items.map((i) => (
+              <ActivityRow
+                key={i.id}
+                item={i}
+                isOpen={openId === i.id}
+                onToggle={() => setOpenId(openId === i.id ? "" : i.id)}
+                onAction={(actionId, account) => onSignalAction?.(actionId, account, i)}
+              />
+            ))}
           </div>
         </div>
       ))}
@@ -450,7 +549,14 @@ function ActivityFeed({ items }: { items: ActivityItem[] }) {
   );
 }
 
-function ActivityRow({ item }: { item: ActivityItem }) {
+function ActivityRow({
+  item, isOpen, onToggle, onAction,
+}: {
+  item: ActivityItem;
+  isOpen: boolean;
+  onToggle: () => void;
+  onAction: (actionId: string, account: string) => void;
+}) {
   const meta: Record<ActivityKind, { Icon: any; tone: string }> = {
     champion:  { Icon: ArrowUpRight,    tone: "var(--accent-deep)" },
     departure: { Icon: TrendingDown,    tone: "var(--neg)" },
@@ -461,22 +567,1164 @@ function ActivityRow({ item }: { item: ActivityItem }) {
   };
   const m = meta[item.kind];
   return (
-    <Link href={`/accounts/${item.accountSlug}`}
-      className="group flex items-center gap-3 px-3 py-2.5 -mx-3 rounded-lg hover:bg-bg-deep transition-colors">
-      <span className="text-[10.5px] font-mono tnum text-muted-2 w-8 shrink-0 text-right">{item.ago}</span>
-      <m.Icon size={12} strokeWidth={2} style={{ color: m.tone }} className="shrink-0" />
-      <Logo name={item.account} size={14} rounded={3} />
-      <span className="text-[12px] font-semibold text-ink-2 shrink-0">{item.account}</span>
-      <span className="text-muted-2">·</span>
-      <span className="text-[12px] text-muted-2 truncate flex-1">{item.text}</span>
-      <ChevronRight size={11} strokeWidth={1.8} className="text-muted-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-    </Link>
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="group w-full flex items-center gap-3 px-3 py-2.5 -mx-3 rounded-lg hover:bg-bg-deep transition-colors text-left"
+        style={{ background: isOpen ? "var(--bg-deep)" : "transparent" }}
+      >
+        <span className="text-[10.5px] font-mono tnum text-muted-2 w-8 shrink-0 text-right">{item.ago}</span>
+        <m.Icon size={12} strokeWidth={2} style={{ color: m.tone }} className="shrink-0" />
+        <Logo name={item.account} size={14} rounded={3} />
+        <span className="text-[12px] font-semibold text-ink-2 shrink-0">{item.account}</span>
+        <span className="text-muted-2">·</span>
+        <span className="text-[12px] text-muted-2 truncate flex-1">{item.text}</span>
+        <ChevronDown
+          size={12}
+          strokeWidth={1.8}
+          className={`text-muted-2 shrink-0 transition-all duration-300 ${isOpen ? "opacity-100" : "opacity-0 group-hover:opacity-60"}`}
+          style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+        />
+      </button>
+      <div
+        className="grid transition-[grid-template-rows] ease-out -mx-3"
+        style={{
+          gridTemplateRows: isOpen ? "1fr" : "0fr",
+          transitionDuration: "320ms",
+        }}
+      >
+        <div className="overflow-hidden">
+          {isOpen && (
+            <SignalDetail
+              item={item as SignalDetailItem}
+              onAction={(actionId, account) => onAction(actionId, account)}
+            />
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
 
 // ════════════════════════════════════════════════════════════════════════
-// DEFAULT HOME (non-AM personas) — preserves existing layout
+// CSM HOME — retention-first workspace
+// One narrative: what's at risk → who needs saving → what's healthy
+// ════════════════════════════════════════════════════════════════════════
+
+type SavePlay = {
+  id: string;
+  action: string;
+  person: string;
+  personTitle: string;
+  context: string;
+  account: string;
+  accountSlug: string;
+  arr: number;
+  renewalDays?: number;
+  staleDays?: number;
+  healthScore: number;
+  riskKind: "renewal" | "adoption" | "champion" | "qbr" | "tickets";
+  detail?: string;
+  suggestedReply?: string;
+};
+
+const SAVE_PLAYS: SavePlay[] = [
+  {
+    id: "s1",
+    action: "Stabilise Snowflake before renewal slips",
+    person: "Brad Wallace",
+    personTitle: "VP Sales Ops",
+    context: "Renewal in 47 days. James Whitfield (your other sponsor) just left. Brad has gone silent for 14 days — you have one path in and it's narrowing.",
+    account: "Snowflake",
+    accountSlug: "snowflake-inc",
+    arr: 480_000,
+    renewalDays: 47,
+    staleDays: 14,
+    healthScore: 41,
+    riskKind: "renewal",
+    detail: "Health score 41. Sponsor coverage dropped from two to one in 9 days. Last meaningful exec touch was on Apr 24. Without an exec re-engagement this week, the renewal call moves into procurement-led territory.",
+    suggestedReply: "Hi Brad — wanted to surface a few things ahead of the renewal in 47 days. Given James's departure, I want to make sure your team isn't carrying continuity risk alone. Can I send a 10-min loom that summarises the value picture so you can share it with whoever picks up his scope?",
+  },
+  {
+    id: "s2",
+    action: "Restart GitLab adoption — three teams fully inactive",
+    person: "Alex Rivera",
+    personTitle: "Director, Platform Eng",
+    context: "WAU/MAU dropped to 0.48. Three of seven teams haven't logged in for 30+ days. Renewal in 64 days. We've sent two nudges with no reply.",
+    account: "GitLab",
+    accountSlug: "gitlab-inc",
+    arr: 320_000,
+    renewalDays: 64,
+    staleDays: 11,
+    healthScore: 52,
+    riskKind: "adoption",
+    detail: "Onboarding handoff was light — no enablement session ran for the data and infra teams. Alex hasn't replied since the last QBR. Recommended play is a fast 'value snapshot' tied to the renewal conversation, not another nudge.",
+    suggestedReply: "Hi Alex — I've put together a one-page snapshot of what's working on your account vs where adoption has slipped. Worth a 20-min call this week to walk through it ahead of the renewal? I'd rather flag it now than be surprised later.",
+  },
+  {
+    id: "s3",
+    action: "Recover the Akamai QBR — overdue 14 days",
+    person: "Priya Sharma",
+    personTitle: "Head of Revenue Operations",
+    context: "QBR overdue 14 days — expansion narrative is stale. Priya is new to the role and hasn't yet been briefed by her predecessor.",
+    account: "Akamai",
+    accountSlug: "akamai-technologies",
+    arr: 560_000,
+    healthScore: 64,
+    riskKind: "qbr",
+  },
+  {
+    id: "s4",
+    action: "Tableau ticket spike — three sev-2s open",
+    person: "Owen Marsh",
+    personTitle: "Director of Analytics",
+    context: "Three sev-2 tickets opened in the last 5 days. SLA breach risk on two. Owen has cc'd his VP on the latest reply.",
+    account: "Tableau",
+    accountSlug: "tableau-software",
+    arr: 410_000,
+    healthScore: 68,
+    riskKind: "tickets",
+  },
+  {
+    id: "s5",
+    action: "Re-engage GitLab champion — usage decay",
+    person: "Sam Patel",
+    personTitle: "Engineering Manager",
+    context: "Sam was your highest-engaged user. His chat usage dropped from 28/14d to 4/14d. No login in 9 days. Feels like a quiet exit.",
+    account: "GitLab",
+    accountSlug: "gitlab-inc",
+    arr: 320_000,
+    staleDays: 9,
+    healthScore: 52,
+    riskKind: "champion",
+  },
+];
+
+const CSM_ACTIVITY: ActivityItem[] = [
+  { id: "ca1", kind: "departure", account: "Snowflake",  accountSlug: "snowflake-inc",       text: "Sponsor Brad Wallace silent 14 days — renewal at risk",        ago: "2h",   bucket: "today" },
+  { id: "ca2", kind: "usage",     account: "GitLab",     accountSlug: "gitlab-inc",          text: "WAU/MAU dropped further to 0.48 — three teams now inactive",   ago: "4h",   bucket: "today" },
+  { id: "ca3", kind: "renewal",   account: "Akamai",     accountSlug: "akamai-technologies", text: "QBR now 14 days overdue — expansion narrative stale",          ago: "today",bucket: "today" },
+  { id: "ca4", kind: "note",      account: "Tableau",    accountSlug: "tableau-software",    text: "3rd sev-2 ticket opened this week — SLA risk on 2 of 3",       ago: "6h",   bucket: "today" },
+  { id: "ca5", kind: "champion",  account: "Cloudflare", accountSlug: "cloudflare-inc",      text: "Maya Chen promoted to VP Eng — refresh exec sponsor map",      ago: "12h",  bucket: "today" },
+  { id: "ca6", kind: "departure", account: "Snowflake",  accountSlug: "snowflake-inc",       text: "James Whitfield (VP Sales Ops) left — succession needed",      ago: "2d",   bucket: "yesterday" },
+  { id: "ca7", kind: "usage",     account: "Tableau",    accountSlug: "tableau-software",    text: "12 new seats added — onboard the ML team this sprint",         ago: "2d",   bucket: "yesterday" },
+  { id: "ca8", kind: "note",      account: "GitLab",     accountSlug: "gitlab-inc",          text: "NPS dipped to 28 (was 41 last quarter) — open verbatims",      ago: "3d",   bucket: "earlier" },
+  { id: "ca9", kind: "renewal",   account: "Cloudflare", accountSlug: "cloudflare-inc",      text: "Renewal kickoff scheduled with procurement for May 22",        ago: "3d",   bucket: "earlier" },
+  { id: "ca10",kind: "usage",     account: "Snowflake",  accountSlug: "snowflake-inc",       text: "ML Ops team running API in prod — new use case to capture",   ago: "4d",   bucket: "earlier" },
+];
+
+const RISK_KIND_META: Record<SavePlay["riskKind"], { label: string; tone: string; soft: string; Icon: any }> = {
+  renewal:  { label: "Renewal at risk", tone: "var(--neg)",   soft: "var(--neg-soft)",   Icon: RefreshCw },
+  adoption: { label: "Adoption decay",  tone: "var(--warn)",  soft: "var(--warn-soft)",  Icon: TrendingDown },
+  champion: { label: "Champion drift",  tone: "var(--warn)",  soft: "var(--warn-soft)",  Icon: Users },
+  qbr:      { label: "QBR overdue",     tone: "var(--info)",  soft: "var(--info-soft)",  Icon: Calendar },
+  tickets:  { label: "Ticket spike",    tone: "var(--neg)",   soft: "var(--neg-soft)",   Icon: LifeBuoy },
+};
+
+function healthTone(score: number): string {
+  if (score >= 75) return "var(--pos)";
+  if (score >= 60) return "var(--warn)";
+  return "var(--neg)";
+}
+
+// Map an activity item kind into a peek activity tone
+function activityToneFor(kind: ActivityKind): PeekActivity["tone"] {
+  switch (kind) {
+    case "departure": return "neg";
+    case "renewal":   return "warn";
+    case "champion":  return "pos";
+    case "deal":      return "pos";
+    case "usage":     return "info";
+    case "note":      return "neutral";
+    default:          return "neutral";
+  }
+}
+// Same mapping for AM-side activity items (which use the same kind enum)
+const amActivityTone = activityToneFor;
+
+function CSMHome() {
+  const greeting = greetingFor();
+  const { user } = useUser();
+  const [drawerCfg, setDrawerCfg] = useState<DrawerConfig | null>(null);
+  const [peekCfg, setPeekCfg] = useState<PeekConfig | null>(null);
+
+  const openPeek = (account: Account, source: PeekConfig["source"]) => {
+    const activity: PeekActivity[] = CSM_ACTIVITY
+      .filter((a) => a.account === account.name.replace(/, Inc\.?$| Inc\.?$| Software$| Technologies$/i, ""))
+      .map((a) => ({ id: a.id, text: a.text, ago: a.ago, tone: activityToneFor(a.kind) }));
+    setPeekCfg({ account, source, activity });
+  };
+
+  // Real customers from accounts data
+  const customers = useMemo(() => accounts.filter((a) => a.status === "Customer"), []);
+  const myBook = useMemo(() => customers.slice(0, 14), [customers]);
+  const bookArr = myBook.reduce((s, a) => s + (a.arr || 0), 0);
+  const atRiskCount = myBook.filter((a) => a.healthScore < 60).length;
+  const watchCount = myBook.filter((a) => a.healthScore >= 60 && a.healthScore < 75).length;
+  const healthyCount = myBook.filter((a) => a.healthScore >= 75).length;
+
+  // Renewals next 90 days from accounts with positive renewalDays <= 90
+  const renewals90 = useMemo(
+    () =>
+      myBook
+        .filter((a) => a.renewalDays > 0 && a.renewalDays <= 90)
+        .sort((a, b) => a.renewalDays - b.renewalDays)
+        .slice(0, 6),
+    [myBook]
+  );
+  // If we don't have enough renewals from the data, derive a few synthetically
+  const renewalRow: Array<{ account: typeof customers[number]; days: number }> =
+    renewals90.length >= 4
+      ? renewals90.map((a) => ({ account: a, days: a.renewalDays }))
+      : myBook.slice(0, 6).map((a, i) => ({
+          account: a,
+          days: a.renewalDays > 0 ? a.renewalDays : 18 + i * 14,
+        }));
+
+  const renewalArr = renewalRow.reduce((s, r) => s + (r.account.arr || 0), 0);
+
+  // PeekCtx opener that uses CSMHome's openPeek (which knows about CSM_ACTIVITY).
+  const peekOpener: PeekOpener = (accountName, source = "default") => {
+    const acct = resolveAccountByName(accountName);
+    if (acct) openPeek(acct, source);
+  };
+
+  return (
+    <DrawerCtx.Provider value={{ open: setDrawerCfg }}>
+    <PeekCtx.Provider value={{ open: peekOpener }}>
+      <AppShell>
+        {/* ─── Header ──────────────────────────────────────────── */}
+        <header className="mb-9">
+          <div className="flex items-baseline justify-between flex-wrap gap-3">
+            <div>
+              <h1 className="text-[24px] font-semibold text-ink" style={{ letterSpacing: "-0.022em" }}>
+                {greeting}, {user.firstName}
+              </h1>
+              <div className="flex items-center gap-2 text-[12px] text-muted mt-1.5">
+                <span>{new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
+                <span className="text-muted-2">·</span>
+                <span><span className="font-semibold text-ink-2 tnum">{fmtMoney(bookArr)}</span> book</span>
+                <span className="text-muted-2">·</span>
+                <span><span className="font-semibold text-ink-2 tnum">{myBook.length}</span> customers</span>
+                <span className="text-muted-2">·</span>
+                <span><span className="font-semibold text-ink-2 tnum">{atRiskCount + watchCount}</span> need attention</span>
+              </div>
+            </div>
+            <DataFreshness minutesAgo={3} sources={["Salesforce", "Mixpanel", "Zendesk", "Intercom", "Alphy AI"] as any} />
+          </div>
+        </header>
+
+        {/* ─── Today's Saves ──────────────────────────────────────── */}
+        <SectionHeader label="Today's saves" detail={`${SAVE_PLAYS.length} plays · sorted by ARR at risk`} />
+        <SavesAccordion plays={SAVE_PLAYS} />
+        <div className="mb-10" />
+
+        {/* ─── Renewal Runway ─────────────────────────────────────── */}
+        <SectionHeader
+          label="Renewal runway"
+          detail={`${fmtMoney(renewalArr)} across ${renewalRow.length} renewals · next 90 days`}
+          right={<Link href="/renewals" className="text-[11.5px] font-medium text-muted hover:text-ink inline-flex items-center gap-1">View all renewals <ChevronRight size={11} /></Link>}
+        />
+        <div className="mb-10 -mx-2 overflow-x-auto">
+          <div className="flex items-stretch gap-3 px-2 min-w-min">
+            {renewalRow.map((r) => (
+              <RenewalTile
+                key={r.account.id}
+                account={r.account}
+                days={r.days}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* ─── Health Distribution ────────────────────────────────── */}
+        <SectionHeader
+          label="Health distribution"
+          detail={`${myBook.length} customers · ${atRiskCount} at risk · ${watchCount} watch · ${healthyCount} healthy`}
+          right={<Link href="/portfolio" className="text-[11.5px] font-medium text-muted hover:text-ink inline-flex items-center gap-1">Open portfolio <ChevronRight size={11} /></Link>}
+        />
+        <HealthDistribution
+          book={myBook}
+          atRisk={atRiskCount}
+          watch={watchCount}
+          healthy={healthyCount}
+        />
+
+        {/* ─── Activity ───────────────────────────────────────────── */}
+        <SectionHeader
+          label="Activity"
+          detail={`${CSM_ACTIVITY.length + 8} signals this week`}
+          right={<Link href="/signals" className="text-[11.5px] font-medium text-muted hover:text-ink inline-flex items-center gap-1">All signals <ChevronRight size={11} /></Link>}
+        />
+        <ActivityFeed
+          items={CSM_ACTIVITY}
+          onSignalAction={(actionId, accountName, item) => {
+            // "open" → open the AccountPeek if we can find the matching Account
+            if (actionId === "open") {
+              const acct = customers.find((a) =>
+                a.name === accountName ||
+                a.name.startsWith(accountName) ||
+                accountName.startsWith(a.name.split(" ")[0])
+              );
+              if (acct) openPeek(acct, "default");
+              return;
+            }
+            // Map action ids to drawer flows
+            const flowMap: Record<string, DrawerFlow> = {
+              "loop-exec":     "recovery-play",
+              "draft-email":   "email-draft",
+              "value-snap":    "share-metrics",
+              "schedule-train":"schedule-qbr",
+              "build-case":    "build-case",
+              "schedule-qbr":  "schedule-qbr",
+              "escalate":      "recovery-play",
+            };
+            const flow = flowMap[actionId] ?? "email-draft";
+            setDrawerCfg({
+              flow,
+              account: accountName,
+              title: item.text,
+            });
+          }}
+        />
+        <ExecutionDrawer config={drawerCfg} onClose={() => setDrawerCfg(null)} />
+        <AccountPeek
+          config={peekCfg}
+          onClose={() => setPeekCfg(null)}
+          onAction={(action, account) => {
+            // Close the peek and open the relevant drawer flow
+            setPeekCfg(null);
+            const flow = action === "outreach" ? "email-draft" : "recovery-play";
+            setDrawerCfg({
+              flow,
+              account: account.name,
+              title: action === "outreach"
+                ? `Outreach to ${account.name}`
+                : `Save play for ${account.name}`,
+            });
+          }}
+        />
+      </AppShell>
+    </PeekCtx.Provider>
+    </DrawerCtx.Provider>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// SavesAccordion — collapsible list of save plays.
+// One play expanded at a time. Default expanded = first.
+// ─────────────────────────────────────────────────────────────────────
+function SavesAccordion({ plays }: { plays: SavePlay[] }) {
+  const [openId, setOpenId] = useState<string>(plays[0]?.id ?? "");
+  const [whyOpen, setWhyOpen] = useState<Record<string, boolean>>({});
+
+  return (
+    <div className="rounded-2xl overflow-hidden"
+      style={{
+        background: "var(--surface)",
+        border: "1px solid var(--line)",
+        boxShadow: "0 1px 0 rgba(0,0,0,0.02)",
+      }}>
+      {plays.map((play, i) => {
+        const isOpen = play.id === openId;
+        return (
+          <SaveAccordionRow
+            key={play.id}
+            play={play}
+            isOpen={isOpen}
+            isFirst={i === 0}
+            isLast={i === plays.length - 1}
+            onToggle={() => setOpenId(isOpen ? "" : play.id)}
+            whyOpen={!!whyOpen[play.id]}
+            onToggleWhy={() => setWhyOpen((prev) => ({ ...prev, [play.id]: !prev[play.id] }))}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function SaveAccordionRow({
+  play, isOpen, isFirst, isLast, onToggle, whyOpen, onToggleWhy,
+}: {
+  play: SavePlay;
+  isOpen: boolean;
+  isFirst: boolean;
+  isLast: boolean;
+  onToggle: () => void;
+  whyOpen: boolean;
+  onToggleWhy: () => void;
+}) {
+  const drawer = useDrawer();
+  const peek = usePeek();
+  const meta = RISK_KIND_META[play.riskKind];
+
+  return (
+    <div style={{ borderTop: isFirst ? "none" : "1px solid var(--line)" }}>
+      {/* Header row — always visible */}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-bg-deep/40"
+        style={{ background: isOpen ? "var(--bg-deep)" : "transparent" }}
+      >
+        {/* Risk-kind dot */}
+        <span className="relative w-2 h-2 rounded-full shrink-0" style={{ background: meta.tone }}>
+          {isOpen && (
+            <span className="absolute inset-0 rounded-full animate-ping"
+              style={{ background: meta.tone, opacity: 0.4 }} />
+          )}
+        </span>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`text-[13.5px] ${isOpen ? "font-semibold text-ink" : "font-medium text-ink"}`}>
+              {play.action}
+            </span>
+            <span className="text-muted-2">·</span>
+            <Logo name={play.account} size={12} rounded={3} />
+            <span className="text-[11.5px] text-muted">{play.account}</span>
+            <span className="text-muted-2">·</span>
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded"
+              style={{ background: meta.soft, color: meta.tone }}>
+              <meta.Icon size={9} strokeWidth={2.2} />
+              {meta.label}
+            </span>
+            {play.renewalDays !== undefined && (
+              <>
+                <span className="text-muted-2">·</span>
+                <span className="text-[11px] tnum text-muted">{play.renewalDays}d to renewal</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        <span className="text-[11.5px] font-mono tnum text-muted-2 shrink-0">{fmtMoney(play.arr)}</span>
+        <ChevronDown
+          size={14}
+          strokeWidth={1.8}
+          className="text-muted-2 shrink-0 transition-transform duration-300"
+          style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+        />
+      </button>
+
+      {/* Expanded body */}
+      <div
+        className="grid transition-[grid-template-rows] ease-out"
+        style={{
+          gridTemplateRows: isOpen ? "1fr" : "0fr",
+          transitionDuration: "380ms",
+        }}
+      >
+        <div className="overflow-hidden">
+          <div className="grid grid-cols-12 gap-0 border-t border-line">
+            {/* Left side — context, why-now, actions */}
+            <div className="col-span-12 lg:col-span-8 px-5 py-5 relative">
+              <div className="absolute left-0 top-5 bottom-5 w-[3px] rounded-r-full"
+                style={{ background: meta.tone }} />
+              <div className="pl-2">
+                <p className="text-[13.5px] text-muted leading-relaxed max-w-2xl mb-4">
+                  {play.context}
+                </p>
+
+                {whyOpen && play.detail && (
+                  <div className="mb-4 p-4 rounded-xl"
+                    style={{ background: "var(--surface)", border: "1px solid var(--line)" }}>
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1.5">
+                      Why now
+                    </div>
+                    <div className="text-[12.5px] text-ink-2 leading-relaxed mb-3">
+                      {play.detail}
+                    </div>
+                    {play.suggestedReply && (
+                      <>
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1.5 flex items-center gap-1.5">
+                          <Sparkles size={10} strokeWidth={2.2} style={{ color: "var(--accent-deep)" }} />
+                          Suggested message
+                        </div>
+                        <div className="rounded-lg px-3 py-2.5 text-[12px] text-ink-2 leading-relaxed font-mono"
+                          style={{ background: "var(--bg)", border: "1px solid var(--line)" }}>
+                          {play.suggestedReply}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      drawer.open({ flow: "recovery-play", account: play.account, person: play.person, title: play.action });
+                    }}
+                    className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-2 rounded-lg text-white transition-transform hover:scale-[1.02]"
+                    style={{ background: "var(--accent-deep)" }}>
+                    <Sparkles size={11} strokeWidth={2.2} /> Run save play
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      drawer.open({ flow: "email-draft", account: play.account, person: play.person, title: play.action });
+                    }}
+                    className="inline-flex items-center gap-1.5 text-[12px] font-medium px-3.5 py-2 rounded-lg transition-colors hover:bg-bg-deep"
+                    style={{ background: "var(--bg)", color: "var(--ink-2)", border: "1px solid var(--line)" }}>
+                    <Mail size={11} strokeWidth={2.2} /> Draft outreach
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); peek.open(play.account, "default"); }}
+                    className="inline-flex items-center gap-1.5 text-[12px] font-medium px-3.5 py-2 rounded-lg transition-colors hover:bg-bg-deep"
+                    style={{ background: "var(--bg)", color: "var(--ink-2)", border: "1px solid var(--line)" }}>
+                    Open account <ArrowRight size={11} strokeWidth={2.2} />
+                  </button>
+                  {play.detail && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onToggleWhy(); }}
+                      className="text-[11.5px] text-muted hover:text-ink ml-1 inline-flex items-center gap-1">
+                      {whyOpen ? "Hide context" : "Why now"}
+                      <ChevronDown size={11} strokeWidth={2}
+                        className="transition-transform"
+                        style={{ transform: whyOpen ? "rotate(180deg)" : "rotate(0deg)" }} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right meta */}
+            <div className="col-span-12 lg:col-span-4 px-5 py-5 lg:border-l border-line lg:bg-bg-deep/30 flex flex-col gap-4">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1">Sponsor</div>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full grid place-items-center text-[9px] font-semibold text-white"
+                    style={{ background: meta.tone }}>
+                    {play.person.split(" ").map((n) => n[0]).join("")}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[12px] font-semibold text-ink truncate">{play.person}</div>
+                    <div className="text-[10.5px] text-muted truncate">{play.personTitle}</div>
+                  </div>
+                </div>
+              </div>
+              {play.renewalDays !== undefined && (
+                <div>
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1">Renewal in</div>
+                  <div className="text-[18px] font-bold tnum text-ink" style={{ letterSpacing: "-0.018em" }}>
+                    {play.renewalDays} <span className="text-[12px] font-medium text-muted">days</span>
+                  </div>
+                </div>
+              )}
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1">Health</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-[18px] font-bold tnum" style={{ color: healthTone(play.healthScore), letterSpacing: "-0.018em" }}>
+                    {play.healthScore}
+                  </div>
+                  <div className="flex-1 h-1.5 rounded-full bg-bg-deep overflow-hidden" style={{ border: "1px solid var(--line)" }}>
+                    <div className="h-full rounded-full transition-all duration-700"
+                      style={{ width: `${play.healthScore}%`, background: healthTone(play.healthScore) }} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// RenewalTile — single renewal in horizontal pipeline
+// ─────────────────────────────────────────────────────────────────────
+function RenewalTile({ account, days }: { account: Account; days: number }) {
+  const peek = usePeek();
+  const urgent = days <= 30;
+  const tone = urgent ? "var(--neg)" : days <= 60 ? "var(--warn)" : "var(--info)";
+  const hTone = healthTone(account.healthScore);
+  return (
+    <button
+      type="button"
+      onClick={() => peek.open(account.name, "renewal")}
+      className="group rounded-xl p-4 transition-all hover:shadow-sm hover:border-line-strong shrink-0 text-left"
+      style={{
+        width: 220,
+        background: "var(--surface)",
+        border: "1px solid var(--line)",
+      }}>
+      <div className="flex items-center gap-2 mb-3">
+        <Logo name={account.name} size={22} rounded={5} />
+        <div className="min-w-0 flex-1">
+          <div className="text-[12.5px] font-semibold text-ink truncate">{account.name}</div>
+          <div className="text-[10px] text-muted truncate">{account.tier} · {account.segment}</div>
+        </div>
+      </div>
+      <div className="flex items-baseline gap-2 mb-2">
+        <span className="text-[20px] font-bold tnum text-ink leading-none" style={{ letterSpacing: "-0.018em" }}>
+          {fmtMoney(account.arr)}
+        </span>
+        <span className="text-[10.5px] font-semibold tnum" style={{ color: hTone }}>
+          {account.healthScore}
+        </span>
+      </div>
+      <div className="flex items-center justify-between mt-3 pt-3 border-t border-line">
+        <span className="inline-flex items-center gap-1 text-[10.5px] font-medium" style={{ color: tone }}>
+          <Calendar size={10} strokeWidth={2} />
+          {days}d
+        </span>
+        <span className="text-[10px] text-muted-2 inline-flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          Preview <ArrowRight size={9} strokeWidth={2} />
+        </span>
+      </div>
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// HealthDistribution — three columns sorted by health bracket
+// ─────────────────────────────────────────────────────────────────────
+function HealthDistribution({ book, atRisk, watch, healthy }: {
+  book: Account[]; atRisk: number; watch: number; healthy: number;
+}) {
+  const atRiskList = book.filter((a) => a.healthScore < 60).sort((a, b) => a.healthScore - b.healthScore).slice(0, 5);
+  const watchList  = book.filter((a) => a.healthScore >= 60 && a.healthScore < 75).sort((a, b) => a.healthScore - b.healthScore).slice(0, 5);
+  const healthyList = book.filter((a) => a.healthScore >= 75).sort((a, b) => b.healthScore - a.healthScore).slice(0, 5);
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-10">
+      <HealthColumn title="At risk" count={atRisk} tone="var(--neg)"  soft="var(--neg-soft)"  Icon={AlertTriangle} list={atRiskList}  cta="Build save plan" />
+      <HealthColumn title="Watch"   count={watch}  tone="var(--warn)" soft="var(--warn-soft)" Icon={Eye}           list={watchList}   cta="Add to QBR"      />
+      <HealthColumn title="Healthy" count={healthy} tone="var(--pos)" soft="var(--pos-soft)"  Icon={ShieldCheck}   list={healthyList} cta="Surface advocacy" />
+    </div>
+  );
+}
+
+function HealthColumn({ title, count, tone, soft, Icon, list, cta }: {
+  title: string; count: number; tone: string; soft: string; Icon: any;
+  list: Account[]; cta: string;
+}) {
+  const peek = usePeek();
+  return (
+    <div className="rounded-xl p-4" style={{ background: "var(--surface)", border: "1px solid var(--line)" }}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md grid place-items-center" style={{ background: soft }}>
+            <Icon size={12} strokeWidth={2} style={{ color: tone }} />
+          </div>
+          <span className="text-[13px] font-semibold text-ink">{title}</span>
+          <span className="text-[10.5px] font-mono text-muted-2 bg-bg-deep px-1.5 py-0.5 rounded">{count}</span>
+        </div>
+        <span className="text-[10.5px] text-muted-2">{cta}</span>
+      </div>
+      <div className="space-y-1.5">
+        {list.length === 0 ? (
+          <div className="text-[11.5px] text-muted-2 py-4 text-center">Nothing here</div>
+        ) : list.map((a) => (
+          <button
+            key={a.id}
+            type="button"
+            onClick={() => peek.open(a.name, "health")}
+            className="group w-full flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-bg-deep transition-colors text-left">
+            <Logo name={a.name} size={20} rounded={4} />
+            <div className="flex-1 min-w-0">
+              <div className="text-[12px] font-semibold text-ink truncate">{a.name}</div>
+              <div className="text-[10px] text-muted truncate">{a.signal}</div>
+            </div>
+            <span className="text-[10.5px] font-semibold tnum shrink-0" style={{ color: tone }}>{a.healthScore}</span>
+            <span className="text-[10px] font-mono tnum text-muted-2 shrink-0 w-12 text-right">{fmtMoney(a.arr)}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// MANAGER HOME — team performance & escalation workspace
+// One narrative: who needs help → how the team is loaded → what changed
+// ════════════════════════════════════════════════════════════════════════
+
+type Escalation = {
+  id: string;
+  reason: "coaching" | "save" | "reassign" | "pipeline" | "qbr";
+  title: string;
+  rep: string;
+  account?: string;
+  arr?: number;
+  context: string;
+  detail?: string;
+};
+
+const ESCALATIONS: Escalation[] = [
+  {
+    id: "e1",
+    reason: "save",
+    title: "Snowflake renewal slipping — Brad needs leadership air cover",
+    rep: "Brad Allen",
+    account: "Snowflake",
+    arr: 480_000,
+    context: "Renewal in 47 days. Sponsor coverage dropped to 1. Brad has tried two re-engagement emails with no reply. Time for an exec-to-exec.",
+    detail: "Suggested play: schedule a quick call with their CTO this week and run the recovery playbook with Brad. Forecast confidence at 38%.",
+  },
+  {
+    id: "e2",
+    reason: "coaching",
+    title: "Sarah is stalling on three Strategic accounts",
+    rep: "Sarah Chen",
+    context: "Below quota at 62% with 9 days left in the month. Three accounts haven't moved stage in 21+ days. Worth a 30-min coaching review on the deals stuck in Negotiation.",
+    detail: "Patterns suggest she's struggling with procurement objections — same root cause across all three.",
+  },
+  {
+    id: "e3",
+    reason: "reassign",
+    title: "Brad is overloaded — 12 accounts, 5 renewals, 82 workload",
+    rep: "Brad Allen",
+    context: "Workload score 82 vs team average 59. Two accounts (Mailchimp, Algolia) could move to Derek (35 score, has capacity) without disruption.",
+    detail: "Brad's at-risk count is the team's highest. Reassignment would free him to focus on Snowflake renewal.",
+  },
+  {
+    id: "e4",
+    reason: "pipeline",
+    title: "Pipeline coverage gap — Mid-Market segment at 0.9x",
+    rep: "Team-wide",
+    context: "Q3 expansion target needs 1.4x coverage; Mid-Market sits at 0.9x. Gap of $480K to fill in 32 days.",
+    detail: "Three accounts in your team's book have unactivated White Space — worth surfacing those plays this week.",
+  },
+  {
+    id: "e5",
+    reason: "qbr",
+    title: "Akamai QBR overdue 14 days — Priya is new to the role",
+    rep: "Paul Acker",
+    account: "Akamai",
+    arr: 540_000,
+    context: "Paul mentioned not wanting to push too hard on a new champion, but the QBR cadence is breaking. Worth a leader nudge to get it on the books.",
+  },
+];
+
+const ESCALATION_META: Record<Escalation["reason"], { label: string; tone: string; soft: string; Icon: any }> = {
+  coaching: { label: "Coaching",     tone: "var(--info)",  soft: "var(--info-soft)",  Icon: Users },
+  save:     { label: "Save help",    tone: "var(--neg)",   soft: "var(--neg-soft)",   Icon: AlertTriangle },
+  reassign: { label: "Reassign",     tone: "var(--warn)",  soft: "var(--warn-soft)",  Icon: ArrowRight },
+  pipeline: { label: "Pipeline gap", tone: "var(--accent-deep)", soft: "var(--accent-soft)", Icon: TrendingDown },
+  qbr:      { label: "QBR slip",     tone: "var(--warn)",  soft: "var(--warn-soft)",  Icon: Calendar },
+};
+
+// Manager-flavoured activity feed
+const MANAGER_ACTIVITY: ActivityItem[] = [
+  { id: "ma1", kind: "departure", account: "Snowflake",  accountSlug: "snowflake-inc",       text: "Brad's escalation: sponsor silent 14 days — needs exec air cover", ago: "2h",  bucket: "today" },
+  { id: "ma2", kind: "deal",      account: "Cloudflare", accountSlug: "cloudflare-inc",      text: "Brad closed Cloudflare AI Copilot expansion · +$120K ARR",        ago: "4h",  bucket: "today" },
+  { id: "ma3", kind: "renewal",   account: "Akamai",     accountSlug: "akamai-technologies", text: "Paul flagged Akamai QBR slipping — needs nudge",                  ago: "6h",  bucket: "today" },
+  { id: "ma4", kind: "champion",  account: "Cloudflare", accountSlug: "cloudflare-inc",      text: "Maya Chen promoted to VP Eng — Sarah notified",                   ago: "12h", bucket: "today" },
+  { id: "ma5", kind: "note",      account: "Tableau",    accountSlug: "tableau-software",    text: "Lisa won the Tableau ML governance pilot — case study queued",    ago: "1d",  bucket: "yesterday" },
+  { id: "ma6", kind: "usage",     account: "GitLab",     accountSlug: "gitlab-inc",          text: "Brad assigned recovery playbook on GitLab — running",             ago: "1d",  bucket: "yesterday" },
+  { id: "ma7", kind: "deal",      account: "Tableau",    accountSlug: "tableau-software",    text: "Lisa expanded Tableau seats · +12 ML team",                       ago: "2d",  bucket: "earlier" },
+  { id: "ma8", kind: "renewal",   account: "Snowflake",  accountSlug: "snowflake-inc",       text: "Snowflake renewal kickoff scheduled with procurement May 22",     ago: "3d",  bucket: "earlier" },
+];
+
+function ManagerHome() {
+  const greeting = greetingFor();
+  const { user } = useUser();
+  const [drawerCfg, setDrawerCfg] = useState<DrawerConfig | null>(null);
+  const [peekCfg, setPeekCfg] = useState<PeekConfig | null>(null);
+  const [openEscalationId, setOpenEscalationId] = useState<string>(ESCALATIONS[0]?.id ?? "");
+
+  const openPeek = (account: Account, source: PeekConfig["source"]) => {
+    const activity: PeekActivity[] = MANAGER_ACTIVITY
+      .filter((a) => a.account === account.name.replace(/, Inc\.?$| Inc\.?$| Software$| Technologies$/i, ""))
+      .map((a) => ({ id: a.id, text: a.text, ago: a.ago, tone: amActivityTone(a.kind) }));
+    setPeekCfg({ account, source, activity });
+  };
+
+  const peekOpener: PeekOpener = (accountName, source = "default") => {
+    const acct = resolveAccountByName(accountName);
+    if (acct) openPeek(acct, source);
+  };
+
+  // Team stats
+  const teamArr = csmWorkloads.reduce((s, c) => s + c.totalArr, 0);
+  const teamAccounts = csmWorkloads.reduce((s, c) => s + c.accounts, 0);
+  const teamAtRisk = csmWorkloads.reduce((s, c) => s + c.healthMix.atRisk, 0);
+  const teamRenewals90 = csmWorkloads.reduce((s, c) => s + c.renewalsNext90, 0);
+  const totalSignals = MANAGER_ACTIVITY.length + 14;
+
+  // Performance brackets
+  const topPerformers = [...csmWorkloads]
+    .filter((c) => c.workloadScore >= 50 && c.workloadScore <= 75 && c.healthMix.atRisk <= 1)
+    .sort((a, b) => b.totalArr - a.totalArr).slice(0, 3);
+  const overloaded = [...csmWorkloads].filter((c) => c.workloadScore >= 75)
+    .sort((a, b) => b.workloadScore - a.workloadScore).slice(0, 3);
+  const underutilised = [...csmWorkloads].filter((c) => c.workloadScore < 50)
+    .sort((a, b) => a.workloadScore - b.workloadScore).slice(0, 3);
+
+  return (
+    <DrawerCtx.Provider value={{ open: setDrawerCfg }}>
+    <PeekCtx.Provider value={{ open: peekOpener }}>
+      <AppShell>
+        {/* ─── Header ──────────────────────────────────────────── */}
+        <header className="mb-9">
+          <div className="flex items-baseline justify-between flex-wrap gap-3">
+            <div>
+              <h1 className="text-[24px] font-semibold text-ink" style={{ letterSpacing: "-0.022em" }}>
+                {greeting}, {user.firstName}
+              </h1>
+              <div className="flex items-center gap-2 text-[12px] text-muted mt-1.5">
+                <span>{new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
+                <span className="text-muted-2">·</span>
+                <span><span className="font-semibold text-ink-2 tnum">{fmtMoney(teamArr)}</span> team book</span>
+                <span className="text-muted-2">·</span>
+                <span><span className="font-semibold text-ink-2 tnum">{csmWorkloads.length}</span> reps</span>
+                <span className="text-muted-2">·</span>
+                <span><span className="font-semibold text-ink-2 tnum">{teamRenewals90}</span> renewals next 90d</span>
+              </div>
+            </div>
+            <DataFreshness minutesAgo={3} sources={["Salesforce", "Clari", "Gong", "Alphy AI"] as any} />
+          </div>
+        </header>
+
+        {/* ─── Today's escalations ─────────────────────────────── */}
+        <SectionHeader label="Today's escalations" detail={`${ESCALATIONS.length} need your attention`} />
+        <EscalationsAccordion
+          items={ESCALATIONS}
+          openId={openEscalationId}
+          onToggle={(id) => setOpenEscalationId(openEscalationId === id ? "" : id)}
+        />
+        <div className="mb-10" />
+
+        {/* ─── Team workload ───────────────────────────────────── */}
+        <SectionHeader
+          label="Team workload"
+          detail={`${csmWorkloads.length} reps · ${teamAccounts} accounts · ${teamAtRisk} at risk`}
+          right={<Link href="/capacity" className="text-[11.5px] font-medium text-muted hover:text-ink inline-flex items-center gap-1">Capacity planning <ChevronRight size={11} /></Link>}
+        />
+        <div className="mb-10 -mx-2 overflow-x-auto">
+          <div className="flex items-stretch gap-3 px-2 min-w-min">
+            {csmWorkloads.map((rep) => <RepTile key={rep.id} rep={rep} />)}
+          </div>
+        </div>
+
+        {/* ─── Performance distribution ────────────────────────── */}
+        <SectionHeader
+          label="Performance distribution"
+          detail={`${overloaded.length} overloaded · ${topPerformers.length} on track · ${underutilised.length} room to grow`}
+          right={<Link href="/revenue" className="text-[11.5px] font-medium text-muted hover:text-ink inline-flex items-center gap-1">Revenue waterfall <ChevronRight size={11} /></Link>}
+        />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-10">
+          <PerfColumn title="Overloaded" count={overloaded.length} tone="var(--neg)" soft="var(--neg-soft)" Icon={AlertTriangle} list={overloaded} cta="Reassign accounts" />
+          <PerfColumn title="On track"   count={topPerformers.length} tone="var(--pos)" soft="var(--pos-soft)" Icon={ShieldCheck} list={topPerformers} cta="Surface as advocate" />
+          <PerfColumn title="Room to grow" count={underutilised.length} tone="var(--info)" soft="var(--info-soft)" Icon={TrendingUp} list={underutilised} cta="Add accounts" />
+        </div>
+
+        {/* ─── Activity ────────────────────────────────────────── */}
+        <SectionHeader
+          label="Activity"
+          detail={`${totalSignals} team signals this week`}
+          right={<Link href="/signals" className="text-[11.5px] font-medium text-muted hover:text-ink inline-flex items-center gap-1">All signals <ChevronRight size={11} /></Link>}
+        />
+        <ActivityFeed
+          items={MANAGER_ACTIVITY}
+          onSignalAction={(actionId, accountName, item) => {
+            if (actionId === "open") {
+              peekOpener(accountName, "default");
+              return;
+            }
+            const flowMap: Record<string, DrawerFlow> = {
+              "draft-email":    "email-draft",
+              "build-case":     "build-case",
+              "schedule-qbr":   "schedule-qbr",
+              "value-snap":     "share-metrics",
+              "loop-exec":      "recovery-play",
+              "escalate":       "recovery-play",
+            };
+            const flow = flowMap[actionId] ?? "email-draft";
+            setDrawerCfg({
+              flow,
+              account: accountName,
+              title: item.text,
+            });
+          }}
+        />
+        <ExecutionDrawer config={drawerCfg} onClose={() => setDrawerCfg(null)} />
+        <AccountPeek
+          config={peekCfg}
+          onClose={() => setPeekCfg(null)}
+          onAction={(action, account) => {
+            setPeekCfg(null);
+            const flow = action === "outreach" ? "email-draft" : "recovery-play";
+            setDrawerCfg({
+              flow,
+              account: account.name,
+              title: action === "outreach"
+                ? `Outreach to ${account.name}`
+                : `Save play for ${account.name}`,
+            });
+          }}
+        />
+      </AppShell>
+    </PeekCtx.Provider>
+    </DrawerCtx.Provider>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Escalations accordion — same visual pattern as SavesAccordion
+// ─────────────────────────────────────────────────────────────────────
+function EscalationsAccordion({ items, openId, onToggle }: {
+  items: Escalation[]; openId: string; onToggle: (id: string) => void;
+}) {
+  return (
+    <div className="rounded-2xl overflow-hidden"
+      style={{
+        background: "var(--surface)",
+        border: "1px solid var(--line)",
+        boxShadow: "0 1px 0 rgba(0,0,0,0.02)",
+      }}>
+      {items.map((e, i) => (
+        <EscalationRow
+          key={e.id}
+          escalation={e}
+          isOpen={e.id === openId}
+          isFirst={i === 0}
+          onToggle={() => onToggle(e.id)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function EscalationRow({ escalation, isOpen, isFirst, onToggle }: {
+  escalation: Escalation; isOpen: boolean; isFirst: boolean; onToggle: () => void;
+}) {
+  const drawer = useDrawer();
+  const peek = usePeek();
+  const meta = ESCALATION_META[escalation.reason];
+
+  return (
+    <div style={{ borderTop: isFirst ? "none" : "1px solid var(--line)" }}>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-bg-deep/40"
+        style={{ background: isOpen ? "var(--bg-deep)" : "transparent" }}
+      >
+        <span className="relative w-2 h-2 rounded-full shrink-0" style={{ background: meta.tone }}>
+          {isOpen && (
+            <span className="absolute inset-0 rounded-full animate-ping"
+              style={{ background: meta.tone, opacity: 0.4 }} />
+          )}
+        </span>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`text-[13.5px] ${isOpen ? "font-semibold text-ink" : "font-medium text-ink"}`}>
+              {escalation.title}
+            </span>
+            <span className="text-muted-2">·</span>
+            <span className="text-[11.5px] text-muted">{escalation.rep}</span>
+            <span className="text-muted-2">·</span>
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded"
+              style={{ background: meta.soft, color: meta.tone }}>
+              <meta.Icon size={9} strokeWidth={2.2} />
+              {meta.label}
+            </span>
+          </div>
+        </div>
+
+        {escalation.arr && (
+          <span className="text-[11.5px] font-mono tnum text-muted-2 shrink-0">{fmtMoney(escalation.arr)}</span>
+        )}
+        <ChevronDown
+          size={14}
+          strokeWidth={1.8}
+          className="text-muted-2 shrink-0 transition-transform duration-300"
+          style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+        />
+      </button>
+
+      <div
+        className="grid transition-[grid-template-rows] ease-out"
+        style={{ gridTemplateRows: isOpen ? "1fr" : "0fr", transitionDuration: "380ms" }}
+      >
+        <div className="overflow-hidden">
+          <div className="px-5 py-5 border-t border-line relative">
+            <div className="absolute left-0 top-5 bottom-5 w-[3px] rounded-r-full"
+              style={{ background: meta.tone }} />
+            <div className="pl-2">
+              <p className="text-[13.5px] text-muted leading-relaxed max-w-2xl mb-3">
+                {escalation.context}
+              </p>
+              {escalation.detail && (
+                <div className="mb-4 p-3 rounded-lg"
+                  style={{ background: "var(--bg-deep)", border: "1px solid var(--line)" }}>
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1.5">
+                    Coach's note
+                  </div>
+                  <div className="text-[12.5px] text-ink-2 leading-relaxed">{escalation.detail}</div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 flex-wrap">
+                {escalation.account && (
+                  <button
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      drawer.open({
+                        flow: escalation.reason === "save" ? "recovery-play" : "email-draft",
+                        account: escalation.account,
+                        title: escalation.title,
+                      });
+                    }}
+                    className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-2 rounded-lg text-white transition-transform hover:scale-[1.02]"
+                    style={{ background: "var(--ink)" }}>
+                    <Sparkles size={11} strokeWidth={2.2} /> Run play with {escalation.rep.split(" ")[0]}
+                  </button>
+                )}
+                {escalation.reason === "coaching" && (
+                  <button
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      drawer.open({ flow: "schedule-qbr", account: escalation.rep, title: `1:1 review with ${escalation.rep}` });
+                    }}
+                    className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-2 rounded-lg text-white transition-transform hover:scale-[1.02]"
+                    style={{ background: "var(--ink)" }}>
+                    <Calendar size={11} strokeWidth={2.2} /> Schedule 1:1
+                  </button>
+                )}
+                {escalation.reason === "reassign" && (
+                  <button
+                    onClick={(ev) => { ev.stopPropagation(); window.location.href = "/capacity"; }}
+                    className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-2 rounded-lg text-white transition-transform hover:scale-[1.02]"
+                    style={{ background: "var(--ink)" }}>
+                    <ArrowRight size={11} strokeWidth={2.2} /> Open capacity planner
+                  </button>
+                )}
+                {escalation.reason === "pipeline" && (
+                  <button
+                    onClick={(ev) => { ev.stopPropagation(); window.location.href = "/portfolio"; }}
+                    className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-2 rounded-lg text-white transition-transform hover:scale-[1.02]"
+                    style={{ background: "var(--ink)" }}>
+                    <ArrowRight size={11} strokeWidth={2.2} /> Open portfolio
+                  </button>
+                )}
+                {escalation.account && (
+                  <button
+                    onClick={(ev) => { ev.stopPropagation(); peek.open(escalation.account!, "default"); }}
+                    className="inline-flex items-center gap-1.5 text-[12px] font-medium px-3.5 py-2 rounded-lg transition-colors hover:bg-bg-deep"
+                    style={{ background: "var(--bg)", color: "var(--ink-2)", border: "1px solid var(--line)" }}>
+                    Open account <ArrowRight size={11} strokeWidth={2.2} />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// RepTile — single rep card in the team-workload strip
+// ─────────────────────────────────────────────────────────────────────
+function RepTile({ rep }: { rep: typeof csmWorkloads[number] }) {
+  const tone =
+    rep.workloadScore >= 75 ? "var(--neg)"
+      : rep.workloadScore >= 50 ? "var(--pos)"
+      : "var(--info)";
+  const label =
+    rep.workloadScore >= 75 ? "Overloaded"
+      : rep.workloadScore >= 50 ? "On track"
+      : "Has room";
+  return (
+    <div className="rounded-xl p-4 transition-all hover:shadow-sm shrink-0"
+      style={{
+        width: 220,
+        background: "var(--surface)",
+        border: "1px solid var(--line)",
+      }}>
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-7 h-7 rounded-full grid place-items-center text-[10px] font-semibold text-white shrink-0"
+          style={{ background: tone }}>
+          {rep.initials}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[12.5px] font-semibold text-ink truncate">{rep.name}</div>
+          <div className="text-[10px] text-muted truncate">{rep.accounts} accounts · {rep.renewalsNext90} renewals</div>
+        </div>
+      </div>
+      <div className="flex items-baseline gap-2 mb-2.5">
+        <span className="text-[20px] font-bold tnum text-ink leading-none" style={{ letterSpacing: "-0.018em" }}>
+          {fmtMoney(rep.totalArr)}
+        </span>
+        <span className="text-[10.5px] font-semibold tnum" style={{ color: tone }}>
+          {rep.workloadScore}
+        </span>
+      </div>
+      {/* Health mix dots */}
+      <div className="flex items-center gap-0.5 mb-2.5" title={`Healthy ${rep.healthMix.healthy} · Watch ${rep.healthMix.watch} · At-risk ${rep.healthMix.atRisk}`}>
+        {Array.from({ length: rep.healthMix.healthy }).map((_, i) => (
+          <span key={`h${i}`} className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--pos)" }} />
+        ))}
+        {Array.from({ length: rep.healthMix.watch }).map((_, i) => (
+          <span key={`w${i}`} className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--warn)" }} />
+        ))}
+        {Array.from({ length: rep.healthMix.atRisk }).map((_, i) => (
+          <span key={`r${i}`} className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--neg)" }} />
+        ))}
+      </div>
+      <div className="flex items-center justify-between mt-2 pt-2 border-t border-line">
+        <span className="text-[10.5px] font-medium" style={{ color: tone }}>{label}</span>
+        <span className="text-[10px] tnum text-muted-2">workload</span>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// PerfColumn — performance bracket column (Manager analogue of HealthColumn)
+// ─────────────────────────────────────────────────────────────────────
+function PerfColumn({ title, count, tone, soft, Icon, list, cta }: {
+  title: string; count: number; tone: string; soft: string; Icon: any;
+  list: typeof csmWorkloads; cta: string;
+}) {
+  return (
+    <div className="rounded-xl p-4" style={{ background: "var(--surface)", border: "1px solid var(--line)" }}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md grid place-items-center" style={{ background: soft }}>
+            <Icon size={12} strokeWidth={2} style={{ color: tone }} />
+          </div>
+          <span className="text-[13px] font-semibold text-ink">{title}</span>
+          <span className="text-[10.5px] font-mono text-muted-2 bg-bg-deep px-1.5 py-0.5 rounded">{count}</span>
+        </div>
+        <span className="text-[10.5px] text-muted-2">{cta}</span>
+      </div>
+      <div className="space-y-1.5">
+        {list.length === 0 ? (
+          <div className="text-[11.5px] text-muted-2 py-4 text-center">Nothing here</div>
+        ) : list.map((rep) => (
+          <div key={rep.id}
+            className="flex items-center gap-2.5 px-2 py-2 rounded-lg">
+            <div className="w-6 h-6 rounded-full grid place-items-center text-[9px] font-semibold text-white shrink-0"
+              style={{ background: tone }}>
+              {rep.initials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[12px] font-semibold text-ink truncate">{rep.name}</div>
+              <div className="text-[10px] text-muted truncate">{rep.accounts} accts · {rep.healthMix.atRisk} at risk</div>
+            </div>
+            <span className="text-[10.5px] font-semibold tnum shrink-0" style={{ color: tone }}>{rep.workloadScore}</span>
+            <span className="text-[10px] font-mono tnum text-muted-2 shrink-0 w-12 text-right">{fmtMoney(rep.totalArr)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// DEFAULT HOME (non-AM, non-CSM, non-Manager personas) — preserves existing layout
 // ════════════════════════════════════════════════════════════════════════
 function DefaultHome() {
   const { persona } = usePersona();

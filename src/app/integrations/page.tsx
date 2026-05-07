@@ -8,6 +8,7 @@ import {
 import { AppShell } from "@/components/AppShell";
 import { integrations, type Integration, type IntegrationStatus, type IntegrationCategory } from "@/lib/mock";
 import { Logo } from "@/components/Logo";
+import { BrandLogo } from "@/components/BrandLogo";
 import { useToast } from "@/components/Toast";
 
 const STATUS_META: Record<IntegrationStatus, { label: string; bg: string; ink: string; Icon: typeof Check }> = {
@@ -128,9 +129,8 @@ function IntegrationCard({ integration, onDetail }: { integration: Integration; 
   return (
     <div className="rounded-xl border border-line bg-surface p-5 flex flex-col transition-colors hover:border-line-strong">
       <div className="flex items-start justify-between mb-4">
-        <div className="w-11 h-11 rounded-xl grid place-items-center shrink-0 overflow-hidden"
-          style={{ background: "var(--bg-deep)", border: "1px solid var(--line)" }}>
-          <Logo name={integration.vendor} size={44} rounded={12} />
+        <div className="shrink-0">
+          <BrandLogo name={integration.vendor} size={44} />
         </div>
         <button onClick={() => toast({ tone: "info", title: `${integration.name} options` })}
           className="w-8 h-8 rounded-lg grid place-items-center text-muted-2 hover:text-ink hover:bg-bg-deep transition-colors">
@@ -206,9 +206,8 @@ function DetailModal({ integration, onClose }: { integration: Integration; onClo
 
         {/* Header */}
         <div className="flex items-center gap-4 p-6 pb-0">
-          <div className="w-12 h-12 rounded-xl grid place-items-center shrink-0 overflow-hidden"
-            style={{ background: "var(--bg-deep)", border: "1px solid var(--line)" }}>
-            <Logo name={integration.vendor} size={48} rounded={12} />
+          <div className="shrink-0">
+            <BrandLogo name={integration.vendor} size={48} />
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="text-[18px] font-semibold text-ink">{integration.name}</h2>
@@ -484,9 +483,8 @@ function AddIntegrationModal({ onClose }: { onClose: () => void }) {
                 <div key={c.name}
                   className="flex items-center gap-3.5 p-3.5 rounded-xl border border-line hover:border-line-strong hover:bg-bg-deep transition-all cursor-pointer group"
                   onClick={() => { toast({ tone: "success", title: `${c.name} connected!`, body: "Integration is now syncing data." }); onClose(); }}>
-                  <div className="w-10 h-10 rounded-xl grid place-items-center shrink-0 overflow-hidden"
-                    style={{ background: "var(--bg-deep)", border: "1px solid var(--line)" }}>
-                    <Logo name={c.vendor} size={40} rounded={12} />
+                  <div className="shrink-0">
+                    <BrandLogo name={c.vendor} size={40} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">

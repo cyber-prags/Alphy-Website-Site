@@ -1,7 +1,5 @@
-import {
-  Database, Calendar, Phone, Activity as ActivityIcon, Globe2, MessageSquare,
-  Inbox as InboxIcon, Server, Sparkles, Mail,
-} from "lucide-react";
+import { Sparkles } from "lucide-react";
+import { BrandLogo } from "./BrandLogo";
 
 type Source =
   | "Salesforce" | "HubSpot"
@@ -15,23 +13,45 @@ type Source =
   | "Alphy AI"
   | "Email" | "Calendar";
 
-const META: Record<Source, { Icon: typeof Mail; tone: string }> = {
-  "Salesforce":        { Icon: Database,        tone: "var(--info)"    },
-  "HubSpot":           { Icon: Database,        tone: "var(--warn)"    },
-  "Google Workspace":  { Icon: Mail,            tone: "var(--info)"    },
-  "Microsoft 365":     { Icon: Mail,            tone: "var(--info)"    },
-  "Gong":              { Icon: Phone,           tone: "var(--accent-deep)" },
-  "Clari":             { Icon: ActivityIcon,    tone: "var(--info)"    },
-  "Mixpanel":          { Icon: ActivityIcon,    tone: "var(--accent-deep)" },
-  "Amplitude":         { Icon: ActivityIcon,    tone: "var(--info)"    },
-  "LinkedIn":          { Icon: Globe2,          tone: "var(--info)"    },
-  "Slack":             { Icon: MessageSquare,   tone: "var(--info)"    },
-  "Zendesk":           { Icon: InboxIcon,       tone: "var(--pos)"     },
-  "Intercom":          { Icon: InboxIcon,       tone: "var(--info)"    },
-  "Snowflake":         { Icon: Server,          tone: "var(--info)"    },
-  "Alphy AI":          { Icon: Sparkles,        tone: "var(--accent-deep)" },
-  "Email":             { Icon: Mail,            tone: "var(--muted)"   },
-  "Calendar":          { Icon: Calendar,        tone: "var(--muted)"   },
+// Tone is used only for the text colour of the chip — the icon itself is
+// rendered via BrandLogo using the brand's actual mark.
+const TONE: Record<Source, string> = {
+  "Salesforce":        "var(--info)",
+  "HubSpot":           "var(--warn)",
+  "Google Workspace":  "var(--info)",
+  "Microsoft 365":     "var(--info)",
+  "Gong":              "var(--accent-deep)",
+  "Clari":             "var(--info)",
+  "Mixpanel":          "var(--accent-deep)",
+  "Amplitude":         "var(--info)",
+  "LinkedIn":          "var(--info)",
+  "Slack":             "var(--info)",
+  "Zendesk":           "var(--pos)",
+  "Intercom":          "var(--info)",
+  "Snowflake":         "var(--info)",
+  "Alphy AI":          "var(--accent-deep)",
+  "Email":             "var(--muted)",
+  "Calendar":          "var(--muted)",
+};
+
+// Brand name → BrandLogo key. "Google Workspace" → "google", etc.
+const BRAND_NAME: Record<Source, string | null> = {
+  "Salesforce":        "Salesforce",
+  "HubSpot":           "HubSpot",
+  "Google Workspace":  "Google",
+  "Microsoft 365":     null, // not in brand library yet
+  "Gong":              "Gong",
+  "Clari":             "Clari",
+  "Mixpanel":          "Mixpanel",
+  "Amplitude":         null,
+  "LinkedIn":          "LinkedIn",
+  "Slack":             "Slack",
+  "Zendesk":           "Zendesk",
+  "Intercom":          "Intercom",
+  "Snowflake":         "Snowflake",
+  "Alphy AI":          null,  // rendered with Sparkles
+  "Email":             null,
+  "Calendar":          null,
 };
 
 type Props = {
@@ -41,21 +61,31 @@ type Props = {
 };
 
 export function SourceChip({ source, meta, size = "sm" }: Props) {
-  const m = META[source];
+  const tone = TONE[source];
+  const brandName = BRAND_NAME[source];
   const small = size === "xs";
+  const iconSize = small ? 11 : 13;
   return (
     <span
-      className="inline-flex items-center gap-1 rounded font-mono uppercase tracking-[0.06em]"
+      className="inline-flex items-center gap-1.5 rounded font-mono uppercase tracking-[0.06em]"
       style={{
         background: "var(--bg-deep)",
-        color: m.tone,
+        color: tone,
         fontSize: small ? 9 : 9.5,
-        padding: small ? "1px 5px" : "2px 6px",
-        height: small ? 14 : 16,
+        padding: small ? "1px 6px 1px 3px" : "2px 7px 2px 3px",
+        height: small ? 16 : 18,
       }}
       title={meta ? `${source} · ${meta}` : source}
     >
-      <m.Icon size={small ? 8 : 9} strokeWidth={1.8} />
+      <span className="rounded-sm overflow-hidden grid place-items-center"
+        style={{ width: iconSize, height: iconSize }}>
+        {brandName ? (
+          <BrandLogo name={brandName} size={iconSize} />
+        ) : (
+          <Sparkles size={small ? 8 : 9} strokeWidth={2}
+            style={{ color: tone }} />
+        )}
+      </span>
       {source}
       {meta && <span className="opacity-70 normal-case tracking-normal">· {meta}</span>}
     </span>

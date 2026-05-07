@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   TrendingUp, TrendingDown, AlertTriangle, Sparkles, ArrowRight, ChevronRight,
   Zap, Shield, Flame, RefreshCw, Crown, Calendar, Target, Eye,
+  PieChart, Layers, Activity,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Logo } from "@/components/Logo";
@@ -146,6 +147,30 @@ export default function PortfolioPage() {
 
   const segments: Segment[] = ["strategic", "steady", "save", "reassess"];
 
+  // ─── Computed insights ──────────────────────────────────────────────
+  const insights = useMemo(() => {
+    const sortedByArr = [...points].sort((a, b) => b.arr - a.arr);
+    const top1 = sortedByArr[0];
+    const top1Pct = totalArr > 0 ? Math.round((top1.arr / totalArr) * 100) : 0;
+    const top3Pct = totalArr > 0
+      ? Math.round((sortedByArr.slice(0, 3).reduce((s, p) => s + p.arr, 0) / totalArr) * 100)
+      : 0;
+
+    // Health momentum — mock derivation: accounts with hotSignals > 0 are "trending"
+    const trendingUp = points.filter((p) => p.hotSignals >= 2 && p.health >= 70).length;
+    const trendingDown = points.filter((p) => p.health < 60).length;
+
+    // Top expansion opportunity — highest pipeline among save+strategic
+    const topOpportunity = [...points]
+      .filter((p) => (p.segment === "strategic" || p.segment === "save") && p.pipeline > 0)
+      .sort((a, b) => b.pipeline - a.pipeline)[0];
+
+    // Pipeline coverage ratio
+    const pipelineRatio = totalArr > 0 ? totalPipe / totalArr : 0;
+
+    return { top1, top1Pct, top3Pct, trendingUp, trendingDown, topOpportunity, pipelineRatio };
+  }, [points, totalArr, totalPipe]);
+
   return (
     <AppShell>
       {/* ─── Header ─────────────────────────────── */}
@@ -164,11 +189,69 @@ export default function PortfolioPage() {
       </div>
 
       {/* ─── KPI strip ──────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         <KPI label="Total ARR"          value={fmtMoney(totalArr)}    color="var(--ink)" />
         <KPI label="Expansion pipeline" value={fmtMoney(totalPipe)}   color="var(--accent-deep)" delta="+18%" />
         <KPI label="Ready to expand"    value={`${expandReady} accts`} color="var(--pos)" />
         <KPI label="ARR at risk"        value={fmtMoney(atRiskArr)}   color="var(--neg)" />
+      </div>
+
+      {/* ─── Insights ──────────────────────────── */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-2">
+            What this means
+          </span>
+          <span className="h-px flex-1" style={{ background: "var(--line)" }} />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <InsightCard
+            Icon={PieChart}
+            tone={insights.top1Pct >= 30 ? "var(--warn)" : "var(--ink-2)"}
+            eyebrow="Concentration"
+            headline={`Top account = ${insights.top1Pct}% of book`}
+            body={`${insights.top1.name} carries ${fmtMoney(insights.top1.arr)} of your ${fmtMoney(totalArr)} book. Top 3 accounts = ${insights.top3Pct}%.`}
+            cta={insights.top1Pct >= 30 ? "Diversify expansion" : "Healthy spread"}
+          />
+
+          <InsightCard
+            Icon={TrendingUp}
+            tone="var(--accent-deep)"
+            eyebrow="Pipeline coverage"
+            headline={`${insights.pipelineRatio.toFixed(2)}x book`}
+            body={`Expansion in motion: ${fmtMoney(totalPipe)}. Pipeline-to-book ratio above 0.20x is healthy at this stage.`}
+            cta="See open opps"
+          />
+
+          <InsightCard
+            Icon={Activity}
+            tone={insights.trendingDown > insights.trendingUp ? "var(--neg)" : "var(--pos)"}
+            eyebrow="Health momentum"
+            headline={`${insights.trendingUp} up · ${insights.trendingDown} down`}
+            body={
+              insights.trendingDown > insights.trendingUp
+                ? `Net negative this quarter. Focus on stabilising the ${insights.trendingDown} declining accounts before chasing expansion.`
+                : `${insights.trendingUp} accounts gathering positive signal — these are the easiest expansion plays this quarter.`
+            }
+            cta="Filter to declining"
+          />
+
+          {insights.topOpportunity && (
+            <InsightCard
+              Icon={Sparkles}
+              tone="var(--accent-deep)"
+              eyebrow="Best play right now"
+              headline={`${insights.topOpportunity.name} · ${fmtMoney(insights.topOpportunity.pipeline)}`}
+              body={
+                insights.topOpportunity.topPlay
+                  ? `${insights.topOpportunity.topPlay}. Health ${insights.topOpportunity.health} · ${insights.topOpportunity.hotSignals} hot signals.`
+                  : `${fmtMoney(insights.topOpportunity.pipeline)} of pipeline open · ${insights.topOpportunity.hotSignals} hot signals firing.`
+              }
+              cta="Open account"
+              href={`/accounts/${insights.topOpportunity.slug}`}
+            />
+          )}
+        </div>
       </div>
 
       {/* ─── Quadrant ───────────────────────────── */}
@@ -264,6 +347,56 @@ export default function PortfolioPage() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
+// InsightCard — bento card with computed observation about the book.
+// Each card answers a "so what?" question off the KPI strip.
+// ─────────────────────────────────────────────────────────────────────
+function InsightCard({
+  Icon, tone, eyebrow, headline, body, cta, href,
+}: {
+  Icon: any;
+  tone: string;
+  eyebrow: string;
+  headline: string;
+  body: string;
+  cta?: string;
+  href?: string;
+}) {
+  const Wrapper: any = href ? Link : "div";
+  const wrapperProps: any = href ? { href } : {};
+  return (
+    <Wrapper
+      {...wrapperProps}
+      className="group rounded-xl p-4 transition-all hover:shadow-sm hover:-translate-y-px block h-full"
+      style={{ background: "var(--surface)", border: "1px solid var(--line)" }}
+    >
+      <div className="flex items-start justify-between mb-2.5">
+        <div className="w-7 h-7 rounded-md grid place-items-center"
+          style={{
+            background: `color-mix(in srgb, ${tone} 12%, transparent)`,
+          }}>
+          <Icon size={13} strokeWidth={1.8} style={{ color: tone }} />
+        </div>
+        {cta && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ color: tone }}>
+            {cta}
+            <ChevronRight size={10} strokeWidth={2.2} />
+          </span>
+        )}
+      </div>
+      <div className="text-[9.5px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1">
+        {eyebrow}
+      </div>
+      <div className="text-[14px] font-semibold text-ink leading-tight mb-1.5"
+        style={{ letterSpacing: "-0.012em" }}>
+        {headline}
+      </div>
+      <p className="text-[11.5px] text-muted leading-relaxed">{body}</p>
+    </Wrapper>
+  );
+}
+
 function KPI({ label, value, color, delta }: { label: string; value: string; color: string; delta?: string }) {
   return (
     <div className="card p-4">

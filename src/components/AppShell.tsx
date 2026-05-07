@@ -8,6 +8,8 @@ import {
   Building2, Phone, Library, FileBarChart2, Rocket, Home, Target, Radio, UserCog,
   Inbox as InboxIcon, Plug, RefreshCw, MessageSquarePlus, Sun, Moon, Workflow, Mail, Send, BarChart3, Zap,
   LayoutGrid,
+  // Modern icon swaps
+  House, LayoutDashboard, Cpu, Cable, Settings2,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -15,6 +17,7 @@ import { AlphardLogo } from "./AlphardLogo";
 import { ToastProvider, useToast } from "./Toast";
 import { Popover, MenuItem, MenuLabel, MenuSeparator } from "./Popover";
 import { CommandK } from "./CommandK";
+import { AlphyPanel } from "./AlphyPanel";
 import { usePersona, PERSONA_LABEL } from "./PersonaContext";
 import { useUser } from "./UserContext";
 import { OnboardingTour } from "./OnboardingTour";
@@ -36,53 +39,33 @@ type NavLeaf = {
 };
 type NavItem = NavLeaf & { children?: NavLeaf[] };
 
+// Slim, flat nav — six items max, two visual groups separated by a hairline.
+// Everything that used to live as a top-level item now lives behind one of:
+//   • Home — daily triage, signals folded in
+//   • Accounts — customer book + per-account tabs (renewals, outcomes, surveys, deals, etc.)
+//   • Plan — persona-aware hub for Portfolio · Forecast · Revenue · Capacity · Outcomes · Surveys
+//   • Inbox — universal queue
+//   • Agents — kept distinct because it's the AI surface
+//   • Setup — Workflows · Playbook · Integrations · Blueprints · Campaigns · Settings
+//
+// Old routes still work (links from anywhere are unchanged) — they're just not
+// in the sidebar. Use ⌘K to jump straight to any page.
 const sections: { label: string; items: NavItem[]; personas?: Persona[] }[] = [
   {
-    label: "Workspace",
+    label: "",
     items: [
-      // Universal
-      { icon: Home,              label: "Home",     href: "/home" },
-      { icon: MessageSquare,     label: "Chat",     href: "/analyst" },
-      { icon: Building2,         label: "Accounts", href: "/accounts" },
-      { icon: LayoutGrid,        label: "Portfolio", href: "/portfolio", personas: ["am", "manager"] },
-      { icon: Radio,             label: "Signals",  href: "/signals" },
-      { icon: Telescope,         label: "Blueprints", href: "/blueprints", personas: ["ae", "am", "manager"] },
-
-      // CSM-first — retention + adoption + ticket motion
-      { icon: RefreshCw,         label: "Renewals", href: "/renewals", personas: ["csm", "manager"] },
-      { icon: MessageSquarePlus, label: "Requests", href: "/requests", personas: ["csm"] },
-
-      // Outcome owners — CSM owns adoption, AM monitors expansion outcomes
-      { icon: Target,            label: "Outcomes", href: "/outcomes", personas: ["csm", "am", "manager"] },
-      { icon: FileBarChart2,     label: "Surveys",  href: "/surveys", personas: ["csm", "manager"] },
-
-      // Selling motion — AE primary, AM expansion deals, manager visibility
-      { icon: Briefcase,         label: "Deals",    href: "/deals",    personas: ["ae", "am", "manager"] },
-
-      // Inbox is universal but heaviest for AE/AM
-      { icon: InboxIcon,         label: "Inbox",    href: "/inbox", badge: "10" },
-
-      // Utility — universal
-      { icon: Bot,               label: "Agents",   href: "/agents", accent: true },
-      { icon: Mail,              label: "Campaigns", href: "/campaigns", personas: ["csm", "am", "manager"] },
+      { icon: House,            label: "Home",         href: "/home" },
+      { icon: Briefcase,        label: "Accounts",     href: "/accounts" },
+      { icon: LayoutDashboard,  label: "Plan",         href: "/plan" },
+      { icon: InboxIcon,        label: "Inbox",        href: "/inbox", badge: "10" },
     ],
   },
   {
-    label: "Performance",
+    label: "",
     items: [
-      { icon: TrendingUp, label: "Revenue",  href: "/revenue",  personas: ["manager"] },
-      { icon: Users,      label: "People",   href: "/people",   personas: ["manager"] },
-      { icon: LineChart,  label: "Forecast", href: "/forecast", personas: ["ae", "am", "manager"] },
-      { icon: UserCog,    label: "Capacity", href: "/capacity", personas: ["manager"] },
-    ],
-    personas: ["ae", "am", "manager"],
-  },
-  {
-    label: "Configure",
-    items: [
-      { icon: BookOpen, label: "Playbook",     href: "/playbook"     },
-      { icon: Workflow, label: "Workflows",    href: "/workflows"    },
-      { icon: Plug,     label: "Integrations", href: "/integrations" },
+      { icon: Cpu,              label: "Agents",       href: "/agents", accent: true },
+      { icon: Cable,            label: "Integrations", href: "/integrations" },
+      { icon: Settings2,        label: "Setup",        href: "/setup" },
     ],
   },
 ];
@@ -107,8 +90,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+const PERSONA_SHORT: Record<string, string> = { ae: "AE", am: "AM", csm: "CSM", manager: "Manager" };
+function personaShort(p: string) { return PERSONA_SHORT[p] ?? p.toUpperCase(); }
+
 function AppShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { persona } = usePersona();
   const [pinned, setPinned] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -183,6 +170,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") { e.preventDefault(); setCmdkOpen(true); }
+      if ((e.metaKey || e.ctrlKey) && e.key === "j") { e.preventDefault(); setAskAlphyOpen(true); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -209,7 +197,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
               <Link href="/home" className="ws-switcher flex-1 min-w-0">
                 <AlphardLogo variant="full" size={14} />
                 <div className="flex-1 min-w-0 text-left">
-                  <div className="text-[10px] text-muted truncate leading-tight">Sandbox · CSM</div>
+                  <div className="text-[10px] text-muted truncate leading-tight">Sandbox · {personaShort(persona)}</div>
                 </div>
                 <ChevronDown size={12} strokeWidth={1.8} className="text-muted-2 shrink-0" />
               </Link>
@@ -238,9 +226,46 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
 
         {/* Tree nav */}
         <nav className="flex-1 overflow-y-auto px-2.5 pb-2">
+          {/* Alphy — primary entry. Click navigates to the full /alphy
+              page; ⌘J opens it as a side-panel overlay anywhere.        */}
+          <Link
+            href="/alphy"
+            title="Ask Alphy (⌘J for sidebar)"
+            className={`w-full flex items-center gap-2.5 ${collapsed ? "justify-center" : ""} h-9 px-2 rounded-lg mb-3 transition-all hover:shadow-sm group/alphy`}
+            style={{
+              background: pathname === "/alphy"
+                ? "linear-gradient(135deg, rgba(38,109,240,0.20), rgba(124,58,237,0.10))"
+                : "linear-gradient(135deg, rgba(38,109,240,0.10), rgba(124,58,237,0.06))",
+              border: pathname === "/alphy"
+                ? "1px solid rgba(38,109,240,0.45)"
+                : "1px solid rgba(38,109,240,0.22)",
+            }}>
+            <span className="w-5 h-5 rounded-md grid place-items-center shrink-0 transition-transform group-hover/alphy:rotate-12"
+              style={{ background: "rgba(38,109,240,0.16)" }}>
+              <Sparkles size={11} strokeWidth={2.2} style={{ color: "var(--accent)" }} />
+            </span>
+            {!collapsed && (
+              <>
+                <span className="text-[12.5px] font-semibold flex-1 text-left"
+                  style={{ color: "var(--accent-deep)", letterSpacing: "-0.005em" }}>
+                  Ask Alphy
+                </span>
+                <kbd className="text-[9px] font-mono px-1.5 py-0.5 rounded text-muted-2"
+                  style={{ background: "var(--surface)", border: "1px solid var(--line)" }}>
+                  ⌘J
+                </kbd>
+              </>
+            )}
+          </Link>
+
           {visibleSections(persona).map((section, sIdx) => (
-            <div key={section.label} className={sIdx > 0 ? "mt-4" : ""}>
-              {!collapsed && <div className="section-label pb-1.5">{section.label}</div>}
+            <div
+              key={`section-${sIdx}`}
+              className={sIdx > 0 ? "mt-3 pt-3 border-t border-line" : ""}
+            >
+              {!collapsed && section.label && (
+                <div className="section-label pb-1.5">{section.label}</div>
+              )}
               <div className="flex flex-col gap-0.5">
                 {section.items.map((item) => (
                   <NavRow key={item.label}
@@ -314,7 +339,14 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
       </div>
 
       <CommandK open={cmdkOpen} onClose={() => setCmdkOpen(false)} />
-      <AskAlphyPanel open={askAlphyOpen} onClose={() => setAskAlphyOpen(false)} />
+      <AlphyPanel
+        open={askAlphyOpen}
+        onClose={() => setAskAlphyOpen(false)}
+        onExpand={() => {
+          setAskAlphyOpen(false);
+          router.push("/alphy");
+        }}
+      />
       <OnboardingTour open={onboardingOpen} persona={persona} onClose={() => setOnboardingOpen(false)} />
     </div>
   );
@@ -350,7 +382,7 @@ function NavRow({
           <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r"
             style={{ background: "var(--accent)" }} />
         )}
-        <Icon strokeWidth={1.7} size={17}
+        <Icon strokeWidth={1.5} size={17}
           style={{ color: item.accent ? "var(--accent-deep)" : undefined }} />
         {item.badge && (
           <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full" style={{ background: "var(--accent)" }} />
@@ -362,7 +394,7 @@ function NavRow({
   if (!hasChildren) {
     return (
       <Link href={item.href} className={`nav-row ${active ? "active" : ""}`}>
-        <Icon strokeWidth={1.7} size={15}
+        <Icon strokeWidth={1.5} size={15}
           style={{ color: item.accent ? "var(--accent-deep)" : undefined }} />
         <span className="flex-1 truncate">{item.label}</span>
         {item.badge && (
@@ -385,7 +417,7 @@ function NavRow({
             : <ChevronRight size={11} strokeWidth={2} />}
         </button>
         <Link href={item.href} className="flex-1 flex items-center gap-2.5 -ml-0.5 truncate">
-          <Icon strokeWidth={1.7} size={15}
+          <Icon strokeWidth={1.5} size={15}
             style={{ color: item.accent ? "var(--accent-deep)" : undefined }} />
           <span className="flex-1 truncate">{item.label}</span>
           {item.badge && (
@@ -485,7 +517,7 @@ function SettingsButton({ collapsed }: { collapsed?: boolean }) {
   }
   return (
     <button onClick={() => router.push("/settings")} className={`nav-row w-full ${active ? "active" : ""}`}>
-      <Settings strokeWidth={1.7} size={15} />
+      <Settings strokeWidth={1.5} size={15} />
       <span className="flex-1 truncate text-left">Settings</span>
     </button>
   );
@@ -518,7 +550,7 @@ function ProfileMenu({ collapsed }: { collapsed?: boolean }) {
       {(close) => (
         <>
           <MenuLabel>View as</MenuLabel>
-          {(["ae", "am", "manager"] as const).map((p) => (
+          {(["ae", "am", "csm", "manager"] as const).map((p) => (
             <MenuItem key={p} selected={persona === p}
               onClick={() => { setPersona(p); toast({ tone: "info", title: `Now viewing as ${PERSONA_LABEL[p]}`, body: "Home page reshuffled for this role." }); close(); }}>
               <span className="inline-flex items-center gap-2">

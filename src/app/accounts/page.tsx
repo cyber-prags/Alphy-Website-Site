@@ -291,10 +291,19 @@ export default function AccountsPage() {
                 const slug = slugify(a.name);
                 // Expansion-coded derived metrics
                 const accountOpps = expansionOpportunities.filter((o) => o.accountSlug === slug);
-                const pipeline    = accountOpps.reduce((s, o) => s + o.estimatedArr, 0);
-                const topScore    = accountOpps.reduce((m, o) => Math.max(m, o.score), 0);
+                const oppPipeline = accountOpps.reduce((s, o) => s + o.estimatedArr, 0);
+                // Fall back to the account's CRM pipeline value when no expansion opps exist
+                // (prospects almost always have pipelineValue but no opps)
+                const pipeline    = oppPipeline > 0 ? oppPipeline : (a.pipelineValue || 0);
+                const oppTopScore = accountOpps.reduce((m, o) => Math.max(m, o.score), 0);
+                // For prospects/accounts with no opps, fall back to healthScore as the
+                // "expansion potential" / "fit score" — keeps every row populated.
+                const topScore    = oppTopScore > 0 ? oppTopScore : a.healthScore;
+                const championCount = championChanges.filter((c) => c.accountSlug === slug).length;
                 const hotSignals  = (accountOpps.filter((o) => o.daysInStage <= 14).length)
-                                  + (championChanges.filter((c) => c.accountSlug === slug).length);
+                                  + championCount
+                                  + (a.aiHealth === "Concerning" ? 1 : 0)
+                                  + (a.qbrInDays < 0 ? 1 : 0);
                 const scoreColor  = topScore >= 85 ? "#F5360F" : topScore >= 75 ? "#F5B900" : topScore >= 60 ? "var(--accent)" : "var(--muted)";
                 return (
                   <tr key={a.id} onClick={() => router.push(`/accounts/${slug}`)}
@@ -328,10 +337,19 @@ export default function AccountsPage() {
                     </td>
                     {/* Pipeline ($ in motion) */}
                     <td className="px-4 py-3 border-b border-line">
-                      {pipeline > 0
-                        ? <span className="text-[12.5px] font-semibold tnum" style={{ color: "var(--accent-deep)" }}>{fmtMoney(pipeline)}</span>
-                        : <span className="text-[11.5px] tnum text-muted-2">—</span>
-                      }
+                      {pipeline > 0 ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="text-[12.5px] font-semibold tnum"
+                            style={{ color: oppPipeline > 0 ? "var(--accent-deep)" : "var(--ink-2)" }}>
+                            {fmtMoney(pipeline)}
+                          </span>
+                          {oppPipeline === 0 && (
+                            <span className="text-[8.5px] font-mono uppercase tracking-[0.06em] text-muted-2">CRM</span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-[11.5px] tnum text-muted-2">—</span>
+                      )}
                     </td>
                     {/* Hot signals count */}
                     <td className="px-4 py-3 border-b border-line">
@@ -344,7 +362,7 @@ export default function AccountsPage() {
                         <span className="text-[11.5px] tnum text-muted-2">—</span>
                       )}
                     </td>
-                    {/* Expansion score */}
+                    {/* Expansion / fit score */}
                     <td className="px-4 py-3 border-b border-line">
                       {topScore > 0 ? (
                         <div className="flex items-center gap-2">
@@ -352,6 +370,9 @@ export default function AccountsPage() {
                             <div className="h-full rounded-full" style={{ width: `${topScore}%`, background: scoreColor }} />
                           </div>
                           <span className="text-[11px] font-bold tnum" style={{ color: scoreColor }}>{topScore}</span>
+                          {oppTopScore === 0 && (
+                            <span className="text-[8.5px] font-mono uppercase tracking-[0.06em] text-muted-2">FIT</span>
+                          )}
                         </div>
                       ) : (
                         <span className="text-[11.5px] tnum text-muted-2">—</span>
