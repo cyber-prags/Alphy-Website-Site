@@ -485,6 +485,15 @@ export const meetings: Meeting[] = [
 // =====================================================================
 // Agents library
 // =====================================================================
+export type AgentKind =
+  | "multithread" | "revive" | "prep" | "enrich" | "followup" | "objection"
+  | "proposal" | "exec" | "battlecard" | "hygiene" | "forecast" | "content"
+  | "renewal" | "adoption" | "outcomes" | "qbr" | "signals"
+  | "coaching" | "capacity" | "stakeholder" | "expansion" | "champion"
+  | "tickets" | "advocacy" | "onboarding";
+
+export type AgentPersona = "ae" | "am" | "csm" | "manager";
+
 export type Agent = {
   id: string;
   name: string;
@@ -492,27 +501,49 @@ export type Agent = {
   installed: boolean;
   ours: boolean;
   description: string;
+  /** Use case category — drives icon + colour in the marketplace card */
+  kind: AgentKind;
+  /** Which personas typically install this agent */
+  personas: AgentPersona[];
+  /** One-line use case shown beneath the description */
+  useCase?: string;
 };
 
 export const agents: Agent[] = [
-  { id: "a1", name: "Dylan, the Multithreader",       role: "Sales", installed: true,  ours: true,  description: "Helps AEs multithread into active opportunities at Proposal to keep momentum." },
-  { id: "a2", name: "Max, the Momentum Reviver",      role: "Sales", installed: true,  ours: true,  description: "Your sidekick that revives stalled opportunities the moment fresh budget hits your accounts." },
-  { id: "a3", name: "Jackie, the Pre-Meeting Prepper",role: "Sales", installed: true,  ours: true,  description: "Builds sharp call briefs from calendar, CRM, and LinkedIn so you walk in with angles and questions." },
-  { id: "a4", name: "Eli, the Enrichment Agent",      role: "Revenue Operations", installed: true,  ours: false, description: "Auto-enriches new leads/contacts with firmographics and roles, de-dupes, and fills CRM fields." },
-  { id: "a5", name: "Nova, the Follow-Up Finisher",   role: "Sales", installed: false, ours: false, description: "Drafts personalized post-call emails, logs next steps, and schedules tasks in CRM." },
-  { id: "a6", name: "Aria, the Objection Handler",    role: "Sales", installed: false, ours: false, description: "Spots objections in calls/emails and drafts tailored responses with proof points and assets." },
-  { id: "a7", name: "Bruno, the Proposal Polisher",   role: "Sales", installed: false, ours: false, description: "Generates proposal value recaps and exec cover notes; flags gaps before you hit send." },
-  { id: "a8", name: "Soren, the Exec Door-Opener",    role: "Sales", installed: false, ours: false, description: "Finds the Economic Buyer and crafts executive-level outreach to secure the next meeting." },
-  { id: "a9", name: "Lena, the Battlecard Builder",   role: "Revenue Operations", installed: false, ours: false, description: "Maintains live competitive battlecards from won/lost-call signals." },
-  { id: "a10", name: "Quinn, the Hygiene Hawk",       role: "Revenue Operations", installed: false, ours: false, description: "Continuous CRM data hygiene — missing fields, stale records, ownership rot." },
-  { id: "a11", name: "Veda, the Forecast Whisperer",  role: "Revenue Operations", installed: false, ours: false, description: "Surfaces deals that should move forecast categories before the manager review." },
-  { id: "a12", name: "Content Curator",                role: "Sales", installed: false, ours: false, description: "Recommends the right asset for the right deal moment." },
-  // Customer Success agents
-  { id: "cs1", name: "Renewal Risk Monitor",   role: "Customer Success", installed: true,  ours: true,  description: "Tracks renewal health across your book — flags accounts where score drops >8pts, champion goes silent, or renewal is <60 days away." },
-  { id: "cs2", name: "Adoption Watchdog",      role: "Customer Success", installed: true,  ours: true,  description: "Monitors WAU/MAU, feature engagement, and seat utilization. Fires when adoption signals diverge from expected trajectory." },
-  { id: "cs3", name: "Outcomes Tracker",       role: "Customer Success", installed: true,  ours: true,  description: "Correlates product usage with committed customer outcomes. Surfaces gaps before your next QBR so nothing is a surprise." },
-  { id: "cs4", name: "QBR Composer",           role: "Customer Success", installed: false, ours: true,  description: "Assembles QBR decks from Mixpanel, Zendesk, and outcomes data — export-ready in one click, branded to each account." },
-  { id: "cs5", name: "Signals Scout",          role: "Customer Success", installed: false, ours: true,  description: "Scans LinkedIn, job boards, and call transcripts for org changes, hiring signals, and exec moves across your customer book." },
+  // ── Sales (AE primary) ──
+  { id: "a1",  name: "Dylan, the Multithreader",        role: "Sales",                installed: true,  ours: true,  kind: "multithread", personas: ["ae", "am"],            description: "Helps AEs multithread into active opportunities at Proposal to keep momentum.", useCase: "When a deal stalls past Proposal, surfaces 3 net-new contacts." },
+  { id: "a2",  name: "Max, the Momentum Reviver",       role: "Sales",                installed: true,  ours: true,  kind: "revive",      personas: ["ae"],                  description: "Revives stalled opportunities the moment fresh budget hits your accounts.", useCase: "Cross-references funding announcements with stuck deals." },
+  { id: "a3",  name: "Jackie, the Pre-Meeting Prepper", role: "Sales",                installed: true,  ours: true,  kind: "prep",        personas: ["ae", "am", "csm"],     description: "Builds sharp call briefs from calendar, CRM, and LinkedIn so you walk in with angles.", useCase: "Auto-fires 30 min before any external meeting." },
+  { id: "a5",  name: "Nova, the Follow-Up Finisher",    role: "Sales",                installed: false, ours: false, kind: "followup",    personas: ["ae", "am"],            description: "Drafts personalized post-call emails, logs next steps, and schedules tasks in CRM.", useCase: "Listens to Gong recordings and drafts within 5 minutes of call end." },
+  { id: "a6",  name: "Aria, the Objection Handler",     role: "Sales",                installed: false, ours: false, kind: "objection",   personas: ["ae"],                  description: "Spots objections in calls/emails and drafts tailored responses with proof points.", useCase: "Pattern-matches against your library of won-lost objections." },
+  { id: "a7",  name: "Bruno, the Proposal Polisher",    role: "Sales",                installed: false, ours: false, kind: "proposal",    personas: ["ae", "am"],            description: "Generates proposal value recaps and exec cover notes; flags gaps before you hit send.", useCase: "Reviews every proposal pre-send for missing ROI math." },
+  { id: "a8",  name: "Soren, the Exec Door-Opener",     role: "Sales",                installed: false, ours: false, kind: "exec",        personas: ["ae", "am", "manager"], description: "Finds the Economic Buyer and crafts executive-level outreach to secure the next meeting.", useCase: "Maps the buying committee from LinkedIn + email signals." },
+  { id: "a12", name: "Content Curator",                  role: "Sales",                installed: false, ours: false, kind: "content",     personas: ["ae", "am"],            description: "Recommends the right asset for the right deal moment.", useCase: "Surfaces the case study that matches the prospect's industry + stage." },
+
+  // ── Revenue Operations (AE & Manager) ──
+  { id: "a4",  name: "Eli, the Enrichment Agent",       role: "Revenue Operations",   installed: true,  ours: false, kind: "enrich",      personas: ["ae", "am", "manager"], description: "Auto-enriches new leads/contacts with firmographics and roles, de-dupes, and fills CRM fields.", useCase: "Triggers when any new contact lands in Salesforce." },
+  { id: "a9",  name: "Lena, the Battlecard Builder",    role: "Revenue Operations",   installed: false, ours: false, kind: "battlecard",  personas: ["ae", "manager"],       description: "Maintains live competitive battlecards from won/lost-call signals.", useCase: "Updates battlecards weekly from the latest call transcripts." },
+  { id: "a10", name: "Quinn, the Hygiene Hawk",         role: "Revenue Operations",   installed: false, ours: false, kind: "hygiene",     personas: ["manager"],             description: "Continuous CRM data hygiene — missing fields, stale records, ownership rot.", useCase: "Daily sweep flagging records below your data-quality bar." },
+  { id: "a11", name: "Veda, the Forecast Whisperer",    role: "Revenue Operations",   installed: false, ours: false, kind: "forecast",    personas: ["ae", "manager"],       description: "Surfaces deals that should move forecast categories before the manager review.", useCase: "Pre-Monday digest of deals to recategorise." },
+
+  // ── Customer Success (CSM primary) ──
+  { id: "cs1", name: "Renewal Risk Monitor",            role: "Customer Success",     installed: true,  ours: true,  kind: "renewal",     personas: ["csm", "manager", "am"], description: "Tracks renewal health across your book — flags accounts where score drops >8pts or renewal is <60 days away.", useCase: "Daily scan that lands on the CSM home as save plays." },
+  { id: "cs2", name: "Adoption Watchdog",               role: "Customer Success",     installed: true,  ours: true,  kind: "adoption",    personas: ["csm", "am"],           description: "Monitors WAU/MAU, feature engagement, and seat utilization. Fires when adoption diverges from trajectory.", useCase: "Compares your account to the typical adoption curve at this stage." },
+  { id: "cs3", name: "Outcomes Tracker",                role: "Customer Success",     installed: true,  ours: true,  kind: "outcomes",    personas: ["csm", "am", "manager"], description: "Correlates product usage with committed customer outcomes. Surfaces gaps before your next QBR.", useCase: "Weekly pre-QBR sweep flagging outcomes <50% with 14d to QBR." },
+  { id: "cs4", name: "QBR Composer",                    role: "Customer Success",     installed: false, ours: true,  kind: "qbr",         personas: ["csm", "am"],           description: "Assembles QBR decks from Mixpanel, Zendesk, and outcomes data — export-ready, branded per account.", useCase: "On-demand: generates a 10-slide deck before any QBR." },
+  { id: "cs5", name: "Signals Scout",                   role: "Customer Success",     installed: false, ours: true,  kind: "signals",     personas: ["csm", "am", "manager"], description: "Scans LinkedIn, job boards, and call transcripts for org changes, hiring signals, and exec moves.", useCase: "Real-time: pushes champion changes into the activity feed." },
+  { id: "cs6", name: "Champion Tracker",                role: "Customer Success",     installed: false, ours: true,  kind: "champion",    personas: ["csm", "am"],           description: "Watches sponsor activity across calls, email, and LinkedIn — alerts when a champion goes quiet.", useCase: "Triggers a save play when sponsor silent ≥10 days within 90d of renewal." },
+  { id: "cs7", name: "Ticket Spike Sentry",             role: "Customer Success",     installed: false, ours: true,  kind: "tickets",     personas: ["csm"],                 description: "Detects abnormal sev-2/sev-1 ticket clusters and flags accounts before SLA breach.", useCase: "Watches Zendesk/Intercom for thematic spikes by account." },
+  { id: "cs8", name: "Advocacy Spotter",                role: "Customer Success",     installed: false, ours: true,  kind: "advocacy",    personas: ["csm", "manager"],      description: "Finds your happiest customers and queues case-study + reference candidates with one click.", useCase: "Promoter NPS + high WAU/MAU + recent win = candidate." },
+  { id: "cs9", name: "Onboarding Pacer",                role: "Customer Success",     installed: false, ours: true,  kind: "onboarding",  personas: ["csm"],                 description: "Tracks new customer onboarding milestones vs. plan and nudges when steps slip.", useCase: "Activated on signature — auto-checks SSO, kickoff, training dates." },
+
+  // ── Account Manager primary ──
+  { id: "am1", name: "Stakeholder Mapper",              role: "Sales",                installed: false, ours: true,  kind: "stakeholder", personas: ["am", "ae"],            description: "Maintains a living buying-committee map per account — champion / EB / technical / end-user / procurement.", useCase: "Re-runs weekly using calendar + email + LinkedIn." },
+  { id: "am2", name: "Expansion Case Builder",          role: "Sales",                installed: false, ours: true,  kind: "expansion",   personas: ["am"],                  description: "Drafts the business case for any expansion play — ROI math, comparable wins, exec cover note.", useCase: "On-demand from any account workspace." },
+
+  // ── Manager primary ──
+  { id: "mgr1", name: "Coaching Co-Pilot",              role: "Revenue Operations",   installed: false, ours: true,  kind: "coaching",    personas: ["manager"],             description: "Pre-1:1 brief on every rep — what changed, deals stuck, talk-track patterns from Gong.", useCase: "Generates a 1-page brief 30 min before each scheduled 1:1." },
+  { id: "mgr2", name: "Capacity Watchdog",              role: "Revenue Operations",   installed: false, ours: true,  kind: "capacity",    personas: ["manager"],             description: "Watches account-to-rep workload across the team and recommends rebalances.", useCase: "Alerts when a rep crosses 75 workload score with at-risk renewals." },
 ];
 
 // =====================================================================

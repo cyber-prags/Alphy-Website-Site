@@ -6,9 +6,11 @@ import {
   ShieldCheck, AlertTriangle, Crown, Calendar, ArrowUpRight, Check,
   TrendingUp, TrendingDown, Building2, Target, Users, Zap, RefreshCw,
   Maximize2, Minimize2, Plus, MessageSquare as ChatIcon, Pin, Search as SearchIcon,
-  MoreHorizontal,
+  MoreHorizontal, ChevronDown, FolderOpen, Workflow,
 } from "lucide-react";
 import { Logo } from "./Logo";
+import { AlphyMark } from "./AlphyMark";
+import { useUser } from "./UserContext";
 import { accounts, expansionOpportunities, csmWorkloads, fmtMoney } from "@/lib/mock";
 
 const ACCENT = "#266DF0";
@@ -104,7 +106,8 @@ function generateOutput(prompt: string): Output {
   }
 
   // 2. Chart / graph
-  if (/chart|graph|show me .*(arr|revenue|by quarter|trend|history|over time)/.test(p)) {
+  if (/chart|graph|distribution|breakdown|donut|pie|bar|line|trend|history|over time|by quarter|by stage|by segment|by rep/.test(p) ||
+      /show me .*(arr|revenue|nps|score|health|ratio|coverage|usage|adoption)/.test(p)) {
     if (p.includes("arr") || p.includes("revenue")) {
       return {
         kind: "chart",
@@ -298,9 +301,16 @@ function generateOutput(prompt: string): Output {
 // Shared chat hook + render — used by both AlphyPanel and AlphyPage.
 // ─────────────────────────────────────────────────────────────────────
 
-function useAlphyChat() {
+function useAlphyChat(initialMessages: Message[] = []) {
   const [q, setQ] = useState("");
-  const [msgs, setMsgs] = useState<Message[]>([]);
+  // If the only initial message is a user prompt with no Alphy response,
+  // skip seeding `msgs` directly — we'll fire `ask()` on mount instead so
+  // the user sees the same thinking → output animation as a fresh send.
+  const seedAsAsk =
+    initialMessages.length === 1 &&
+    initialMessages[0].role === "user" &&
+    !!initialMessages[0].text;
+  const [msgs, setMsgs] = useState<Message[]>(seedAsAsk ? [] : initialMessages);
 
   const ask = (text: string) => {
     if (!text.trim()) return;
@@ -328,24 +338,43 @@ function useAlphyChat() {
     }, 1300);
   };
 
+  // Auto-fire on mount if seeded with a user prompt.
+  // Use a ref guard so React 18 StrictMode doesn't fire the seed twice
+  // (which would create duplicate user messages).
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (seedAsAsk && !seededRef.current) {
+      seededRef.current = true;
+      ask(initialMessages[0].text!);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return { q, setQ, msgs, ask };
 }
 
 // Inner conversation surface (header / scroll area / composer) — no chrome
 export function AlphyChat({
   variant,
+  initialMessages,
   onMinimize,
   onExpand,
   onClose,
 }: {
   variant: "panel" | "page";
+  initialMessages?: Message[];
   onMinimize?: () => void;
   onExpand?: () => void;
   onClose?: () => void;
 }) {
-  const { q, setQ, msgs, ask } = useAlphyChat();
+  const { q, setQ, msgs, ask } = useAlphyChat(initialMessages);
+  const { user } = useUser();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Selected model — visual only
+  const [model, setModel] = useState<string>("Claude Opus 4.7");
+  const [modelOpen, setModelOpen] = useState(false);
 
   useEffect(() => {
     setTimeout(() => inputRef.current?.focus(), 50);
@@ -358,115 +387,215 @@ export function AlphyChat({
   }, [msgs]);
 
   const isPage = variant === "page";
+  const empty = msgs.length === 0;
+
+  // Composer block — reused in both empty-state (Harvey-style centred) and
+  // post-send (pinned to bottom) layouts.
+  const Composer = (
+    <div className="rounded-2xl overflow-hidden transition-all focus-within:shadow-md"
+      style={{ border: "1px solid var(--line)", background: "var(--surface)" }}>
+      <textarea
+        ref={inputRef}
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            ask(q);
+          }
+        }}
+        rows={empty ? 2 : 1}
+        placeholder="Ask Alphy anything — draft, query, update, build…"
+        className="w-full bg-transparent text-[14px] px-5 pt-4 pb-2 outline-none placeholder:text-muted-2 resize-none"
+        style={{ minHeight: empty ? 60 : 44, maxHeight: 200, fontFamily: "inherit" }}
+      />
+      <div className="flex items-center justify-between gap-2 px-3 pb-2.5">
+        <div className="flex items-center gap-0.5 flex-wrap">
+          <ToolChip Icon={Plus}        label="Add"      />
+          <ToolChip Icon={Building2}   label="Accounts" />
+          <ToolChip Icon={Database}    label="CRM"      />
+          <ToolChip Icon={FolderOpen}  label="Projects" />
+          <ToolChip Icon={Workflow}    label="Workflows" />
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0 relative">
+          <button
+            onClick={() => setModelOpen(!modelOpen)}
+            className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1.5 rounded-md transition-colors hover:bg-bg-deep"
+            style={{ color: "var(--ink-2)" }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--pos)" }} />
+            {model}
+            <ChevronDown size={11} strokeWidth={1.8}
+              className="transition-transform"
+              style={{ transform: modelOpen ? "rotate(180deg)" : "rotate(0deg)" }} />
+          </button>
+          {modelOpen && (
+            <div className="absolute bottom-full right-0 mb-1.5 rounded-lg overflow-hidden z-10 min-w-[200px]"
+              style={{
+                background: "var(--surface)",
+                border: "1px solid var(--line)",
+                boxShadow: "0 8px 24px -8px rgba(15,18,24,0.18)",
+              }}>
+              {[
+                { name: "Claude Opus 4.7",  hint: "Highest quality · slower" },
+                { name: "Claude Sonnet 4.7",hint: "Balanced · default" },
+                { name: "Claude Haiku 4.7", hint: "Fastest · simpler tasks" },
+                { name: "GPT-5",            hint: "Cross-check / second opinion" },
+              ].map((m) => (
+                <button
+                  key={m.name}
+                  onClick={() => { setModel(m.name); setModelOpen(false); }}
+                  className="w-full text-left px-3 py-2 transition-colors hover:bg-bg-deep flex items-center gap-2.5"
+                >
+                  {m.name === model ? (
+                    <Check size={11} strokeWidth={2.4} style={{ color: ACCENT }} />
+                  ) : (
+                    <span className="w-[11px]" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[12px] font-medium text-ink truncate">{m.name}</div>
+                    <div className="text-[10.5px] text-muted-2 truncate">{m.hint}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+          <button onClick={() => ask(q)} disabled={!q.trim()}
+            className="w-8 h-8 rounded-md grid place-items-center transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: q.trim() ? "var(--ink)" : "var(--bg-deep)", color: q.trim() ? "white" : "var(--muted-2)" }}>
+            <Send size={12} strokeWidth={2} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <header
-        className={`flex items-center justify-between shrink-0 ${isPage ? "px-8 py-5" : "px-6 py-4"}`}
-        style={{ borderBottom: "1px solid var(--line)" }}
-      >
-        <div className="flex items-center gap-2.5">
-          <div className={`rounded-xl grid place-items-center relative overflow-hidden ${isPage ? "w-10 h-10" : "w-8 h-8"}`}
-            style={{
-              background: "linear-gradient(135deg, rgba(38,109,240,0.18), rgba(124,58,237,0.10))",
-              border: "1px solid rgba(38,109,240,0.22)",
-            }}>
-            <Sparkles size={isPage ? 16 : 14} strokeWidth={2} style={{ color: ACCENT }} />
-          </div>
-          <div>
-            <div className={`font-semibold text-ink leading-tight ${isPage ? "text-[18px]" : "text-[14px]"}`}
-              style={{ letterSpacing: "-0.012em" }}>
-              Alphy
+      {/* Header — only show in panel mode (page mode uses centred empty state) */}
+      {(!empty || !isPage) && (
+        <header
+          className={`flex items-center justify-between shrink-0 ${isPage ? "px-8 py-5" : "px-6 py-4"}`}
+          style={{ borderBottom: "1px solid var(--line)" }}
+        >
+          <div className="flex items-center gap-2.5">
+            <div className={`rounded-xl grid place-items-center relative overflow-hidden ${isPage ? "w-10 h-10" : "w-8 h-8"}`}
+              style={{
+                background: "linear-gradient(135deg, rgba(38,109,240,0.14), rgba(124,58,237,0.08))",
+                border: "1px solid rgba(38,109,240,0.20)",
+              }}>
+              <AlphyMark size={isPage ? 18 : 14} color={ACCENT} strokeWidth={1.6} />
             </div>
-            <div className="text-[10px] text-muted inline-flex items-center gap-1 mt-0.5">
-              <span className="w-1 h-1 rounded-full" style={{ background: "var(--pos)" }} />
-              Online · multi-modal
+            <div>
+              <div className={`font-semibold text-ink leading-tight ${isPage ? "text-[16px]" : "text-[14px]"}`}
+                style={{ letterSpacing: "-0.012em" }}>
+                Alphy
+              </div>
+              <div className="text-[10px] text-muted inline-flex items-center gap-1 mt-0.5">
+                <span className="w-1 h-1 rounded-full" style={{ background: "var(--pos)" }} />
+                Online · {model}
+              </div>
             </div>
           </div>
-        </div>
-        <div className="flex items-center gap-1">
-          {onExpand && (
-            <button onClick={onExpand}
-              title="Open as page"
-              className="w-7 h-7 rounded-lg grid place-items-center text-muted hover:text-ink hover:bg-bg-deep transition-colors">
-              <Maximize2 size={12} strokeWidth={1.8} />
-            </button>
-          )}
-          {onMinimize && (
-            <button onClick={onMinimize}
-              title="Minimize to sidebar"
-              className="w-7 h-7 rounded-lg grid place-items-center text-muted hover:text-ink hover:bg-bg-deep transition-colors">
-              <Minimize2 size={12} strokeWidth={1.8} />
-            </button>
-          )}
-          {onClose && (
-            <button onClick={onClose}
-              className="w-7 h-7 rounded-lg grid place-items-center text-muted hover:text-ink hover:bg-bg-deep transition-colors">
-              <X size={13} strokeWidth={1.8} />
-            </button>
-          )}
-        </div>
-      </header>
+          <div className="flex items-center gap-1">
+            {onExpand && (
+              <button onClick={onExpand}
+                title="Open as page"
+                className="w-7 h-7 rounded-lg grid place-items-center text-muted hover:text-ink hover:bg-bg-deep transition-colors">
+                <Maximize2 size={12} strokeWidth={1.8} />
+              </button>
+            )}
+            {onMinimize && (
+              <button onClick={onMinimize}
+                title="Minimize to sidebar"
+                className="w-7 h-7 rounded-lg grid place-items-center text-muted hover:text-ink hover:bg-bg-deep transition-colors">
+                <Minimize2 size={12} strokeWidth={1.8} />
+              </button>
+            )}
+            {onClose && (
+              <button onClick={onClose}
+                className="w-7 h-7 rounded-lg grid place-items-center text-muted hover:text-ink hover:bg-bg-deep transition-colors">
+                <X size={13} strokeWidth={1.8} />
+              </button>
+            )}
+          </div>
+        </header>
+      )}
 
       {/* Body */}
-      <div
-        ref={scrollRef}
-        className={`flex-1 overflow-y-auto ${isPage ? "px-8 py-7" : "px-6 py-5"}`}
-      >
-        {msgs.length === 0 ? (
-          <div className={isPage ? "max-w-[760px] mx-auto" : ""}>
-            <EmptyState onPick={ask} variant={variant} />
-          </div>
-        ) : (
-          <div className={`space-y-5 ${isPage ? "max-w-[760px] mx-auto" : ""}`}>
-            {msgs.map((m, i) => (
-              <MessageBlock key={i} message={m} />
-            ))}
-          </div>
-        )}
-      </div>
+      {empty && isPage ? (
+        // ── Harvey-style centred empty state (page only) ─────────────
+        <div className="flex-1 flex flex-col items-center justify-center px-8 py-12">
+          <div className="w-full max-w-[720px]">
+            {/* Greeting */}
+            <div className="flex items-center justify-center gap-3 mb-8">
+              <AlphyMark size={36} color="var(--ink)" strokeWidth={1.4} />
+              <h1
+                className="text-[34px] md:text-[40px] text-ink leading-none"
+                style={{
+                  fontFamily: "ui-serif, Georgia, 'Times New Roman', serif",
+                  fontWeight: 400,
+                  letterSpacing: "-0.022em",
+                }}
+              >
+                Hi, {user.firstName}
+              </h1>
+            </div>
 
-      {/* Composer */}
-      <div className={`${isPage ? "px-8 py-5" : "px-5 py-4"} shrink-0`}
-        style={{ borderTop: "1px solid var(--line)" }}>
-        <div className={isPage ? "max-w-[760px] mx-auto" : ""}>
-          <div className="rounded-xl overflow-hidden transition-all focus-within:shadow-sm"
-            style={{ border: "1px solid var(--line)", background: "var(--surface)" }}>
-            <textarea
-              ref={inputRef}
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  ask(q);
-                }
-              }}
-              rows={1}
-              placeholder="Ask Alphy anything — draft, query, update, build…"
-              className="w-full bg-transparent text-[13px] px-4 pt-3 pb-1 outline-none placeholder:text-muted-2 resize-none"
-              style={{ minHeight: 38, maxHeight: 160, fontFamily: "inherit" }}
-            />
-            <div className="flex items-center justify-between px-3 pb-2.5">
-              <div className="flex items-center gap-1 flex-wrap">
-                <ToolChip Icon={Database} label="CRM" />
-                <ToolChip Icon={Building2} label="Accounts" />
-                <ToolChip Icon={BarChart3} label="Analytics" />
-                <ToolChip Icon={Mail} label="Email" />
-              </div>
-              <button onClick={() => ask(q)} disabled={!q.trim()}
-                className="w-7 h-7 rounded-full grid place-items-center transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ background: q.trim() ? "var(--ink)" : "var(--bg-deep)", color: q.trim() ? "white" : "var(--muted-2)" }}>
-                <Send size={11} strokeWidth={2} />
-              </button>
+            {/* Composer */}
+            {Composer}
+
+            {/* Sample prompts — small chips below the input */}
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-1.5">
+              {SUGGESTIONS.slice(0, 4).map((s) => (
+                <button
+                  key={s.prompt}
+                  onClick={() => ask(s.prompt)}
+                  className="inline-flex items-center gap-1.5 text-[11.5px] font-medium px-3 py-1.5 rounded-full transition-colors hover:bg-bg-deep"
+                  style={{ background: "var(--surface)", color: "var(--ink-2)", border: "1px solid var(--line)" }}>
+                  <s.Icon size={11} strokeWidth={1.8} className="text-muted-2" />
+                  {s.prompt}
+                </button>
+              ))}
+            </div>
+
+            <div className="text-[10.5px] text-muted-2 text-center mt-6">
+              Alphy can draft, query, and execute. Always review CRM updates before approving.
             </div>
           </div>
-          <div className="text-[10px] text-muted-2 mt-2 text-center">
-            Alphy can draft, query, and execute. Always review CRM updates before approving.
-          </div>
         </div>
-      </div>
+      ) : (
+        // ── Standard chat layout — body + bottom composer ───────────
+        <>
+          <div
+            ref={scrollRef}
+            className={`flex-1 overflow-y-auto ${isPage ? "px-8 py-7" : "px-6 py-5"}`}
+          >
+            {empty ? (
+              <div className={isPage ? "max-w-[760px] mx-auto" : ""}>
+                <EmptyState onPick={ask} variant={variant} />
+              </div>
+            ) : (
+              <div className={`space-y-5 ${isPage ? "max-w-[760px] mx-auto" : ""}`}>
+                {msgs.map((m, i) => (
+                  <MessageBlock key={i} message={m} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Composer pinned to bottom */}
+          <div className={`${isPage ? "px-8 py-5" : "px-5 py-4"} shrink-0`}
+            style={{ borderTop: "1px solid var(--line)" }}>
+            <div className={isPage ? "max-w-[760px] mx-auto" : ""}>
+              {Composer}
+              <div className="text-[10px] text-muted-2 mt-2 text-center">
+                Alphy can draft, query, and execute. Always review CRM updates before approving.
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -533,7 +662,7 @@ function EmptyState({ onPick, variant = "panel" }: { onPick: (s: string) => void
             background: "linear-gradient(135deg, rgba(38,109,240,0.18), rgba(124,58,237,0.10))",
             border: "1px solid rgba(38,109,240,0.22)",
           }}>
-          <Sparkles size={isPage ? 22 : 18} strokeWidth={1.8} style={{ color: ACCENT }} />
+          <AlphyMark size={isPage ? 22 : 18} color={ACCENT} strokeWidth={1.6} />
         </div>
         <h2 className={`font-semibold text-ink leading-tight mb-2 ${isPage ? "text-[28px]" : "text-[20px]"}`}
           style={{ letterSpacing: "-0.022em" }}>
@@ -610,10 +739,10 @@ function MessageBlock({ message }: { message: Message }) {
     <div className="flex items-start gap-2.5 animate-msg-in">
       <div className="w-7 h-7 rounded-lg grid place-items-center shrink-0 mt-0.5 relative overflow-hidden"
         style={{
-          background: "linear-gradient(135deg, rgba(38,109,240,0.18), rgba(124,58,237,0.10))",
-          border: "1px solid rgba(38,109,240,0.22)",
+          background: "linear-gradient(135deg, rgba(38,109,240,0.14), rgba(124,58,237,0.08))",
+          border: "1px solid rgba(38,109,240,0.20)",
         }}>
-        <Sparkles size={12} strokeWidth={2} style={{ color: ACCENT }} />
+        <AlphyMark size={12} color={ACCENT} strokeWidth={1.6} />
       </div>
       <div className="flex-1 min-w-0 pt-0.5">
         {message.thinking ? (

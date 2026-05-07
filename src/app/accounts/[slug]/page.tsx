@@ -19,6 +19,7 @@ import { accountAdoption, expansionOpportunities, championChanges, fmtMoney as f
 import { useUser } from "@/components/UserContext";
 import { ExecutionDrawer, type DrawerConfig, type DrawerFlow } from "@/components/ExecutionDrawer";
 import { Flame } from "lucide-react";
+import { PersonAvatar } from "@/components/PersonAvatar";
 import { SourceChip } from "@/components/SourceChip";
 import { StakeholderEditor } from "@/components/StakeholderEditor";
 import { WhiteSpaceMatrix } from "@/components/WhiteSpaceMatrix";
@@ -39,6 +40,9 @@ import { useToast } from "@/components/Toast";
 const DrawerCtx = createContext<{ open: (cfg: DrawerConfig) => void }>({ open: () => {} });
 const useDrawer = () => useContext(DrawerCtx);
 
+// Five top-level groups. Each maps to one or more legacy panels —
+// reduces the visible tab strip from 13 → 5 while preserving every panel.
+// When a group has multiple panels, an inline secondary nav appears.
 const TABS = [
   { id: "brief"      as const, label: "Brief" },
   { id: "growth"     as const, label: "Growth Plan" },
@@ -56,6 +60,22 @@ const TABS = [
 ];
 
 type TabId = typeof TABS[number]["id"];
+
+// Primary group → list of legacy tab ids that belong to it.
+type GroupId = "brief" | "plan" | "people" | "activity" | "docs";
+
+const GROUPS: { id: GroupId; label: string; tabs: TabId[]; subLabels: Partial<Record<TabId, string>> }[] = [
+  { id: "brief",    label: "Brief",    tabs: ["brief"],                                       subLabels: {} },
+  { id: "plan",     label: "Plan",     tabs: ["growth", "outcomes", "whitespace"],            subLabels: { growth: "Growth Plan", outcomes: "Outcomes", whitespace: "White Space" } },
+  { id: "people",   label: "People",   tabs: ["people"],                                      subLabels: {} },
+  { id: "activity", label: "Activity", tabs: ["activity", "analytics", "journey", "deals"],   subLabels: { activity: "Feed", analytics: "Analytics", journey: "Journey", deals: "Deals" } },
+  { id: "docs",     label: "Docs",     tabs: ["notes", "plans", "docs", "workflows"],         subLabels: { notes: "Notes", plans: "Plans", docs: "Files", workflows: "Workflows" } },
+];
+
+function groupForTab(tab: TabId): GroupId {
+  for (const g of GROUPS) if (g.tabs.includes(tab)) return g.id;
+  return "brief";
+}
 
 export default function AccountSlugPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
@@ -142,32 +162,59 @@ function AccountWorkspace({ account, slug, backHref }: { account: AccountDetail;
         onBuildDeck={() => openDeck("qbr")}
       />
 
-      {/* Tab strip */}
-      <div className="flex gap-1 mb-3 border-b border-line">
-        {TABS.map((t) => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            className={`text-[12.5px] font-medium px-3 py-2 -mb-px ${
-              tab === t.id ? "text-ink border-b-2 border-ink" : "text-muted hover:text-ink"
-            }`}>
-            {t.label}
-            {t.id === "outcomes" && accountOutcomes.length > 0 && (
-              <span className="ml-1 text-[10px] font-mono tnum text-muted">{accountOutcomes.length}</span>
-            )}
-            {t.id === "people" && account.stakeholders.length > 0 && (
-              <span className="ml-1 text-[10px] font-mono tnum text-muted">{account.stakeholders.length}</span>
-            )}
-            {t.id === "activity" && account.signals.length > 0 && (
-              <span className="ml-1 text-[10px] font-mono tnum text-muted">{account.signals.length}</span>
-            )}
-            {t.id === "deals" && accountDeals.length > 0 && (
-              <span className="ml-1 text-[10px] font-mono tnum text-muted">{accountDeals.length}</span>
-            )}
-            {t.id === "plans" && accountPlans.filter(p => p.accountSlug === slug).length > 0 && (
-              <span className="ml-1 text-[10px] font-mono tnum text-muted">{accountPlans.filter(p => p.accountSlug === slug).length}</span>
-            )}
-          </button>
-        ))}
+      {/* Primary group strip — 5 tabs, modern pill style */}
+      <div className="flex items-center gap-1 mb-3">
+        {GROUPS.map((g) => {
+          // Aggregate counts across all sub-tabs in the group
+          let count = 0;
+          if (g.id === "plan")     count = accountOutcomes.length;
+          if (g.id === "people")   count = account.stakeholders.length;
+          if (g.id === "activity") count = account.signals.length + accountDeals.length;
+          if (g.id === "docs")     count = accountPlans.filter(p => p.accountSlug === slug).length;
+          const active = groupForTab(tab) === g.id;
+          return (
+            <button key={g.id}
+              onClick={() => setTab(g.tabs[0])}
+              className="text-[12.5px] font-medium px-3.5 py-2 rounded-lg transition-colors inline-flex items-center gap-1.5"
+              style={{
+                background: active ? "var(--ink)" : "transparent",
+                color: active ? "white" : "var(--muted)",
+              }}>
+              {g.label}
+              {count > 0 && (
+                <span className="text-[10px] font-mono tnum"
+                  style={{ opacity: active ? 0.7 : 0.6 }}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
+
+      {/* Sub-tab nav — only when the active group has multiple tabs */}
+      {(() => {
+        const grp = GROUPS.find((g) => g.id === groupForTab(tab));
+        if (!grp || grp.tabs.length <= 1) return null;
+        return (
+          <div className="flex items-center gap-1 mb-3 px-1">
+            {grp.tabs.map((sub) => {
+              const subActive = tab === sub;
+              return (
+                <button key={sub}
+                  onClick={() => setTab(sub)}
+                  className="text-[11px] font-medium px-2.5 py-1 rounded transition-colors"
+                  style={{
+                    background: subActive ? "var(--bg-deep)" : "transparent",
+                    color: subActive ? "var(--ink)" : "var(--muted)",
+                  }}>
+                  {grp.subLabels[sub] ?? sub}
+                </button>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {tab === "brief"      && <BriefPanel account={liveAccount} outcomes={accountOutcomes} deals={accountDeals} adoption={adoption} onJumpTab={setTab} />}
       {tab === "growth"     && <GrowthPlanPanel account={liveAccount} slug={slug} />}
@@ -376,6 +423,9 @@ function BriefPanel({ account, outcomes, deals, adoption, onJumpTab }: {
   const [openCall, setOpenCall] = useState<CallRecording | null>(null);
   return (
     <div className="space-y-4">
+      {/* Vital signs — the four numbers that matter most, scannable in 1s */}
+      <VitalSignsStrip account={account} adoption={adoption} />
+
       {/* AI Overview — generative account summary */}
       <AIOverviewCard account={account} adoption={adoption} />
 
@@ -409,6 +459,80 @@ function BriefPanel({ account, outcomes, deals, adoption, onJumpTab }: {
       </div>
 
       <CallDetailDrawer call={openCall} onClose={() => setOpenCall(null)} account={account} />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Vital signs strip — 4 most-important numbers about this account.
+// Ordered: ARR · Health · Renewal · NRR (or last touch for prospects).
+// Designed to give a 1-second read on whether to act today.
+// ─────────────────────────────────────────────────────────────────────
+function VitalSignsStrip({ account, adoption }: { account: AccountDetail; adoption: any }) {
+  const isCustomer = account.status === "Customer";
+  const healthTone = account.healthScore >= 80 ? "var(--pos)"
+                   : account.healthScore >= 60 ? "var(--warn)" : "var(--neg)";
+  const renewalTone =
+    !isCustomer ? "var(--muted)"
+    : account.renewalDays > 60 ? "var(--ink)"
+    : account.renewalDays > 0 ? "var(--warn)" : "var(--neg)";
+
+  const stats = [
+    {
+      label: "ARR",
+      value: account.arr > 0 ? fmtMoney(account.arr) : "—",
+      tone: "var(--ink)",
+      sub: account.status,
+    },
+    {
+      label: "Health",
+      value: String(account.healthScore),
+      tone: healthTone,
+      sub: account.healthScore >= 80 ? "Healthy" : account.healthScore >= 60 ? "Watch" : "At risk",
+    },
+    {
+      label: "Renewal in",
+      value: !isCustomer ? "—"
+            : account.renewalDays > 0 ? `${account.renewalDays}d`
+            : account.renewalDays === 0 ? "Today"
+            : `${Math.abs(account.renewalDays)}d ago`,
+      tone: renewalTone,
+      sub: !isCustomer ? "Not a customer" : account.renewalDays <= 60 && account.renewalDays > 0 ? "Soon" : "On track",
+    },
+    {
+      label: "NRR",
+      value: account.nrr ? `${account.nrr}%` : "—",
+      tone: account.nrr >= 110 ? "var(--pos)"
+           : account.nrr >= 90 ? "var(--ink)" : "var(--neg)",
+      sub: account.nrr >= 110 ? "Expanding" : account.nrr >= 100 ? "Holding" : "Compressed",
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+      {stats.map((s) => (
+        <div
+          key={s.label}
+          className="rounded-xl px-4 py-3.5"
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--line)",
+          }}
+        >
+          <div className="text-[9.5px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1.5">
+            {s.label}
+          </div>
+          <div className="flex items-baseline gap-2">
+            <div className="text-[22px] font-bold tnum leading-none"
+              style={{ color: s.tone, letterSpacing: "-0.022em" }}>
+              {s.value}
+            </div>
+            <div className="text-[10.5px] font-medium" style={{ color: s.tone, opacity: 0.75 }}>
+              {s.sub}
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -2683,24 +2807,119 @@ function JourneyPanel({ account }: { account: AccountDetail }) {
 function OutcomesPanel({ account, outcomes, slug }: { account: AccountDetail; outcomes: any[]; slug: string }) {
   const toast = useToast();
   const plan = successPlans.find((p) => p.accountSlug === slug);
+  const [filter, setFilter] = useState<"all" | "ahead" | "on-track" | "watch" | "at-risk">("all");
+
+  const ahead   = outcomes.filter((o) => o.status === "ahead").length;
+  const onTrack = outcomes.filter((o) => o.status === "on-track").length;
+  const watch   = outcomes.filter((o) => o.status === "watch").length;
+  const atRisk  = outcomes.filter((o) => o.status === "at-risk").length;
+  const avgProgress = outcomes.length > 0
+    ? Math.round(outcomes.reduce((s, o) => s + (o.progress ?? 0), 0) / outcomes.length)
+    : 0;
+
+  const filtered = filter === "all" ? outcomes : outcomes.filter((o) => o.status === filter);
+
+  if (outcomes.length === 0 && !plan) {
+    return (
+      <div className="rounded-2xl p-10 text-center"
+        style={{ background: "var(--surface)", border: "1px solid var(--line)" }}>
+        <div className="w-12 h-12 rounded-xl grid place-items-center mx-auto mb-3"
+          style={{ background: "var(--accent-soft)" }}>
+          <Target size={20} strokeWidth={1.6} style={{ color: "var(--accent-deep)" }} />
+        </div>
+        <div className="text-[14px] font-semibold text-ink mb-1">No customer outcomes yet</div>
+        <div className="text-[12px] text-muted max-w-sm mx-auto leading-relaxed mb-4">
+          Define measurable success goals — TTFV, retention metrics, expansion targets — and track them against committed timelines.
+        </div>
+        <button onClick={() => toast({ tone: "info", title: "Add outcome", body: "Outcome editor opens with templates for adoption, expansion, and retention goals." })}
+          className="text-[12px] font-semibold h-9 px-4 rounded-lg bg-ink text-white inline-flex items-center gap-1.5 transition-transform hover:scale-[1.02]">
+          <Plus size={12} strokeWidth={2.2} /> Add first outcome
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div>
+    <div className="space-y-4">
       {plan && <SuccessPlanBuilder plan={plan} />}
-      {outcomes.length === 0 && !plan ? (
-        <div className="card p-8 text-center">
-          <Target size={20} strokeWidth={1.5} className="mx-auto text-muted-2 mb-2" />
-          <div className="text-[13px] font-semibold text-ink">No customer outcomes yet</div>
-          <div className="text-[12px] text-muted mt-1">Define measurable success goals — TTFV, retention metrics, expansion targets.</div>
-          <button onClick={() => toast({ tone: "info", title: "Add outcome", body: "Outcome editor opens with templates for adoption, expansion, and retention goals." })}
-            className="mt-4 text-[12px] font-medium h-8 px-3 rounded-md bg-ink text-white inline-flex items-center gap-1.5">
-            <Plus size={11} /> Add outcome
-          </button>
-        </div>
-      ) : outcomes.length > 0 ? (
-        <div className="card p-4 space-y-2">
-          {outcomes.map((o) => <OutcomeRow key={o.id} outcome={o} />)}
-        </div>
-      ) : null}
+
+      {outcomes.length > 0 && (
+        <>
+          {/* KPI strip */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
+            <OutcomeKpi label="Active" value={String(outcomes.length)} tone="var(--ink)" />
+            <OutcomeKpi label="Ahead"    value={String(ahead)}    tone="var(--accent-deep)" />
+            <OutcomeKpi label="On track" value={String(onTrack)}  tone="var(--pos)" />
+            <OutcomeKpi label="Watch"    value={String(watch)}    tone="var(--warn)" />
+            <OutcomeKpi label="At risk"  value={String(atRisk)}   tone="var(--neg)" />
+          </div>
+
+          {/* Filter row + Add */}
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-1 p-1 rounded-lg"
+              style={{ background: "var(--surface)", border: "1px solid var(--line)" }}>
+              {([
+                { id: "all",      label: "All",       n: outcomes.length },
+                { id: "ahead",    label: "Ahead",     n: ahead },
+                { id: "on-track", label: "On track",  n: onTrack },
+                { id: "watch",    label: "Watch",     n: watch },
+                { id: "at-risk",  label: "At risk",   n: atRisk },
+              ] as const).map((f) => {
+                const active = filter === f.id;
+                return (
+                  <button key={f.id} onClick={() => setFilter(f.id as any)}
+                    className="text-[11.5px] font-medium px-2.5 py-1.5 rounded transition-colors inline-flex items-center gap-1.5"
+                    style={{
+                      background: active ? "var(--ink)" : "transparent",
+                      color: active ? "white" : "var(--muted)",
+                    }}>
+                    {f.label}
+                    <span className="text-[10px] font-mono tnum" style={{ opacity: active ? 0.7 : 0.6 }}>
+                      {f.n}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-muted">
+                Avg progress · <span className="font-semibold text-ink-2 tnum">{avgProgress}%</span>
+              </span>
+              <button onClick={() => toast({ tone: "info", title: "Add outcome", body: "Outcome editor opens." })}
+                className="text-[11.5px] font-semibold h-8 px-3 rounded-lg bg-ink text-white inline-flex items-center gap-1.5 transition-transform hover:scale-[1.02]">
+                <Plus size={11} strokeWidth={2.2} /> Add outcome
+              </button>
+            </div>
+          </div>
+
+          {/* Outcomes grid */}
+          {filtered.length === 0 ? (
+            <div className="rounded-xl p-8 text-center text-[12px] text-muted"
+              style={{ background: "var(--surface)", border: "1px solid var(--line)" }}>
+              No outcomes match this filter.
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {filtered.map((o) => <OutcomeRow key={o.id} outcome={o} />)}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function OutcomeKpi({ label, value, tone }: { label: string; value: string; tone: string }) {
+  return (
+    <div className="rounded-xl px-4 py-3"
+      style={{ background: "var(--surface)", border: "1px solid var(--line)" }}>
+      <div className="text-[9.5px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1">
+        {label}
+      </div>
+      <div className="text-[20px] font-bold tnum leading-none"
+        style={{ color: tone, letterSpacing: "-0.02em" }}>
+        {value}
+      </div>
     </div>
   );
 }
@@ -3339,7 +3558,8 @@ function SignalRow({ signal, expanded }: { signal: AccountSignal; expanded?: boo
 }
 
 function OutcomeRow({ outcome }: { outcome: any }) {
-  const tone = outcome.status === "ahead" ? "var(--accent)"
+  const [open, setOpen] = useState(false);
+  const tone = outcome.status === "ahead" ? "var(--accent-deep)"
              : outcome.status === "on-track" ? "var(--pos)"
              : outcome.status === "watch" ? "var(--warn)"
              : "var(--neg)";
@@ -3347,18 +3567,121 @@ function OutcomeRow({ outcome }: { outcome: any }) {
              : outcome.status === "on-track" ? "var(--pos-soft)"
              : outcome.status === "watch" ? "var(--warn-soft)"
              : "var(--neg-soft)";
+  const statusLabel =
+    outcome.status === "ahead" ? "Ahead" :
+    outcome.status === "on-track" ? "On track" :
+    outcome.status === "watch" ? "Watch" : "At risk";
+
+  const priorityLabel = outcome.priority === "high" ? "High" : outcome.priority === "medium" ? "Med" : "Low";
+  const priorityTone =
+    outcome.priority === "high"   ? "var(--neg)" :
+    outcome.priority === "medium" ? "var(--warn)" : "var(--muted)";
+
+  const completedActions = outcome.actions?.filter((a: any) => a.done).length ?? 0;
+  const totalActions = outcome.actions?.length ?? 0;
+
   return (
-    <div className="flex items-start gap-3 p-3 rounded-md" style={{ background: "var(--bg-deep)" }}>
-      <span className="inline-flex items-center text-[9.5px] font-mono uppercase tracking-[0.06em] px-1.5 py-0.5 rounded mt-0.5"
-        style={{ background: soft, color: tone }}>
-        {outcome.status === "ahead" ? "Ahead" : outcome.status === "on-track" ? "On track" : outcome.status === "watch" ? "Watch" : "At risk"}
-      </span>
-      <div className="flex-1 min-w-0">
-        <div className="text-[12.5px] font-semibold text-ink leading-snug">{outcome.title}</div>
-        <div className="text-[11px] text-muted">{outcome.metric} · {outcome.current} → {outcome.target}</div>
-        <div className="health-bar mt-2"><span style={{ width: `${outcome.progress}%`, background: tone }} /></div>
-        <div className="text-[10px] text-muted-2 mt-1 tnum">{outcome.progress}% · due {outcome.due}</div>
-      </div>
+    <div className="rounded-xl overflow-hidden transition-all hover:-translate-y-px hover:shadow-md"
+      style={{ background: "var(--surface)", border: "1px solid var(--line)" }}>
+      <button onClick={() => setOpen(!open)}
+        className="w-full text-left flex items-start gap-4 p-4 group">
+        {/* Status pill */}
+        <div className="shrink-0 mt-0.5">
+          <span className="inline-flex items-center gap-1 text-[9.5px] font-semibold uppercase tracking-[0.1em] px-2 py-1 rounded-md"
+            style={{ background: soft, color: tone }}>
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: tone }} />
+            {statusLabel}
+          </span>
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline justify-between gap-3 mb-1">
+            <div className="text-[13.5px] font-semibold text-ink leading-tight"
+              style={{ letterSpacing: "-0.005em" }}>
+              {outcome.title}
+            </div>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] shrink-0"
+              style={{ color: priorityTone }}>
+              {priorityLabel}
+            </span>
+          </div>
+          <div className="text-[11.5px] text-muted mb-3">
+            {outcome.metric}
+            {outcome.current && outcome.target && (
+              <>
+                {" · "}
+                <span className="font-mono tnum text-ink-2">{outcome.current}</span>
+                {" → "}
+                <span className="font-mono tnum text-ink-2">{outcome.target}</span>
+              </>
+            )}
+          </div>
+
+          {/* Progress bar with target marker */}
+          <div className="relative h-2 rounded-full overflow-hidden mb-2"
+            style={{ background: "var(--bg-deep)" }}>
+            <div className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
+              style={{ width: `${Math.min(100, outcome.progress)}%`, background: tone }} />
+          </div>
+
+          <div className="flex items-center justify-between text-[10.5px] text-muted-2">
+            <span>
+              <span className="font-mono tnum text-ink-2 font-semibold">{outcome.progress}%</span>
+              <span className="mx-1.5">·</span>
+              Due <span className="text-ink-2">{outcome.due}</span>
+              {totalActions > 0 && (
+                <>
+                  <span className="mx-1.5">·</span>
+                  <span className="font-mono tnum text-ink-2">{completedActions}/{totalActions}</span> actions
+                </>
+              )}
+            </span>
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+              {open ? "Hide actions" : "Show actions"}
+              <ChevronRight size={9} strokeWidth={2.2}
+                className="transition-transform"
+                style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)" }} />
+            </span>
+          </div>
+        </div>
+
+        {/* Owner avatar */}
+        {outcome.owner && (
+          <div className="shrink-0 mt-0.5">
+            <PersonAvatar name={outcome.owner} size={28} />
+          </div>
+        )}
+      </button>
+
+      {/* Expanded actions list */}
+      {open && totalActions > 0 && (
+        <div className="px-4 pb-4 pt-1 border-t border-line">
+          <div className="text-[9.5px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-2.5 mt-3">
+            Actions ({completedActions}/{totalActions})
+          </div>
+          <div className="space-y-1.5">
+            {outcome.actions.map((a: any) => (
+              <div key={a.id} className="flex items-center gap-2.5 px-3 py-2 rounded-md"
+                style={{ background: "var(--bg-deep)" }}>
+                <span className="w-3.5 h-3.5 rounded-full grid place-items-center shrink-0"
+                  style={{
+                    background: a.done ? "var(--pos)" : "transparent",
+                    border: `1px solid ${a.done ? "var(--pos)" : "var(--line)"}`,
+                  }}>
+                  {a.done && <Check size={9} strokeWidth={3} className="text-white" />}
+                </span>
+                <span className={`text-[11.5px] flex-1 ${a.done ? "line-through text-muted-2" : "text-ink-2"}`}>
+                  {a.label}
+                </span>
+                <span className="text-[10px] text-muted-2 shrink-0">{a.assigneeInitials}</span>
+                {a.dueDate && (
+                  <span className="text-[10px] font-mono tnum text-muted-2 shrink-0">{a.dueDate}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

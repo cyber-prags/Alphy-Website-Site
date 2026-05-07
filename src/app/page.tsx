@@ -30,6 +30,7 @@ import { asset } from "@/lib/asset";
 import { AnimatedEmailDraft } from "@/components/AnimatedEmailDraft";
 import { AnimatedPlaybook } from "@/components/AnimatedPlaybook";
 import { AnimatedCounter } from "@/components/AnimatedCounter";
+import { PersonAvatar } from "@/components/PersonAvatar";
 import posthog from "posthog-js";
 
 const inter = Inter({
@@ -313,7 +314,7 @@ export default function LandingPage() {
               />
             </button>
             <button
-              onClick={() => router.push("/portfolio")}
+              onClick={() => router.push("/signin")}
               className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl text-[14.5px] font-semibold transition-all"
               style={{
                 background: "white",
@@ -331,9 +332,30 @@ export default function LandingPage() {
               transition: "opacity 800ms 600ms",
               color: "rgba(15,18,24,0.45)",
             }}
-            className="text-[12px] mb-16"
+            className="text-[12px] mb-10"
           >
             No credit card · Live demo · Sandbox data
+          </div>
+
+          {/* Inline social-proof strip with avatars */}
+          <div
+            style={{
+              opacity: heroVisible ? 1 : 0,
+              transition: "opacity 800ms 700ms",
+            }}
+            className="flex items-center justify-center gap-3 mb-16 flex-wrap"
+          >
+            <div className="flex items-center -space-x-2">
+              {["Maria Rojas", "James Chen", "Priya Patel", "Owen Marsh", "Maya Chen"].map((n) => (
+                <div key={n} className="rounded-full" style={{ boxShadow: "0 0 0 2px white" }}>
+                  <PersonAvatar name={n} size={28} />
+                </div>
+              ))}
+            </div>
+            <span className="text-[12px]" style={{ color: "rgba(15,18,24,0.55)" }}>
+              <span className="font-semibold" style={{ color: "#0F1218" }}>200+</span>{" "}
+              AMs running expansion on Alphard
+            </span>
           </div>
 
           <Reveal delay={300} y={32}>
@@ -1193,60 +1215,99 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ───────────────────── TESTIMONIAL ───────────────────── */}
+        {/* ───────────────────── TESTIMONIALS ───────────────────── */}
         <section className="py-16 md:py-24">
           <Reveal>
-            <div
-              className="rounded-3xl px-8 py-14 md:px-16 md:py-20 max-w-[960px] mx-auto text-center bg-white relative overflow-hidden"
-              style={{
-                border: "1px solid rgba(15,18,24,0.08)",
-                boxShadow: "0 1px 2px rgba(15,18,24,0.04)",
-              }}
-            >
-              <div
-                aria-hidden
-                className="absolute -top-32 -right-24 w-96 h-96 rounded-full blur-3xl opacity-30 pointer-events-none"
+            <div className="text-center mb-12">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold uppercase tracking-[0.12em]"
                 style={{
-                  background:
-                    "radial-gradient(circle, rgba(38,109,240,0.5), transparent 70%)",
-                }}
-              />
-              <div className="relative">
-                <div className="flex items-center justify-center gap-1 mb-5">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} size={15} fill="#FEBC2E" stroke="#FEBC2E" />
-                  ))}
-                </div>
-                <p
-                  className="text-[19px] md:text-[24px] font-medium leading-[1.4] mb-7"
-                  style={{ letterSpacing: "-0.012em", color: "#0F1218" }}
-                >
-                  "We replaced two tools and a spreadsheet with Alphard. Our AMs
-                  walk into every call with a ranked list. Net retention crossed
-                  120% the same quarter we rolled it out."
-                </p>
-                <div className="flex items-center justify-center gap-3">
-                  <div
-                    className="w-10 h-10 rounded-full grid place-items-center text-[12px] font-bold text-white"
-                    style={{ background: ACCENT }}
-                  >
-                    MR
-                  </div>
-                  <div className="text-left">
-                    <div className="text-[13.5px] font-semibold">
-                      Maria Rojas
-                    </div>
-                    <div
-                      className="text-[12px]"
-                      style={{ color: "rgba(15,18,24,0.55)" }}
-                    >
-                      VP Customer Success, Tableau
-                    </div>
-                  </div>
-                </div>
-              </div>
+                  background: "rgba(38,109,240,0.06)",
+                  border: "1px solid rgba(38,109,240,0.18)",
+                  color: ACCENT,
+                }}>
+                <Star size={10} strokeWidth={2.4} fill={ACCENT} />
+                Loved by revenue teams
+              </span>
+              <h2 className="text-[36px] md:text-[48px] font-semibold mt-5 leading-[1.05]"
+                style={{ letterSpacing: "-0.035em" }}>
+                The pipeline-first {" "}
+                <span style={{
+                  backgroundImage: `linear-gradient(135deg, ${ACCENT} 0%, #7C3AED 100%)`,
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                }}>
+                  gold standard
+                </span>{" "}
+                for AMs.
+              </h2>
             </div>
           </Reveal>
+
+          <div className="grid md:grid-cols-3 gap-5 max-w-[1120px] mx-auto">
+            {[
+              {
+                quote: "We replaced two tools and a spreadsheet with Alphard. Our AMs walk into every call with a ranked list — NRR crossed 120% the same quarter we rolled it out.",
+                name: "Maria Rojas",
+                role: "VP Customer Success",
+                company: "Tableau",
+                metric: "NRR 120%+",
+              },
+              {
+                quote: "The save plays alone paid for the platform in six weeks. We caught three renewals that would have churned. Every CSM has Alphard open all day.",
+                name: "James Chen",
+                role: "Head of Customer",
+                company: "Cloudflare",
+                metric: "3 renewals saved",
+              },
+              {
+                quote: "Champion changes used to surface in a churn post-mortem. Now they hit our home page the day they happen. We close expansion 30 days faster.",
+                name: "Priya Patel",
+                role: "VP Account Management",
+                company: "Snowflake",
+                metric: "−30 days expansion",
+              },
+            ].map((t, i) => (
+              <Reveal key={i} delay={i * 80}>
+                <div className="rounded-2xl p-7 h-full flex flex-col transition-all hover:-translate-y-px hover:shadow-md"
+                  style={{
+                    background: "white",
+                    border: "1px solid rgba(15,18,24,0.08)",
+                    boxShadow: "0 1px 2px rgba(15,18,24,0.04)",
+                  }}>
+                  <div className="flex items-center gap-1 mb-4">
+                    {Array.from({ length: 5 }).map((_, j) => (
+                      <Star key={j} size={12} fill="#FEBC2E" stroke="#FEBC2E" />
+                    ))}
+                    <span className="ml-auto text-[10.5px] font-semibold uppercase tracking-[0.1em] px-2 py-0.5 rounded"
+                      style={{
+                        background: "rgba(38,109,240,0.08)",
+                        color: ACCENT,
+                      }}>
+                      {t.metric}
+                    </span>
+                  </div>
+                  <p className="text-[14.5px] leading-[1.55] flex-1 mb-5"
+                    style={{ color: "#0F1218" }}>
+                    "{t.quote}"
+                  </p>
+                  <div className="flex items-center gap-3 pt-4"
+                    style={{ borderTop: "1px solid rgba(15,18,24,0.08)" }}>
+                    <PersonAvatar name={t.name} size={36} />
+                    <div className="min-w-0">
+                      <div className="text-[12.5px] font-semibold text-[#0F1218] truncate">
+                        {t.name}
+                      </div>
+                      <div className="text-[11px] truncate"
+                        style={{ color: "rgba(15,18,24,0.55)" }}>
+                        {t.role} · {t.company}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
         </section>
 
         <EmailCapture />
@@ -1330,7 +1391,7 @@ export default function LandingPage() {
                 Send feedback
               </a>
               <a
-                href="/home"
+                href="/signin"
                 className="hover:text-[#0F1218] transition-colors"
               >
                 Launch demo

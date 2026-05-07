@@ -19,6 +19,7 @@ import { useUser } from "@/components/UserContext";
 import { ExecutionDrawer, type DrawerConfig, type DrawerFlow } from "@/components/ExecutionDrawer";
 import { AccountPeek, type PeekConfig, type PeekActivity } from "@/components/AccountPeek";
 import { SignalDetail, type SignalDetailItem } from "@/components/SignalDetail";
+import { PersonAvatar } from "@/components/PersonAvatar";
 
 // Drawer context — any sub-component can open the animated execution drawer
 const DrawerCtx = createContext<{ open: (cfg: DrawerConfig) => void }>({ open: () => {} });
@@ -387,10 +388,7 @@ function FeaturedPlay({ play }: { play: CoPilotPlay }) {
           <div>
             <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1">Champion</div>
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full grid place-items-center text-[9px] font-semibold text-white"
-                style={{ background: "var(--accent-deep)" }}>
-                {play.person.split(" ").map((n) => n[0]).join("")}
-              </div>
+              <PersonAvatar name={play.person} size={26} />
               <div>
                 <div className="text-[12px] font-semibold text-ink">{play.person}</div>
                 <div className="text-[10.5px] text-muted">{play.personTitle}</div>
@@ -1098,10 +1096,7 @@ function SaveAccordionRow({
               <div>
                 <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1">Sponsor</div>
                 <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full grid place-items-center text-[9px] font-semibold text-white"
-                    style={{ background: meta.tone }}>
-                    {play.person.split(" ").map((n) => n[0]).join("")}
-                  </div>
+                  <PersonAvatar name={play.person} size={26} ring={meta.tone} />
                   <div className="min-w-0">
                     <div className="text-[12px] font-semibold text-ink truncate">{play.person}</div>
                     <div className="text-[10.5px] text-muted truncate">{play.personTitle}</div>
@@ -1644,10 +1639,7 @@ function RepTile({ rep }: { rep: typeof csmWorkloads[number] }) {
         border: "1px solid var(--line)",
       }}>
       <div className="flex items-center gap-2 mb-3">
-        <div className="w-7 h-7 rounded-full grid place-items-center text-[10px] font-semibold text-white shrink-0"
-          style={{ background: tone }}>
-          {rep.initials}
-        </div>
+        <PersonAvatar name={rep.name} size={28} ring={tone} />
         <div className="min-w-0 flex-1">
           <div className="text-[12.5px] font-semibold text-ink truncate">{rep.name}</div>
           <div className="text-[10px] text-muted truncate">{rep.accounts} accounts · {rep.renewalsNext90} renewals</div>
@@ -1706,10 +1698,7 @@ function PerfColumn({ title, count, tone, soft, Icon, list, cta }: {
         ) : list.map((rep) => (
           <div key={rep.id}
             className="flex items-center gap-2.5 px-2 py-2 rounded-lg">
-            <div className="w-6 h-6 rounded-full grid place-items-center text-[9px] font-semibold text-white shrink-0"
-              style={{ background: tone }}>
-              {rep.initials}
-            </div>
+            <PersonAvatar name={rep.name} size={26} ring={tone} />
             <div className="flex-1 min-w-0">
               <div className="text-[12px] font-semibold text-ink truncate">{rep.name}</div>
               <div className="text-[10px] text-muted truncate">{rep.accounts} accts · {rep.healthMix.atRisk} at risk</div>

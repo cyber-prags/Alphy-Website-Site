@@ -17,6 +17,8 @@ import { Popover, MenuItem, MenuLabel, MenuSeparator } from "@/components/Popove
 
 type FlatSignal = AccountSignal & { account: string; accountSlug: string };
 
+const ACCENT = "#266DF0";
+
 const TONE: Record<AccountSignal["tone"], { bg: string; ink: string }> = {
   pos:  { bg: "var(--pos-soft)",  ink: "var(--pos)"  },
   neg:  { bg: "var(--neg-soft)",  ink: "var(--neg)"  },
@@ -135,14 +137,31 @@ export default function SignalsPage() {
         <ClosureStat label="Resolved"  value={stats.resolved} onClick={() => setStatusFilter("resolved")} active={statusFilter === "resolved"} tone="var(--pos)" />
       </div>
 
-      <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <button onClick={() => setFilter("all")} className={`pill-nav-item ${filter === "all" ? "active" : ""}`}>All</button>
-        {categories.map((c) => (
-          <button key={c} onClick={() => setFilter(c)}
-            className={`pill-nav-item ${filter === c ? "active" : ""}`}>{c}</button>
-        ))}
-        <div className="ml-auto flex items-center gap-2 h-8 w-72 px-2.5 rounded-md border border-line bg-surface">
-          <Search size={12} strokeWidth={1.6} className="text-muted-2" />
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <div className="flex items-center gap-1 p-1 rounded-lg"
+          style={{ background: "var(--surface)", border: "1px solid var(--line)" }}>
+          <button onClick={() => setFilter("all")}
+            className="text-[11.5px] font-medium px-2.5 py-1.5 rounded transition-colors"
+            style={{
+              background: filter === "all" ? "var(--ink)" : "transparent",
+              color: filter === "all" ? "white" : "var(--muted)",
+            }}>
+            All
+          </button>
+          {categories.map((c) => (
+            <button key={c} onClick={() => setFilter(c)}
+              className="text-[11.5px] font-medium px-2.5 py-1.5 rounded transition-colors"
+              style={{
+                background: filter === c ? "var(--ink)" : "transparent",
+                color: filter === c ? "white" : "var(--muted)",
+              }}>
+              {c}
+            </button>
+          ))}
+        </div>
+        <div className="ml-auto flex items-center gap-1.5 h-9 w-72 px-2.5 rounded-lg"
+          style={{ background: "var(--surface)", border: "1px solid var(--line)" }}>
+          <Search size={12} strokeWidth={1.8} className="text-muted-2" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search signals…"
             className="flex-1 bg-transparent outline-none text-[12px] placeholder:text-muted-2" />
         </div>
@@ -203,113 +222,168 @@ function SignalCard({ signal }: { signal: FlatSignal }) {
   const openAccount = () => router.push(`/accounts/${signal.accountSlug}`);
   const runPlay = () => closure.act(closureId, ME, `Ran play: ${play.label}`);
 
+  // Tone colour for the left rail accent — picks up the signal severity
+  const railColor = signal.tone === "neg"  ? "var(--neg)"
+                  : signal.tone === "warn" ? "var(--warn)"
+                  : signal.tone === "pos"  ? "var(--pos)"
+                  : "var(--info)";
+
+  const isClosed = status === "acted" || status === "resolved" || status === "dismissed";
+
   return (
-    <div onMouseEnter={onCardEnter}
-      className="card card-lift p-4 transition-colors flex flex-col gap-3 group">
-      {/* Header */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <button onClick={openAccount} className="flex items-center gap-1.5 hover:underline">
-          <Logo name={signal.account} size={20} rounded={5} />
-          <span className="text-[12.5px] font-semibold text-ink">{signal.account}</span>
-        </button>
-        <ClosureBadge status={status} size="xs" />
-        <span className="inline-flex items-center text-[9.5px] font-mono uppercase tracking-[0.06em] px-1.5 py-0.5 rounded ml-auto"
-          style={{ background: tone.bg, color: tone.ink }}>
-          {signal.category}
-        </span>
-      </div>
+    <div
+      onMouseEnter={onCardEnter}
+      className="rounded-xl overflow-hidden transition-all hover:-translate-y-px hover:shadow-md group relative"
+      style={{
+        background: "var(--surface)",
+        border: "1px solid var(--line)",
+      }}
+    >
+      {/* Tone-tinted left rail */}
+      <span className="absolute left-0 top-0 bottom-0 w-[3px] transition-opacity"
+        style={{ background: railColor, opacity: status === "new" ? 1 : 0.5 }} />
 
-      {/* Body */}
-      <div className="text-[13px] text-ink-2 leading-relaxed">{signal.body}</div>
-
-      {/* Source attribution + suggested play */}
-      <div className="rounded-xl bg-surface-2 border border-line px-3 py-2.5 flex items-start gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-1">
-            <Zap size={11} strokeWidth={1.8} style={{ color: "var(--accent-deep)" }} />
-            <span className="text-[10.5px] mono-label" style={{ color: "var(--accent-ink)" }}>Suggested play</span>
-          </div>
-          <div className="text-[12.5px] font-semibold text-ink leading-snug">{play.label}</div>
-          <div className="text-[10.5px] text-muted-2 mt-0.5">From <span className="text-ink-2 font-medium">{primarySource}</span> · {sources.size} source{sources.size === 1 ? "" : "s"}</div>
-        </div>
-        {status !== "acted" && status !== "resolved" && status !== "dismissed" && (
-          <button onClick={runPlay}
-            className="text-[11px] font-semibold h-7 px-2.5 rounded-md inline-flex items-center gap-1 shrink-0 shadow-[0_4px_10px_-4px_rgba(168,224,32,0.4)]"
-            style={{ background: "var(--accent)", color: "var(--accent-ink)" }}>
-            {play.cta}<ArrowRight size={11} strokeWidth={2} />
+      <div className="p-5 pl-6 flex flex-col gap-3.5">
+        {/* Header — account + status + category */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={openAccount}
+            className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
+            <Logo name={signal.account} size={20} rounded={5} />
+            <span className="text-[12.5px] font-semibold text-ink"
+              style={{ letterSpacing: "-0.005em" }}>
+              {signal.account}
+            </span>
           </button>
-        )}
-      </div>
-
-      {/* Evidence rail */}
-      <div>
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <span className="text-[10px] text-muted-2">Evidence chain · from</span>
-          {Array.from(sources).map((s) => (
-            <SourceChip key={s} source={s as any} size="xs" />
-          ))}
+          <ClosureBadge status={status} size="xs" />
+          <span className="inline-flex items-center text-[9.5px] font-semibold uppercase tracking-[0.08em] px-1.5 py-0.5 rounded ml-auto"
+            style={{ background: tone.bg, color: tone.ink }}>
+            {signal.category}
+          </span>
         </div>
-        <div className="space-y-1">
-          {signal.evidence.map((e, i) => {
-            const Icon = e.kind === "email" ? Mail : e.kind === "call" ? Phone : e.kind === "linkedin" ? Globe2 : e.kind === "transcript" ? Video : FileText;
-            return (
-              <div key={i} className="flex items-center gap-2 text-[11px]">
-                <Icon size={10} strokeWidth={1.6} className="text-muted-2" />
-                <span className="text-ink-2 truncate flex-1">{e.title}</span>
-                <span className="text-muted-2">{e.meta}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
 
-      {/* Closure footer */}
-      <div className="flex items-center justify-between text-[10.5px] text-muted-2 pt-2 border-t border-line">
-        <span>
-          {signal.ago}
-          {lastEvent && status !== "new" && (
-            <>
-              <span className="text-muted-2"> · </span>
-              <span><span className="text-ink-2 font-medium">{lastEvent.by}</span> {labelFor(lastEvent.type)}</span>
-            </>
-          )}
-        </span>
-        <div className="flex items-center gap-1">
-          {status === "new" && (
-            <button onClick={() => closure.see(closureId, ME)}
-              className="text-[10.5px] text-muted hover:text-ink h-6 px-2 rounded inline-flex items-center gap-1 hover:bg-bg-deep">
-              <Eye size={10} /> Mark seen
+        {/* Body — the signal copy */}
+        <div className="text-[13.5px] text-ink leading-[1.55]"
+          style={{ letterSpacing: "-0.005em" }}>
+          {signal.body}
+        </div>
+
+        {/* Suggested play card — accent treatment */}
+        <div className="rounded-xl px-4 py-3.5 flex items-center gap-3"
+          style={{
+            background: "linear-gradient(135deg, rgba(38,109,240,0.04), rgba(124,58,237,0.02))",
+            border: "1px solid rgba(38,109,240,0.18)",
+          }}>
+          <div className="w-7 h-7 rounded-md grid place-items-center shrink-0"
+            style={{
+              background: ACCENT,
+              boxShadow: "0 4px 10px -4px rgba(38,109,240,0.4)",
+            }}>
+            <Zap size={12} strokeWidth={2.2} className="text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[9.5px] font-semibold uppercase tracking-[0.14em] mb-0.5"
+              style={{ color: ACCENT }}>
+              Suggested play
+            </div>
+            <div className="text-[12.5px] font-semibold text-ink leading-snug truncate">
+              {play.label}
+            </div>
+          </div>
+          {!isClosed && (
+            <button onClick={runPlay}
+              className="text-[11px] font-semibold h-8 px-3 rounded-lg inline-flex items-center gap-1.5 shrink-0 transition-transform hover:scale-[1.03] text-white"
+              style={{
+                background: "var(--ink)",
+                boxShadow: "0 4px 10px -4px rgba(15,18,24,0.30)",
+              }}>
+              {play.cta}<ArrowRight size={11} strokeWidth={2.2} />
             </button>
           )}
-          {(status === "acted") && (
-            <button onClick={() => closure.resolve(closureId, ME)}
-              className="text-[10.5px] text-muted hover:text-ink h-6 px-2 rounded inline-flex items-center gap-1 hover:bg-bg-deep">
-              <CheckCircle2 size={10} /> Resolve
-            </button>
-          )}
-          <Popover align="right" width={200}
-            trigger={(_, t) => (
-              <button onClick={t} className="text-muted-2 hover:text-ink h-6 w-6 rounded grid place-items-center hover:bg-bg-deep">
-                ⋯
-              </button>
-            )}>
-            {(close) => (
+        </div>
+
+        {/* Evidence rail */}
+        <div>
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <span className="text-[9.5px] font-semibold uppercase tracking-[0.14em] text-muted-2">
+              Evidence · from
+            </span>
+            {Array.from(sources).map((s) => (
+              <SourceChip key={s} source={s as any} size="xs" />
+            ))}
+          </div>
+          <div className="rounded-lg overflow-hidden"
+            style={{ background: "var(--bg-deep)", border: "1px solid var(--line)" }}>
+            {signal.evidence.map((e, i) => {
+              const Icon = e.kind === "email" ? Mail : e.kind === "call" ? Phone
+                         : e.kind === "linkedin" ? Globe2 : e.kind === "transcript" ? Video
+                         : FileText;
+              return (
+                <div key={i}
+                  className="flex items-center gap-2.5 px-3 py-2 text-[11px]"
+                  style={{ borderTop: i === 0 ? "none" : "1px solid var(--line)" }}>
+                  <Icon size={11} strokeWidth={1.6} className="text-muted-2 shrink-0" />
+                  <span className="text-ink-2 truncate flex-1">{e.title}</span>
+                  <span className="text-muted-2 font-mono tnum text-[10px] shrink-0">{e.meta}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Closure footer */}
+        <div className="flex items-center justify-between text-[10.5px] pt-2.5"
+          style={{ borderTop: "1px solid var(--line)", color: "var(--muted-2)" }}>
+          <span>
+            {signal.ago}
+            {lastEvent && status !== "new" && (
               <>
-                <MenuLabel>Closure</MenuLabel>
-                {status === "new" && <MenuItem onClick={() => { closure.see(closureId, ME); close(); }}>Mark seen</MenuItem>}
-                {status !== "acted" && status !== "resolved" && <MenuItem onClick={() => { closure.act(closureId, ME, `Ran play: ${play.label}`); close(); }}>Mark acted</MenuItem>}
-                {status !== "resolved" && <MenuItem onClick={() => { closure.resolve(closureId, ME); close(); }}>Resolve</MenuItem>}
-                <MenuSeparator />
-                <MenuItem onClick={() => { closure.dismiss(closureId, ME, "Not relevant"); close(); }} danger>
-                  <span className="inline-flex items-center gap-1"><X size={10} /> Dismiss</span>
-                </MenuItem>
-                <MenuSeparator />
-                <MenuItem onClick={openAccount}>
-                  <span className="inline-flex items-center gap-1"><ArrowRight size={10} /> Open account</span>
-                </MenuItem>
+                <span className="mx-1.5">·</span>
+                <span>
+                  <span className="text-ink-2 font-medium">{lastEvent.by}</span>{" "}
+                  {labelFor(lastEvent.type)}
+                </span>
               </>
             )}
-          </Popover>
+          </span>
+          <div className="flex items-center gap-1">
+            {status === "new" && (
+              <button onClick={() => closure.see(closureId, ME)}
+                className="text-[10.5px] text-muted hover:text-ink h-6 px-2 rounded inline-flex items-center gap-1 hover:bg-bg-deep transition-colors">
+                <Eye size={10} /> Mark seen
+              </button>
+            )}
+            {status === "acted" && (
+              <button onClick={() => closure.resolve(closureId, ME)}
+                className="text-[10.5px] font-medium h-6 px-2 rounded inline-flex items-center gap-1 transition-colors"
+                style={{ color: "var(--pos)", background: "var(--pos-soft)" }}>
+                <CheckCircle2 size={10} /> Resolve
+              </button>
+            )}
+            <Popover align="right" width={200}
+              trigger={(_, t) => (
+                <button onClick={t}
+                  className="text-muted-2 hover:text-ink h-6 w-6 rounded grid place-items-center hover:bg-bg-deep transition-colors">
+                  ⋯
+                </button>
+              )}>
+              {(close) => (
+                <>
+                  <MenuLabel>Closure</MenuLabel>
+                  {status === "new" && <MenuItem onClick={() => { closure.see(closureId, ME); close(); }}>Mark seen</MenuItem>}
+                  {status !== "acted" && status !== "resolved" && <MenuItem onClick={() => { closure.act(closureId, ME, `Ran play: ${play.label}`); close(); }}>Mark acted</MenuItem>}
+                  {status !== "resolved" && <MenuItem onClick={() => { closure.resolve(closureId, ME); close(); }}>Resolve</MenuItem>}
+                  <MenuSeparator />
+                  <MenuItem onClick={() => { closure.dismiss(closureId, ME, "Not relevant"); close(); }} danger>
+                    <span className="inline-flex items-center gap-1"><X size={10} /> Dismiss</span>
+                  </MenuItem>
+                  <MenuSeparator />
+                  <MenuItem onClick={openAccount}>
+                    <span className="inline-flex items-center gap-1"><ArrowRight size={10} /> Open account</span>
+                  </MenuItem>
+                </>
+              )}
+            </Popover>
+          </div>
         </div>
       </div>
     </div>

@@ -11,6 +11,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { useToast } from "@/components/Toast";
 import { Logo } from "@/components/Logo";
+import { PersonAvatar } from "@/components/PersonAvatar";
 import { accounts, slugify, fmtMoney, type Account } from "@/lib/mock";
 
 const ACCENT = "#266DF0";
@@ -348,10 +349,7 @@ export default function InboxPage() {
 
               {/* Sender */}
               <div className="flex items-center gap-2.5 mb-5 pb-4 border-b border-line">
-                <div className="w-9 h-9 rounded-full grid place-items-center text-[11px] font-semibold text-white shrink-0"
-                  style={{ background: ACCENT }}>
-                  {selected.from.initials}
-                </div>
+                <PersonAvatar name={selected.from.name} size={36} />
                 <div>
                   <div className="text-[12.5px] font-semibold text-ink">{selected.from.name}</div>
                   <div className="text-[11px] text-muted">{selected.from.email}</div>

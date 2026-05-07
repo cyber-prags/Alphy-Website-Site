@@ -10,6 +10,8 @@ import {
 import { AppShell } from "@/components/AppShell";
 import { AgentDetail } from "@/components/AgentDetail";
 import { BrandLogo } from "@/components/BrandLogo";
+import { PersonAvatar } from "@/components/PersonAvatar";
+import { useUser } from "@/components/UserContext";
 import { usePersona, PERSONA_LABEL } from "@/components/PersonaContext";
 import { agents, type Agent, type Persona } from "@/lib/mock";
 
@@ -444,6 +446,7 @@ function RequestsTile() {
 // Profile tile
 // ─────────────────────────────────────────────────────────────────────
 function ProfileTile() {
+  const { user } = useUser();
   return (
     <TileShell
       href="/settings"
@@ -452,13 +455,10 @@ function ProfileTile() {
       footer="Sign-in & sign-out controls"
     >
       <div className="flex items-center gap-3 h-full">
-        <div className="w-12 h-12 rounded-full grid place-items-center text-[14px] font-semibold text-white shrink-0"
-          style={{ background: ACCENT }}>
-          PD
-        </div>
+        <PersonAvatar name={user.name} size={48} />
         <div className="min-w-0 flex-1">
-          <div className="text-[13px] font-semibold text-ink truncate">Pragyan Jyoti Dutta</div>
-          <div className="text-[11.5px] text-muted truncate">duttapragyanjyoti@gmail.com</div>
+          <div className="text-[13px] font-semibold text-ink truncate">{user.name}</div>
+          <div className="text-[11.5px] text-muted truncate">{user.email || "demo@alphard.global"}</div>
           <div className="flex items-center gap-1.5 mt-2">
             <span className="text-[10px] font-medium px-1.5 py-0.5 rounded"
               style={{ background: "var(--bg-deep)", color: "var(--ink-2)" }}>

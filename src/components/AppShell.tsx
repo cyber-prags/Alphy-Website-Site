@@ -18,6 +18,8 @@ import { ToastProvider, useToast } from "./Toast";
 import { Popover, MenuItem, MenuLabel, MenuSeparator } from "./Popover";
 import { CommandK } from "./CommandK";
 import { AlphyPanel } from "./AlphyPanel";
+import { AlphyMark } from "./AlphyMark";
+import { PersonAvatar } from "./PersonAvatar";
 import { usePersona, PERSONA_LABEL } from "./PersonaContext";
 import { useUser } from "./UserContext";
 import { OnboardingTour } from "./OnboardingTour";
@@ -242,7 +244,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
             }}>
             <span className="w-5 h-5 rounded-md grid place-items-center shrink-0 transition-transform group-hover/alphy:rotate-12"
               style={{ background: "rgba(38,109,240,0.16)" }}>
-              <Sparkles size={11} strokeWidth={2.2} style={{ color: "var(--accent)" }} />
+              <AlphyMark size={11} color="var(--accent)" strokeWidth={1.8} />
             </span>
             {!collapsed && (
               <>
@@ -326,8 +328,8 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
             <NotificationsBell />
             <span className="header-divider" />
             <button onClick={() => setAskAlphyOpen(true)}
-              className="btn-accent h-8 px-3.5 text-[12px]">
-              <Sparkles size={12} strokeWidth={2} />
+              className="btn-accent h-8 px-3.5 text-[12px] inline-flex items-center gap-1.5">
+              <AlphyMark size={12} color="var(--accent-ink)" strokeWidth={1.8} />
               Ask Alphy
             </button>
           </div>
@@ -534,12 +536,12 @@ function ProfileMenu({ collapsed }: { collapsed?: boolean }) {
       align="left" width={240} position="top"
       trigger={(_, toggle) => collapsed ? (
         <button onClick={toggle} title={`${user.name} · ${PERSONA_LABEL[persona]}`}
-          className="w-9 h-9 mx-auto rounded-full grid place-items-center text-[11px] font-semibold ring-2 ring-line hover:ring-line-strong transition-all"
-          style={{ background: "var(--accent)", color: "var(--accent-ink)" }}>{user.initials}</button>
+          className="mx-auto rounded-full transition-all hover:opacity-90">
+          <PersonAvatar name={user.name} size={36} />
+        </button>
       ) : (
         <button onClick={toggle} className="flex items-center h-11 px-2 gap-2.5 rounded-lg hover:bg-surface-2 w-full transition-colors">
-          <div className="w-8 h-8 rounded-full grid place-items-center text-[11px] font-semibold shrink-0"
-            style={{ background: "var(--accent)", color: "var(--accent-ink)" }}>{user.initials}</div>
+          <PersonAvatar name={user.name} size={32} />
           <div className="flex-1 min-w-0 text-left">
             <div className="text-[12.5px] font-semibold text-ink truncate leading-tight">{user.name}</div>
             <div className="text-[10px] text-muted truncate leading-tight mt-0.5">{subtitle}</div>
