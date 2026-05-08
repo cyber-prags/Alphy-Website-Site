@@ -20,6 +20,7 @@ import { CommandK } from "./CommandK";
 import { AlphyPanel } from "./AlphyPanel";
 import { AlphyMark } from "./AlphyMark";
 import { PersonAvatar } from "./PersonAvatar";
+import { AmGuidedTour, resetAmTour, readAmTourActive } from "./AmGuidedTour";
 import { usePersona, PERSONA_LABEL } from "./PersonaContext";
 import { useUser } from "./UserContext";
 import { OnboardingTour } from "./OnboardingTour";
@@ -104,6 +105,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   const [cmdkOpen, setCmdkOpen] = useState(false);
   const [askAlphyOpen, setAskAlphyOpen] = useState(false);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [amTourOpen, setAmTourOpen] = useState(false);
   const [isNarrow, setIsNarrow] = useState(false);
   const searchParams = useSearchParams();
 
@@ -124,6 +126,20 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
     onResize();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  // Allow the AM guided tour (or any other component) to open Alphy globally
+  useEffect(() => {
+    const handler = () => setAskAlphyOpen(true);
+    window.addEventListener("alphard:open-alphy", handler);
+    return () => window.removeEventListener("alphard:open-alphy", handler);
+  }, []);
+
+  // Resume the AM guided tour after a tour-driven route change. AppShell is
+  // mounted per-page (not in a shared layout), so we hydrate from sessionStorage
+  // on mount and re-open if the tour was mid-flight.
+  useEffect(() => {
+    if (readAmTourActive()) setAmTourOpen(true);
   }, []);
 
   const expanded = !isNarrow && (pinned || hovered);
@@ -231,6 +247,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           {/* Alphy — primary entry. Click navigates to the full /alphy
               page; ⌘J opens it as a side-panel overlay anywhere.        */}
           <Link
+            data-tour="nav-alphy"
             href="/alphy"
             title="Ask Alphy (⌘J for sidebar)"
             className={`w-full flex items-center gap-2.5 ${collapsed ? "justify-center" : ""} h-9 px-2 rounded-lg mb-3 transition-all hover:shadow-sm group/alphy`}
@@ -321,7 +338,22 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
               <Search size={14} strokeWidth={1.7} />
             </button>
             <ThemeToggle />
-            <button onClick={() => setOnboardingOpen(true)} title="Onboarding tour" aria-label="Open onboarding tour"
+            <button
+              onClick={() => {
+                if (persona === "am") {
+                  // Reset the persistence flag so the tour fires fresh, then open
+                  resetAmTour();
+                  // Navigate to /home if we're not already there — the tour
+                  // targets the home page elements
+                  if (pathname !== "/home") router.push("/home");
+                  // Small delay so the route transition completes before highlighting
+                  setTimeout(() => setAmTourOpen(true), pathname !== "/home" ? 400 : 50);
+                } else {
+                  setOnboardingOpen(true);
+                }
+              }}
+              title={persona === "am" ? "Restart guided tour" : "Onboarding tour"}
+              aria-label="Open onboarding tour"
               className="btn-icon">
               <Rocket size={14} strokeWidth={1.7} />
             </button>
@@ -350,6 +382,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
         }}
       />
       <OnboardingTour open={onboardingOpen} persona={persona} onClose={() => setOnboardingOpen(false)} />
+      <AmGuidedTour open={amTourOpen} onClose={() => setAmTourOpen(false)} />
     </div>
   );
 }
@@ -395,7 +428,10 @@ function NavRow({
 
   if (!hasChildren) {
     return (
-      <Link href={item.href} className={`nav-row ${active ? "active" : ""}`}>
+      <Link
+        href={item.href}
+        data-tour={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
+        className={`nav-row ${active ? "active" : ""}`}>
         <Icon strokeWidth={1.5} size={15}
           style={{ color: item.accent ? "var(--accent-deep)" : undefined }} />
         <span className="flex-1 truncate">{item.label}</span>

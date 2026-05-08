@@ -60,6 +60,31 @@ type Props = {
   size?: "xs" | "sm";
 };
 
+// Icon-only chip — used in DataFreshness header. Stacks/overlaps cleanly,
+// shows the brand mark on a tinted tile, hover reveals the source name.
+export function SourceIconChip({ source }: { source: Source }) {
+  const tone = TONE[source];
+  const brandName = BRAND_NAME[source];
+  return (
+    <span
+      title={source}
+      className="rounded-md overflow-hidden grid place-items-center transition-transform hover:scale-110 hover:z-10 relative"
+      style={{
+        width: 22, height: 22,
+        background: "var(--surface)",
+        border: "1px solid var(--line)",
+        boxShadow: "0 0 0 2px var(--bg)",
+      }}
+    >
+      {brandName ? (
+        <BrandLogo name={brandName} size={20} />
+      ) : (
+        <Sparkles size={11} strokeWidth={2} style={{ color: tone }} />
+      )}
+    </span>
+  );
+}
+
 export function SourceChip({ source, meta, size = "sm" }: Props) {
   const tone = TONE[source];
   const brandName = BRAND_NAME[source];
@@ -109,8 +134,9 @@ export function DataFreshness({ minutesAgo, sources, onRefresh }: {
       </div>
       <span className="text-muted-2">·</span>
       <span className="text-[10.5px] text-muted">Data from</span>
-      <div className="flex items-center gap-1.5">
-        {sources.map((s) => <SourceChip key={s} source={s} size="xs" />)}
+      {/* Icon-only chips — hover for the source name */}
+      <div className="flex items-center -space-x-1.5">
+        {sources.map((s) => <SourceIconChip key={s} source={s} />)}
       </div>
       {onRefresh && (
         <button onClick={onRefresh}

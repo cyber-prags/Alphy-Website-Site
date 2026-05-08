@@ -339,11 +339,12 @@ export function AgentDetail({
     <>
       <div className="fixed inset-0 bg-ink/25 z-[80] agent-fade" onClick={onClose} />
       <aside
-        className="fixed top-0 right-0 h-screen w-full md:w-[640px] z-[85] flex flex-col agent-anim overflow-hidden"
+        className="fixed top-3 right-3 bottom-3 w-full md:w-[640px] z-[85] flex flex-col agent-anim overflow-hidden rounded-2xl"
         style={{
+          maxWidth: "calc(100vw - 24px)",
           background: "var(--bg)",
-          borderLeft: "1px solid var(--line)",
-          boxShadow: "-22px 0 50px -22px rgba(15,18,24,0.16)",
+          border: "1px solid var(--line)",
+          boxShadow: "0 24px 60px -16px rgba(15,18,24,0.30), -22px 0 50px -22px rgba(15,18,24,0.16)",
         }}
       >
         {/* Header */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   X, ArrowRight, ArrowUpRight, Calendar, Activity, AlertTriangle,
@@ -214,6 +214,7 @@ export function AccountPeek({
   onAction?: (action: "outreach" | "save-play", account: Account) => void;
 }) {
   const open = !!config;
+  const [savePlayOpen, setSavePlayOpen] = useState(false);
 
   // Esc to close
   useEffect(() => {
@@ -222,6 +223,9 @@ export function AccountPeek({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+
+  // Reset modal when the panel closes
+  useEffect(() => { if (!open) setSavePlayOpen(false); }, [open]);
 
   if (!open || !config) return null;
 
@@ -233,11 +237,12 @@ export function AccountPeek({
     <>
       <div className="fixed inset-0 bg-ink/20 z-[80] peek-fade" onClick={onClose} />
       <aside
-        className="fixed top-0 right-0 h-screen w-full md:w-[520px] z-[85] flex flex-col peek-anim overflow-hidden"
+        className="fixed top-3 right-3 bottom-3 w-full md:w-[520px] z-[85] flex flex-col peek-anim overflow-hidden rounded-2xl"
         style={{
+          maxWidth: "calc(100vw - 24px)",
           background: "var(--bg)",
-          borderLeft: "1px solid var(--line)",
-          boxShadow: "-22px 0 50px -22px rgba(15,18,24,0.16)",
+          border: "1px solid var(--line)",
+          boxShadow: "0 24px 60px -16px rgba(15,18,24,0.30), -22px 0 50px -22px rgba(15,18,24,0.16)",
         }}
       >
         {/* Header */}
@@ -277,25 +282,17 @@ export function AccountPeek({
           </div>
         </header>
 
-        {/* Stats strip */}
-        <div className="px-6 py-4 grid grid-cols-4 gap-3 shrink-0"
-          style={{ borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
-          <Stat label="ARR" value={fmtMoney(account.arr)} tone="var(--ink)" />
-          <Stat
-            label="Renewal"
+        {/* Stats strip — softer dividers + per-tile background so each KPI reads as its own chip */}
+        <div className="px-5 py-3 flex gap-2 shrink-0"
+          style={{ borderBottom: "1px solid var(--line)" }}>
+          <KpiChip label="ARR"     value={fmtMoney(account.arr)} tone="var(--ink)" />
+          <KpiChip label="Renewal"
             value={account.renewalDays > 0 ? `${account.renewalDays}d` : account.renewalDays === 0 ? "—" : `${Math.abs(account.renewalDays)}d ago`}
-            tone={account.renewalDays > 0 && account.renewalDays <= 30 ? "var(--neg)" : account.renewalDays > 0 && account.renewalDays <= 60 ? "var(--warn)" : "var(--ink)"}
-          />
-          <Stat
-            label="Health"
-            value={String(account.healthScore)}
-            tone={account.healthScore >= 75 ? "var(--pos)" : account.healthScore >= 60 ? "var(--warn)" : "var(--neg)"}
-          />
-          <Stat
-            label="NRR"
-            value={account.nrr ? `${account.nrr}%` : "—"}
-            tone={account.nrr >= 110 ? "var(--pos)" : account.nrr >= 90 ? "var(--warn)" : "var(--ink)"}
-          />
+            tone={account.renewalDays > 0 && account.renewalDays <= 30 ? "var(--neg)" : account.renewalDays > 0 && account.renewalDays <= 60 ? "var(--warn)" : "var(--ink)"} />
+          <KpiChip label="Health"   value={String(account.healthScore)}
+            tone={account.healthScore >= 75 ? "var(--pos)" : account.healthScore >= 60 ? "var(--warn)" : "var(--neg)"} />
+          <KpiChip label="NRR"      value={account.nrr ? `${account.nrr}%` : "—"}
+            tone={account.nrr >= 110 ? "var(--pos)" : account.nrr >= 90 ? "var(--warn)" : "var(--ink)"} />
         </div>
 
         {/* Body */}
@@ -430,7 +427,7 @@ export function AccountPeek({
             <Mail size={12} strokeWidth={2} /> Draft outreach
           </button>
           <button
-            onClick={() => onAction?.("save-play", account)}
+            onClick={() => setSavePlayOpen(true)}
             className="flex-1 inline-flex items-center justify-center gap-1.5 text-[12.5px] font-semibold px-3 py-2 rounded-lg text-white transition-transform hover:scale-[1.02]"
             style={{ background: "var(--ink)" }}>
             <Sparkles size={12} strokeWidth={2.2} /> Run save play
@@ -447,7 +444,124 @@ export function AccountPeek({
           .peek-fade { animation: peekFade 200ms ease-out; }
         `}</style>
       </aside>
+
+      {/* Save Play preview modal — confirms the play before firing the drawer */}
+      {savePlayOpen && (
+        <SavePlayPreview
+          account={account}
+          fixture={fixture}
+          onClose={() => setSavePlayOpen(false)}
+          onConfirm={() => {
+            setSavePlayOpen(false);
+            onAction?.("save-play", account);
+          }}
+        />
+      )}
     </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Save-play preview modal — rich pre-flight before the drawer animation.
+// Shows: trigger summary, the 5-step play, who's assigned, ETA. The user
+// can edit assignments inline (visual-only) and confirm.
+// ─────────────────────────────────────────────────────────────────────
+function SavePlayPreview({ account, fixture, onClose, onConfirm }: {
+  account: Account;
+  fixture: ReturnType<typeof getFixture>;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  // Steps tailored to the play. We use the fixture for context.
+  const steps = [
+    { label: "Escalate to exec sponsor",            owner: "Brad Allen",   eta: "Today",     impact: "Critical" },
+    { label: "Schedule emergency check-in",         owner: "Brad Allen",   eta: "By Friday", impact: "High" },
+    { label: "Resolve open P0 ticket",              owner: "Support · L2", eta: "48h",       impact: "High" },
+    { label: "Re-engage two dormant power users",   owner: "Maya Wilson",  eta: "This week", impact: "Med" },
+    { label: "Re-baseline outcomes for renewal",    owner: "Sarah Chen",   eta: "Next week", impact: "Med" },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-6"
+      onClick={onClose}>
+      <div className="absolute inset-0 bg-ink/40 backdrop-blur-[3px]" />
+      <div className="relative w-full max-w-[560px] rounded-2xl overflow-hidden bg-bg border border-line"
+        style={{ boxShadow: "0 32px 80px -16px rgba(15,18,24,0.45)" }}
+        onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="px-5 py-4 flex items-center gap-3 border-b border-line">
+          <div className="w-9 h-9 rounded-lg grid place-items-center flex-shrink-0"
+            style={{ background: "rgba(38,109,240,0.10)", border: "1px solid rgba(38,109,240,0.20)" }}>
+            <Sparkles size={14} strokeWidth={2} style={{ color: "var(--accent)" }} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2">Save play · pre-flight</div>
+            <div className="text-[15.5px] font-semibold text-ink leading-tight"
+              style={{ letterSpacing: "-0.014em" }}>{fixture.recommended.title}</div>
+          </div>
+          <button onClick={onClose}
+            className="text-muted hover:text-ink p-1 rounded transition-colors">
+            <X size={14} strokeWidth={1.8} />
+          </button>
+        </div>
+
+        {/* Trigger context */}
+        <div className="px-5 py-3.5 border-b border-line"
+          style={{ background: "var(--surface)" }}>
+          <div className="flex items-center gap-2 mb-1.5">
+            <Logo name={account.name} size={18} />
+            <span className="text-[12.5px] font-semibold text-ink">{account.name}</span>
+            <span className="text-[10px] font-mono uppercase tracking-[0.10em] px-1.5 py-0.5 rounded text-muted-2"
+              style={{ background: "var(--bg-deep)", border: "1px solid var(--line)" }}>{account.tier}</span>
+          </div>
+          <p className="text-[12px] text-ink-2 leading-relaxed">{fixture.recommended.body}</p>
+        </div>
+
+        {/* Steps */}
+        <div className="px-5 py-4 space-y-2 max-h-[320px] overflow-y-auto">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-2">Playbook · {steps.length} steps</div>
+          {steps.map((s, i) => (
+            <div key={i} className="flex items-center gap-3 rounded-xl px-3.5 py-2.5"
+              style={{ background: "var(--bg-deep)", border: "1px solid var(--line)" }}>
+              <span className="w-6 h-6 rounded-full grid place-items-center text-[11px] font-mono tnum text-muted-2 flex-shrink-0"
+                style={{ background: "var(--surface)", border: "1px solid var(--line)" }}>
+                {i + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[12.5px] font-semibold text-ink truncate">{s.label}</div>
+                <div className="text-[10.5px] text-muted">{s.owner} · {s.eta}</div>
+              </div>
+              <span className="text-[9.5px] font-semibold uppercase tracking-[0.10em] px-1.5 py-0.5 rounded flex-shrink-0"
+                style={{
+                  background: s.impact === "Critical" ? "rgba(239,68,68,0.10)" : s.impact === "High" ? "rgba(245,158,11,0.10)" : "rgba(38,109,240,0.10)",
+                  color:      s.impact === "Critical" ? "#EF4444"             : s.impact === "High" ? "#D97706"             : "var(--accent)",
+                  border:    `1px solid ${s.impact === "Critical" ? "rgba(239,68,68,0.20)" : s.impact === "High" ? "rgba(245,158,11,0.20)" : "rgba(38,109,240,0.20)"}`,
+                }}>
+                {s.impact}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3.5 border-t border-line flex items-center justify-between gap-2">
+          <span className="text-[11.5px] text-muted">
+            ETA · ~3 minutes · 2 approvals required
+          </span>
+          <div className="flex items-center gap-2">
+            <button onClick={onClose}
+              className="text-[12px] font-medium px-3 py-2 rounded-lg border border-line bg-surface hover:bg-bg-deep transition-colors">
+              Cancel
+            </button>
+            <button onClick={onConfirm}
+              className="text-[12px] font-semibold px-3.5 py-2 rounded-lg text-white inline-flex items-center gap-1.5 transition-transform hover:scale-[1.02]"
+              style={{ background: "var(--ink)" }}>
+              <Sparkles size={12} strokeWidth={2.2} /> Run play
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -480,6 +594,21 @@ function Stat({ label, value, tone }: { label: string; value: string; tone: stri
         {label}
       </div>
       <div className="text-[16px] font-semibold tnum leading-none"
+        style={{ color: tone, letterSpacing: "-0.018em" }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+// Modern KPI chip — soft tinted background, large ink-coloured value, used in
+// the peek panel header strip.
+function KpiChip({ label, value, tone }: { label: string; value: string; tone: string }) {
+  return (
+    <div className="flex-1 rounded-xl px-3 py-2.5"
+      style={{ background: "var(--bg-deep)", border: "1px solid var(--line)" }}>
+      <div className="text-[9.5px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1">{label}</div>
+      <div className="text-[16px] font-bold tnum leading-none"
         style={{ color: tone, letterSpacing: "-0.018em" }}>
         {value}
       </div>

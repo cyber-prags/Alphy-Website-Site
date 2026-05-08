@@ -159,11 +159,12 @@ export function ExecutionDrawer({
   return (
     <>
       <div className="fixed inset-0 bg-ink/30 z-[80] fade-in" onClick={onClose} />
-      <aside className="fixed top-0 right-0 h-screen w-full md:w-[600px] z-[85] flex flex-col drawer-anim"
+      <aside data-tour="exec-drawer" className="fixed top-3 right-3 bottom-3 w-full md:w-[600px] z-[85] flex flex-col drawer-anim rounded-2xl overflow-hidden"
         style={{
+          maxWidth: "calc(100vw - 24px)",
           background: "var(--bg)",
-          borderLeft: "1px solid var(--line)",
-          boxShadow: "-24px 0 60px -20px rgba(15,18,24,0.18)",
+          border: "1px solid var(--line)",
+          boxShadow: "0 24px 60px -16px rgba(15,18,24,0.30), -24px 0 60px -20px rgba(15,18,24,0.18)",
         }}>
         {/* Header */}
         <header className="px-7 py-5 flex items-center justify-between border-b border-line shrink-0">

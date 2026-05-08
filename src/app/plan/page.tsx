@@ -206,40 +206,62 @@ function RenewalRunwayTile() {
       }
       footer={`${renewals.length} renewals at risk · ${customers.filter((a) => a.renewalDays > 0 && a.renewalDays <= 365).length} total in next year`}
     >
-      <div className="grid grid-cols-2 gap-4 h-full">
-        {/* Sparkline */}
-        <div className="flex flex-col justify-end">
-          <div className="text-[10px] font-mono text-muted-2 mb-2">Next 6 months</div>
-          <div className="flex items-end gap-1 h-[88px]">
-            {buckets.map((v, i) => (
-              <div key={i}
-                className="flex-1 rounded-t-sm relative group/bar"
-                style={{
-                  height: `${(v / max) * 100}%`,
-                  background: i < 2 ? ACCENT : "var(--bg-deep)",
-                  border: i < 2 ? `1px solid ${ACCENT}` : "1px solid var(--line)",
-                }}
-                title={`Month ${i + 1}: ${v} renewals`}
-              />
-            ))}
+      <div className="grid grid-cols-5 gap-4 h-full">
+        {/* Bar chart with month labels + value tooltips on hover */}
+        <div className="col-span-3 flex flex-col">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-[10px] font-mono text-muted-2">Next 6 months</div>
+            <div className="text-[9.5px] font-mono text-muted-2">renewals / mo</div>
           </div>
-          <div className="flex justify-between text-[9px] font-mono text-muted-2 mt-1.5">
-            <span>May</span>
-            <span style={{ color: ACCENT }}>Jul</span>
-            <span>Oct</span>
+          <div className="flex items-end gap-1.5 h-[88px] relative">
+            {/* Today line */}
+            <div className="absolute left-0 top-0 bottom-0 w-px"
+              style={{ background: ACCENT, opacity: 0.4 }}>
+              <span className="absolute -top-2.5 -left-3 text-[8px] font-mono uppercase tracking-[0.12em]"
+                style={{ color: ACCENT }}>Today</span>
+            </div>
+            {buckets.map((v, i) => {
+              const isHot = i < 2;
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center justify-end gap-1 group/bar relative">
+                  <span className="text-[9px] font-mono tnum opacity-0 group-hover/bar:opacity-100 transition-opacity"
+                    style={{ color: isHot ? ACCENT : "var(--muted)" }}>{v}</span>
+                  <div className="w-full rounded-t-md relative cursor-pointer transition-all"
+                    style={{
+                      height: `${(v / max) * 80}px`,
+                      background: isHot ? ACCENT : "var(--bg-deep)",
+                      border: isHot ? `1px solid ${ACCENT}` : "1px solid var(--line)",
+                    }}
+                    title={`${["May","Jun","Jul","Aug","Sep","Oct"][i]}: ${v} renewals`}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex gap-1.5 text-[9px] font-mono text-muted-2 mt-1.5">
+            {["May","Jun","Jul","Aug","Sep","Oct"].map((m, i) => (
+              <span key={m} className="flex-1 text-center"
+                style={{ color: i < 2 ? ACCENT : undefined, fontWeight: i < 2 ? 600 : 400 }}>
+                {m}
+              </span>
+            ))}
           </div>
         </div>
 
-        {/* Top renewals */}
-        <div className="space-y-1.5">
+        {/* Top renewals — denser, with day-bar */}
+        <div className="col-span-2 space-y-1.5">
           <div className="text-[10px] font-mono text-muted-2 mb-2">Soonest</div>
           {renewals.map((a) => {
             const tone =
               a.renewalDays <= 30 ? "var(--neg)" :
               a.renewalDays <= 60 ? "var(--warn)" : "var(--info)";
+            const pct = Math.max(8, Math.min(100, (a.renewalDays / 90) * 100));
             return (
-              <div key={a.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md"
+              <div key={a.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md relative overflow-hidden"
                 style={{ background: "var(--bg-deep)" }}>
+                {/* day-progress bar (the closer the renewal, the shorter the fill) */}
+                <span className="absolute left-0 bottom-0 h-[2px] rounded-full"
+                  style={{ width: `${pct}%`, background: tone, opacity: 0.5 }} />
                 <Logo name={a.name} size={16} rounded={3} />
                 <div className="flex-1 min-w-0">
                   <div className="text-[11.5px] font-semibold text-ink truncate">

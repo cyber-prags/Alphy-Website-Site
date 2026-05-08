@@ -15,6 +15,8 @@ import { ClosureBadge, useClosure, type ClosureStatus } from "./ClosureContext";
 import { Popover, MenuItem, MenuLabel, MenuSeparator } from "./Popover";
 
 // Map a queue item's primary action label → composer kind.
+// AE-specific labels (questionnaire, discovery, multithread) hit dedicated
+// kinds with deal-flavoured drafts and steps — not generic email/QBR fall-throughs.
 const PRIMARY_TO_KIND: Record<string, QuickActionKind> = {
   "Send re-engage":          "email",
   "Build case":              "case",
@@ -23,9 +25,11 @@ const PRIMARY_TO_KIND: Record<string, QuickActionKind> = {
   "Approve & send":          "approve",
   "Validate case":           "case",
   "Open usage drill-down":   "drilldown",
-  "Open deal":               "drilldown", // fallback for AE deal items, will be overridden by deal target type
-  "Send questionnaire":      "email",
-  "Schedule discovery":      "qbr",
+  "Open deal":               "deal-update",
+  "Send questionnaire":      "questionnaire",
+  "Schedule discovery":      "discovery",
+  "Multithread":             "multithread",
+  "Update deal":             "deal-update",
 };
 
 type Filter = "all" | QueueKind;

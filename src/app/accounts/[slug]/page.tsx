@@ -15,6 +15,7 @@ import { OrgChart } from "@/components/OrgChart";
 import { Popover, MenuItem } from "@/components/Popover";
 import { DraftDeckModal, type DeckTemplate } from "@/components/DraftDeckModal";
 import { AdoptionPanel } from "@/components/AdoptionPanel";
+import { AccountWorkspaceV2 } from "@/components/AccountWorkspaceV2";
 import { accountAdoption, expansionOpportunities, championChanges, fmtMoney as fmtMoneyShort, slugify as slugifyMock } from "@/lib/mock";
 import { useUser } from "@/components/UserContext";
 import { ExecutionDrawer, type DrawerConfig, type DrawerFlow } from "@/components/ExecutionDrawer";
@@ -153,7 +154,7 @@ function AccountWorkspace({ account, slug, backHref }: { account: AccountDetail;
   return (
     <DrawerCtx.Provider value={{ open: setDrawerCfg }}>
     <AppShell>
-      {/* Notion-style page header */}
+      {/* Rich Notion-style page header (logo + status pills + properties grid) */}
       <NotionAccountHeader
         account={liveAccount}
         backHref={backHref}
@@ -162,10 +163,28 @@ function AccountWorkspace({ account, slug, backHref }: { account: AccountDetail;
         onBuildDeck={() => openDeck("qbr")}
       />
 
-      {/* Primary group strip — 5 tabs, modern pill style */}
+      {/* V2 workspace — clean tabs + panels. Renders without its own slim header
+          since we already render the richer NotionAccountHeader above. */}
+      <AccountWorkspaceV2
+        account={liveAccount}
+        slug={slug}
+        deals={accountDeals}
+        showOwnHeader={false}
+        renderCallRecordings={() => <CallRecordingsCard account={liveAccount} onOpen={() => {}} />}
+        renderWhitespace={() => (
+          <div className="space-y-5">
+            <WhiteSpaceAnalysisCard account={liveAccount} />
+            <WhiteSpaceMatrix account={liveAccount} slug={slug} />
+          </div>
+        )}
+        renderAnalytics={() => <AnalyticsPanel account={liveAccount} adoption={adoption} />}
+        renderDocs={() => <DocumentsPanel slug={slug} />}
+      />
+
+      {/* Legacy tab system — disabled in favour of V2 */}
+      {false && (<>
       <div className="flex items-center gap-1 mb-3">
         {GROUPS.map((g) => {
-          // Aggregate counts across all sub-tabs in the group
           let count = 0;
           if (g.id === "plan")     count = accountOutcomes.length;
           if (g.id === "people")   count = account.stakeholders.length;
@@ -174,6 +193,7 @@ function AccountWorkspace({ account, slug, backHref }: { account: AccountDetail;
           const active = groupForTab(tab) === g.id;
           return (
             <button key={g.id}
+              data-tour={`account-${g.id}-tab`}
               onClick={() => setTab(g.tabs[0])}
               className="text-[12.5px] font-medium px-3.5 py-2 rounded-lg transition-colors inline-flex items-center gap-1.5"
               style={{
@@ -192,29 +212,8 @@ function AccountWorkspace({ account, slug, backHref }: { account: AccountDetail;
         })}
       </div>
 
-      {/* Sub-tab nav — only when the active group has multiple tabs */}
-      {(() => {
-        const grp = GROUPS.find((g) => g.id === groupForTab(tab));
-        if (!grp || grp.tabs.length <= 1) return null;
-        return (
-          <div className="flex items-center gap-1 mb-3 px-1">
-            {grp.tabs.map((sub) => {
-              const subActive = tab === sub;
-              return (
-                <button key={sub}
-                  onClick={() => setTab(sub)}
-                  className="text-[11px] font-medium px-2.5 py-1 rounded transition-colors"
-                  style={{
-                    background: subActive ? "var(--bg-deep)" : "transparent",
-                    color: subActive ? "var(--ink)" : "var(--muted)",
-                  }}>
-                  {grp.subLabels[sub] ?? sub}
-                </button>
-              );
-            })}
-          </div>
-        );
-      })()}
+      {/* Legacy sub-tab nav — no-op when V2 is active */}
+      {null}
 
       {tab === "brief"      && <BriefPanel account={liveAccount} outcomes={accountOutcomes} deals={accountDeals} adoption={adoption} onJumpTab={setTab} />}
       {tab === "growth"     && <GrowthPlanPanel account={liveAccount} slug={slug} />}
@@ -229,6 +228,7 @@ function AccountWorkspace({ account, slug, backHref }: { account: AccountDetail;
       {tab === "plans"     && <PlansPanel slug={slug} />}
       {tab === "docs"      && <DocumentsPanel slug={slug} />}
       {tab === "workflows" && <AccountWorkflowsPanel slug={slug} />}
+      </>)}
 
       <DraftDeckModal open={deckOpen} account={liveAccount} template={deckTemplate} onClose={() => setDeckOpen(false)} />
       <StakeholderEditor open={editorOpen} onClose={() => setEditorOpen(false)}
@@ -890,6 +890,112 @@ function callsFor(account: AccountDetail, currentUser: { name: string; initials:
       ],
     },
   ];
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// White Space — natural-language analysis card.
+// Sits above the WhiteSpaceMatrix so the user reads the WHY before they
+// see the cell-by-cell visualisation.
+// ─────────────────────────────────────────────────────────────────────
+function WhiteSpaceAnalysisCard({ account }: { account: AccountDetail }) {
+  const champion = account.stakeholders.find((s) => s.role === "Champion");
+  const cfo = account.stakeholders.find((s) => /CFO/i.test(s.title));
+  const infosec = account.stakeholders.find((s) => /InfoSec|Security/i.test(s.title));
+  const product = account.stakeholders.find((s) => /Product/i.test(s.title));
+
+  // Mock figures derived from account.arr — keep them numerically coherent.
+  const totalAddressable = Math.round((account.arr / 0.45) / 1000) * 1000; // i.e. ~45% penetration today
+  const expansionPipeline = Math.round(account.arr * 0.30 / 1000) * 1000;  // ~30% of current ARR
+
+  return (
+    <div className="rounded-2xl border border-line bg-surface p-6">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg grid place-items-center"
+            style={{ background: "rgba(38,109,240,0.10)", border: "1px solid rgba(38,109,240,0.20)" }}>
+            <Sparkles size={13} strokeWidth={2} style={{ color: "var(--accent)" }} />
+          </div>
+          <div>
+            <h3 className="text-[15.5px] font-semibold text-ink leading-tight" style={{ letterSpacing: "-0.014em" }}>
+              White Space analysis · {account.name}
+            </h3>
+            <div className="text-[11.5px] text-muted">Cross-funnel, usage-led — refreshed 2 hours ago</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <WSStat label="Total addressable" value={fmtMoneyShort(totalAddressable)} tone="neutral" />
+          <WSStat label="Today" value={fmtMoneyShort(account.arr)} tone="ink" />
+          <WSStat label="Open expansion" value={fmtMoneyShort(expansionPipeline)} tone="pos" />
+        </div>
+      </div>
+
+      {/* TL;DR block */}
+      <div className="rounded-xl p-4 mb-4 border border-line bg-bg-deep">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1">TL;DR</div>
+        <p className="text-[12.5px] text-ink-2 leading-relaxed">
+          {account.name} is at <b className="text-ink">{fmtMoneyShort(account.arr)} ARR</b> with <b className="text-ink">NRR {account.nrr}%</b>, but only <b className="text-ink">~45%</b> of its addressable spend on this category is captured.
+          The single biggest open lever is the <b className="text-ink">Networking + Security bundle</b> ({champion ? `${champion.name} just gained budget authority for both` : "a newly merged budget pod"}). Two adjacent SKUs — Bot Management and Workers — are pre-validated by usage but untouched commercially.
+          With renewal in <b className="text-ink">{account.renewalDays} days</b> and procurement asking for single-vendor consolidation, the white space window closes inside <b className="text-ink">12–14 days</b>.
+        </p>
+      </div>
+
+      {/* Bullet sections */}
+      <ul className="space-y-3 text-[13px] text-ink-2 leading-relaxed">
+        <Bullet label="Penetration today">
+          {fmtMoneyShort(account.arr)} on Networking core. <b className="text-ink">3 of 7 product lines</b> in use. Adoption is concentrated in Engineering — Marketing, Finance, and Sales sit on legacy or no tooling.
+        </Bullet>
+        <Bullet label="Validated-but-uncommercial usage" tone="pos">
+          <b className="text-ink">+38% week-over-week</b> Networking SKU usage from Maya&rsquo;s team — under-provisioned at the current tier. Usage telemetry shows 4 stakeholders trialled <b className="text-ink">Bot Management</b> last sprint without a license; <b className="text-ink">Workers</b> usage has tripled since February. These are the easiest-to-defend expansion conversations.
+        </Bullet>
+        <Bullet label="Gap by buying centre">
+          <ul className="space-y-1.5 mt-1.5 list-disc list-inside text-ink-2">
+            <li><b className="text-ink">Engineering</b> ({champion?.name ?? "Champion"}): saturated on core, willing buyer for Bot Management + Security.</li>
+            <li><b className="text-ink">Finance</b> ({cfo?.name ?? "CFO"}): no current product footprint — the avoided-cost story (3-year, $420K) is the doorway.</li>
+            <li><b className="text-ink">Operations / Security</b> ({infosec?.name ?? "InfoSec lead"}): silent for 16 days; bundle-and-sign motion creates the natural intro.</li>
+            <li><b className="text-ink">Product</b> ({product?.name ?? "Product lead"}): high signal on Workers — perfect cross-sell for the platform layer.</li>
+          </ul>
+        </Bullet>
+        <Bullet label="Competitive displacement">
+          <b className="text-ink">6sense</b> was evaluated and rejected on data-accuracy grounds in 2024 — this is the slot we already won the technical debate on. <b className="text-ink">Demandbase</b> is the active alternative for the unified-attribution plug, but their RFP language (&ldquo;data accuracy&rdquo;, &ldquo;cross-funnel&rdquo;) maps 1:1 to what we differentiate on.
+        </Bullet>
+        <Bullet label="Sequencing the sale" tone="pos">
+          <ol className="space-y-1.5 mt-1.5 list-decimal list-inside text-ink-2">
+            <li>Lead with the bundle: Networking + Security on a 3-year multi-product term — owns Maya&rsquo;s newly merged budget.</li>
+            <li>Layer Bot Management as a Q4 attach — usage data already justifies the line.</li>
+            <li>Open Workers in Q1 with Anders Holm (VP Product) — quote a usage-based pricing pilot.</li>
+            <li>Defer attribution until renewal closes — keeps competitive surface narrow.</li>
+          </ol>
+        </Bullet>
+        <Bullet label="Estimated impact">
+          Closing the bundle alone is a <b className="text-ink">{fmtMoneyShort(expansionPipeline)} ARR lift</b> with a 14-month payback. Layering Bot Management and Workers within four quarters takes the account to <b className="text-ink">{fmtMoneyShort(account.arr + expansionPipeline + 180_000)} run-rate</b> — within striking distance of the addressable {fmtMoneyShort(totalAddressable)}.
+        </Bullet>
+      </ul>
+    </div>
+  );
+}
+
+function WSStat({ label, value, tone }: { label: string; value: string; tone: "ink" | "pos" | "neutral" }) {
+  const color = tone === "pos" ? "#16A34A" : tone === "neutral" ? "var(--muted)" : "var(--ink)";
+  return (
+    <div className="text-right">
+      <div className="text-[9.5px] font-semibold uppercase tracking-[0.14em] text-muted-2">{label}</div>
+      <div className="text-[16px] font-bold tnum" style={{ color, letterSpacing: "-0.018em" }}>{value}</div>
+    </div>
+  );
+}
+
+function Bullet({ label, tone, children }: { label: string; tone?: "pos" | "warn"; children: React.ReactNode }) {
+  const dotColor = tone === "pos" ? "#16A34A" : tone === "warn" ? "#F59E0B" : "var(--muted)";
+  return (
+    <li className="flex gap-2.5">
+      <span className="inline-block w-1.5 h-1.5 rounded-full mt-[7px] flex-shrink-0" style={{ background: dotColor }} />
+      <div className="flex-1">
+        <span className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-2 mr-2">{label}</span>
+        <span>{children}</span>
+      </div>
+    </li>
+  );
 }
 
 function CallRecordingsCard({ account, onOpen }: { account: AccountDetail; onOpen: (c: CallRecording) => void }) {

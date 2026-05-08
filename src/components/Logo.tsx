@@ -6,6 +6,8 @@ import {
   SiDatadog, SiGithub, SiSnowflake, SiStripe, SiNotion, SiLinear, SiVercel,
   SiShopify, SiCloudflare, SiSiemens, SiAkamai, SiHsbc, SiGitlab, SiAsana,
   SiMongodb, SiGooglecalendar, SiZendesk, SiIntercom, SiMixpanel,
+  SiFigma, SiAtlassian, SiTwilio, SiDropbox, SiToyota,
+  SiWalmart, SiAnthropic,
 } from "react-icons/si";
 import type { IconType } from "react-icons";
 
@@ -69,6 +71,27 @@ const BRANDS: Record<string, Brand> = {
   gitlabinc:              { Icon: SiGitlab,     color: "#FFFFFF", bg: "#FC6D26", domain: "gitlab.com" },
   bostondynamics:         { color: "#FFFFFF", bg: "#0B1320", domain: "bostondynamics.com", short: "BD" },
   asana:                  { Icon: SiAsana,      color: "#FFFFFF", bg: "#F06A6A", domain: "asana.com" },
+
+  // === Newly added accounts ===
+  notionlabs:             { Icon: SiNotion,     color: "#FFFFFF", bg: "#000000", domain: "notion.so" },
+  figma:                  { Icon: SiFigma,      color: "#FFFFFF", bg: "#0ACF83", domain: "figma.com" },
+  figmainc:               { Icon: SiFigma,      color: "#FFFFFF", bg: "#0ACF83", domain: "figma.com" },
+  atlassian:              { Icon: SiAtlassian,  color: "#FFFFFF", bg: "#0052CC", domain: "atlassian.com" },
+  atlassiancorporation:   { Icon: SiAtlassian,  color: "#FFFFFF", bg: "#0052CC", domain: "atlassian.com" },
+  servicenow:             { color: "#FFFFFF", bg: "#062E2E", domain: "servicenow.com", short: "SN" },
+  servicenowinc:          { color: "#FFFFFF", bg: "#062E2E", domain: "servicenow.com", short: "SN" },
+  walmart:                { Icon: SiWalmart,    color: "#FFC220", bg: "#0071CE", domain: "walmart.com" },
+  walmartinc:             { Icon: SiWalmart,    color: "#FFC220", bg: "#0071CE", domain: "walmart.com" },
+  pfizer:                 { color: "#FFFFFF", bg: "#0093D0", domain: "pfizer.com", short: "Pf" },
+  pfizerinc:              { color: "#FFFFFF", bg: "#0093D0", domain: "pfizer.com", short: "Pf" },
+  toyota:                 { Icon: SiToyota,     color: "#FFFFFF", bg: "#EB0A1E", domain: "toyota.com" },
+  toyotamotorcorp:        { Icon: SiToyota,     color: "#FFFFFF", bg: "#EB0A1E", domain: "toyota.com" },
+  twilio:                 { Icon: SiTwilio,     color: "#FFFFFF", bg: "#F22F46", domain: "twilio.com" },
+  twilioinc:              { Icon: SiTwilio,     color: "#FFFFFF", bg: "#F22F46", domain: "twilio.com" },
+  anthropic:              { Icon: SiAnthropic,  color: "#FFFFFF", bg: "#CC785C", domain: "anthropic.com" },
+  anthropicpbc:           { Icon: SiAnthropic,  color: "#FFFFFF", bg: "#CC785C", domain: "anthropic.com" },
+  dropbox:                { Icon: SiDropbox,    color: "#FFFFFF", bg: "#0061FF", domain: "dropbox.com" },
+  dropboxinc:             { Icon: SiDropbox,    color: "#FFFFFF", bg: "#0061FF", domain: "dropbox.com" },
 
   // === Common reference brands ===
   notion:                 { Icon: SiNotion,     color: "#FFFFFF", bg: "#000000", domain: "notion.so" },

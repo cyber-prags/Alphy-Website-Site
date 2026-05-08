@@ -245,6 +245,13 @@ export type Tier      = "Strategic" | "Enterprise" | "Growth";
 export type AIHealth  = "Healthy" | "Concerning" | "Cold" | "—";
 export type Watchlist = "Renewal Likely" | "Upsell Likely" | "Watchlist";
 
+// Pipeline / lifecycle stage. Customers progress through onboarding → adoption → ...
+// Prospects progress through prospecting → qualification → ... → negotiation → closed.
+export type LifecycleStage =
+  | "Prospecting" | "Qualified" | "Discovery" | "Demo" | "Proposal" | "Negotiation" | "Closing"
+  | "Onboarding" | "Adopting"  | "Expanding" | "Renewing" | "At Risk" | "Stable"
+  | "Churned";
+
 export type Account = {
   id: string;
   name: string;
@@ -272,6 +279,12 @@ export type Account = {
   watchlist?: Watchlist;
   eventTimeline: number[][];  // 5 rows × 8 cells (D/W/M/Q/H × time), 0-4 intensity
   hq: string;
+  /** Where this account sits in its lifecycle. Optional — derived if missing. */
+  dealStage?: LifecycleStage;
+  /** Pipeline-heat score (0-100): how active / promising the deal is *right now*.
+   *  For prospects this replaces the customer "expansion / fit" score in the
+   *  book-of-business UI. Optional — derived if missing. */
+  pipelineHeat?: number;
 };
 
 // Reusable event-timeline patterns (5 rows × 8 cells)
@@ -334,7 +347,7 @@ const TL_FOR_HEALTH: Record<Health, number[][]> = {
 type AccountSeed = Omit<Account, "tier" | "healthScore" | "nrr" | "renewalDays" | "signal" | "qbrInDays" | "agendas1to1" | "aiChat14d" | "aiHealth" | "watchlist" | "eventTimeline">;
 
 const accountSeeds: AccountSeed[] = [
-  { id: "ac1",  name: "Stripe, Inc.", domain: "stripe.com", segment: "Enterprise", industry: "Manufacturing",       employees: 1200, arr: 0,      status: "Prospect", owner: "Sarah Chen",   ownerInitials: "SC", openDeals: 1, pipelineValue: 200000, lastTouch: "2026-04-29", health: "medium", hq: "Scranton, PA" },
+  { id: "ac1",  name: "Stripe, Inc.", domain: "stripe.com", segment: "Enterprise", industry: "Financial Services · Payments", employees: 8400, arr: 0, status: "Prospect", owner: "Sarah Chen",   ownerInitials: "SC", openDeals: 1, pipelineValue: 200000, lastTouch: "2026-04-29", health: "medium", hq: "South San Francisco, CA" },
   { id: "ac2",  name: "Snowflake Inc.",  domain: "snowflake.com",    segment: "Enterprise", industry: "Software",            employees:  900, arr: 480000, status: "Customer", owner: "Brad Allen",   ownerInitials: "BA", openDeals: 1, pipelineValue: 120000, lastTouch: "2026-04-28", health: "low",    hq: "San Francisco, CA" },
   { id: "ac3",  name: "Datadog, Inc.",           domain: "datadoghq.com",          segment: "Enterprise", industry: "Data & Analytics",    employees:  340, arr:  0,     status: "Prospect", owner: "Paul Acker",   ownerInitials: "PA", openDeals: 1, pipelineValue: 110000, lastTouch: "2026-04-27", health: "high",   hq: "London, UK" },
   { id: "ac4",  name: "Shopify Inc.", domain: "shopify.com",      segment: "Enterprise", industry: "Logistics",           employees: 4200, arr:  0,     status: "Prospect", owner: "Mike Torres",  ownerInitials: "MT", openDeals: 1, pipelineValue: 350000, lastTouch: "2026-04-26", health: "high",   hq: "Chicago, IL" },
@@ -359,13 +372,69 @@ const accountSeeds: AccountSeed[] = [
   { id: "ac23", name: "GitLab Inc.",            domain: "gitlab.com",         segment: "Enterprise", industry: "Software",            employees: 1100, arr: 280000, status: "Customer", owner: "Sarah Chen",   ownerInitials: "SC", openDeals: 1, pipelineValue: 180000, lastTouch: "2026-04-22", health: "medium", hq: "Berlin, DE" },
   { id: "ac24", name: "Boston Dynamics",             domain: "bostondynamics.com",  segment: "Enterprise", industry: "Robotics",            employees: 1900, arr:  0,     status: "Prospect", owner: "Tom Walker",   ownerInitials: "TW", openDeals: 1, pipelineValue: 175000, lastTouch: "2026-04-11", health: "high",   hq: "Pittsburgh, PA" },
   { id: "ac25", name: "Asana",                   domain: "asana.com",       segment: "Mid-Market", industry: "Software",            employees:  220, arr:  0,     status: "Prospect", owner: "Rachel Kim",   ownerInitials: "RK", openDeals: 1, pipelineValue:  75000, lastTouch: "2026-04-10", health: "high",   hq: "Houston, TX" },
+  // ── Additional accounts — diverse industries / stages ─────────────
+  { id: "ac26", name: "Notion Labs",               domain: "notion.so",          segment: "Mid-Market", industry: "Productivity SaaS",   employees:  610, arr:      0, status: "Prospect", owner: "Sarah Chen",   ownerInitials: "SC", openDeals: 1, pipelineValue: 165000, lastTouch: "2026-05-04", health: "high",   hq: "San Francisco, CA" },
+  { id: "ac27", name: "Figma, Inc.",               domain: "figma.com",          segment: "Mid-Market", industry: "Design Software",     employees:  900, arr:      0, status: "Prospect", owner: "Rachel Kim",   ownerInitials: "RK", openDeals: 1, pipelineValue: 220000, lastTouch: "2026-05-02", health: "high",   hq: "San Francisco, CA" },
+  { id: "ac28", name: "Atlassian Corporation",     domain: "atlassian.com",      segment: "Enterprise", industry: "Collaboration",       employees: 9500, arr: 410000, status: "Customer", owner: "Mike Torres",  ownerInitials: "MT", openDeals: 0, pipelineValue:      0, lastTouch: "2026-04-30", health: "high",   hq: "Sydney, AU" },
+  { id: "ac29", name: "ServiceNow Inc.",           domain: "servicenow.com",     segment: "Enterprise", industry: "Workflow Automation", employees: 21500,arr:      0, status: "Prospect", owner: "Tom Walker",   ownerInitials: "TW", openDeals: 1, pipelineValue: 480000, lastTouch: "2026-05-03", health: "high",   hq: "Santa Clara, CA" },
+  { id: "ac30", name: "Walmart Inc.",              domain: "walmart.com",        segment: "Enterprise", industry: "Retail",              employees:21000, arr:      0, status: "Prospect", owner: "Lisa Park",    ownerInitials: "LP", openDeals: 1, pipelineValue: 540000, lastTouch: "2026-04-29", health: "medium", hq: "Bentonville, AR" },
+  { id: "ac31", name: "Pfizer Inc.",               domain: "pfizer.com",         segment: "Enterprise", industry: "Pharmaceuticals",     employees:14000, arr:      0, status: "Prospect", owner: "Paul Acker",   ownerInitials: "PA", openDeals: 1, pipelineValue: 290000, lastTouch: "2026-04-27", health: "medium", hq: "New York, NY" },
+  { id: "ac32", name: "Toyota Motor Corp.",        domain: "toyota.com",         segment: "Enterprise", industry: "Automotive",          employees:18500, arr:      0, status: "Prospect", owner: "Brad Allen",   ownerInitials: "BA", openDeals: 1, pipelineValue: 320000, lastTouch: "2026-04-25", health: "high",   hq: "Toyota City, JP" },
+  { id: "ac33", name: "Twilio Inc.",               domain: "twilio.com",         segment: "Enterprise", industry: "Cloud Communications",employees: 8100, arr: 380000, status: "Customer", owner: "Sarah Chen",   ownerInitials: "SC", openDeals: 1, pipelineValue: 150000, lastTouch: "2026-05-05", health: "high",   hq: "San Francisco, CA" },
+  { id: "ac34", name: "Anthropic, PBC",            domain: "anthropic.com",      segment: "Mid-Market", industry: "AI · Foundation Models",employees: 1100,arr:      0, status: "Prospect", owner: "Rachel Kim",   ownerInitials: "RK", openDeals: 1, pipelineValue: 280000, lastTouch: "2026-05-06", health: "high",   hq: "San Francisco, CA" },
+  { id: "ac35", name: "Dropbox, Inc.",             domain: "dropbox.com",        segment: "Enterprise", industry: "Cloud Storage",       employees: 2400, arr: 220000, status: "Customer", owner: "Paul Acker",   ownerInitials: "PA", openDeals: 0, pipelineValue:      0, lastTouch: "2026-04-21", health: "medium", hq: "San Francisco, CA" },
 ];
 
 const tierFor = (s: AccountSeed): Tier =>
   s.segment === "Enterprise" ? "Enterprise" : s.segment === "Mid-Market" ? "Growth" : "Growth";
 
+// Per-account stage + heat. Coupled to id so the table is deterministic but
+// each account still has a coherent "where in the funnel/lifecycle am I" story.
+const STAGE_BY_ID: Record<string, { stage: LifecycleStage; heat: number }> = {
+  ac1:  { stage: "Discovery",   heat: 62 },   // Stripe — prospect, mid-funnel
+  ac2:  { stage: "At Risk",     heat: 30 },   // Snowflake — sponsor silent
+  ac3:  { stage: "Demo",        heat: 78 },   // Datadog — prospect
+  ac4:  { stage: "Negotiation", heat: 84 },   // Shopify — late stage
+  ac5:  { stage: "Qualified",   heat: 55 },   // Rivian
+  ac6:  { stage: "Discovery",   heat: 60 },   // NextEra
+  ac7:  { stage: "Proposal",    heat: 72 },   // Siemens
+  ac8:  { stage: "Negotiation", heat: 88 },   // Lockheed Martin
+  ac9:  { stage: "Qualified",   heat: 48 },   // Telstra
+  ac10: { stage: "Demo",        heat: 70 },   // MongoDB
+  ac11: { stage: "Expanding",   heat: 92 },   // Cloudflare — VP promoted
+  ac12: { stage: "Demo",        heat: 66 },   // Vercel
+  ac13: { stage: "Discovery",   heat: 58 },   // Linear
+  ac14: { stage: "Churned",     heat: 12 },   // Patagonia
+  ac15: { stage: "Churned",     heat: 10 },   // Comcast
+  ac16: { stage: "Proposal",    heat: 65 },   // Raytheon
+  ac17: { stage: "Expanding",   heat: 86 },   // Tableau
+  ac18: { stage: "Renewing",    heat: 81 },   // Akamai
+  ac19: { stage: "Prospecting", heat: 42 },   // International Paper
+  ac20: { stage: "Qualified",   heat: 60 },   // Sephora
+  ac21: { stage: "Discovery",   heat: 58 },   // Latham & Watkins
+  ac22: { stage: "Proposal",    heat: 79 },   // HSBC
+  ac23: { stage: "At Risk",     heat: 50 },   // GitLab — usage drop
+  ac24: { stage: "Qualified",   heat: 64 },   // Boston Dynamics
+  ac25: { stage: "Demo",        heat: 56 },   // Asana
+  ac26: { stage: "Demo",        heat: 71 },   // Notion
+  ac27: { stage: "Proposal",    heat: 80 },   // Figma
+  ac28: { stage: "Stable",      heat: 78 },   // Atlassian
+  ac29: { stage: "Discovery",   heat: 68 },   // ServiceNow
+  ac30: { stage: "Negotiation", heat: 75 },   // Walmart
+  ac31: { stage: "Qualified",   heat: 52 },   // Pfizer
+  ac32: { stage: "Demo",        heat: 70 },   // Toyota
+  ac33: { stage: "Stable",      heat: 76 },   // Twilio
+  ac34: { stage: "Discovery",   heat: 82 },   // Anthropic
+  ac35: { stage: "Adopting",    heat: 64 },   // Dropbox
+};
+
 export const accounts: Account[] = accountSeeds.map((s) => {
   const d = ACCOUNT_DECORATIONS[s.id] ?? {};
+  const sh = STAGE_BY_ID[s.id];
+  // Default stage when id-specific seed is missing
+  const fallbackStage: LifecycleStage =
+    s.status === "Customer" ? "Stable" :
+    s.status === "Churned"  ? "Churned" : "Discovery";
   return {
     ...s,
     tier:          d.tier          ?? tierFor(s),
@@ -379,6 +448,8 @@ export const accounts: Account[] = accountSeeds.map((s) => {
     aiHealth:      d.aiHealth      ?? "Healthy",
     watchlist:     d.watchlist,
     eventTimeline: d.eventTimeline ?? TL_FOR_HEALTH[s.health],
+    dealStage:     sh?.stage       ?? fallbackStage,
+    pipelineHeat:  sh?.heat        ?? (s.health === "high" ? 70 : s.health === "medium" ? 50 : 25),
   };
 });
 
@@ -808,48 +879,75 @@ export const accountDetails: Record<string, AccountDetail> = {
   [slugify("Stripe, Inc.")]: baseAccountDetail({
     name: "Stripe", domain: "stripe.com", segment: "Enterprise", arr: 0, status: "Prospect",
     owner: "Sarah Chen", ownerInitials: "SC", health: "medium", healthScore: 78, renewalDays: -1, nrr: 0,
-    lastQbrDays: 0, hq: "Scranton, PA", industry: "Manufacturing", employees: 1200,
+    lastQbrDays: 0, hq: "South San Francisco, CA", industry: "Financial Services · Payments", employees: 8400,
     stakeholders: [
-      { name: "Michael Scott",     title: "CEO",       role: "Champion",       sentiment: "supportive", lastTouch: "2d ago",  daysSilent:  2, department: "Executive" },
-      { name: "David Wallace",     title: "CFO",       role: "Decision Maker", sentiment: "neutral",    lastTouch: "14d ago", daysSilent: 14, department: "Finance",    reportsTo: "Michael Scott" },
-      { name: "Pam Beasley",       title: "CRO",       role: "Decision Maker", sentiment: "neutral",    lastTouch: "1d ago",  daysSilent:  1, department: "Sales",      reportsTo: "Michael Scott" },
-      { name: "Christine Pettett", title: "VP Ops",    role: "Champion",       sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Operations", reportsTo: "Michael Scott" },
-      { name: "Jim Halpert",       title: "Head of Sales Ops", role: "Influencer", sentiment: "supportive", lastTouch: "3d ago",  daysSilent:  3, department: "Sales",      reportsTo: "Pam Beasley" },
-      { name: "Stanley Hudson",    title: "Director of Procurement", role: "Influencer", sentiment: "neutral", lastTouch: "5d ago", daysSilent:  5, department: "Finance", reportsTo: "David Wallace" },
-      { name: "Dwight Schrute",    title: "Technical Validator", role: "User", sentiment: "supportive", lastTouch: "1d ago",  daysSilent:  1, department: "Operations", reportsTo: "Christine Pettett" },
+      { name: "Patrick Mendez",    title: "Co-CEO",                       role: "Decision Maker", sentiment: "neutral",    lastTouch: "9d ago",   daysSilent:  9, department: "Executive" },
+      { name: "Lila Ortega",       title: "CTO",                          role: "Decision Maker", sentiment: "supportive", lastTouch: "3d ago",   daysSilent:  3, department: "Engineering", reportsTo: "Patrick Mendez" },
+      { name: "Daniel Reeves",     title: "VP Payments Engineering",      role: "Champion",       sentiment: "supportive", lastTouch: "today",    daysSilent:  0, department: "Engineering", reportsTo: "Lila Ortega" },
+      { name: "Caleb Brown",       title: "VP Risk & Fraud",              role: "Decision Maker", sentiment: "neutral",    lastTouch: "5d ago",   daysSilent:  5, department: "Operations",  reportsTo: "Patrick Mendez" },
+      { name: "Anita Iyer",        title: "Director of Compliance",       role: "Influencer",     sentiment: "supportive", lastTouch: "2d ago",   daysSilent:  2, department: "Operations",  reportsTo: "Caleb Brown" },
+      { name: "Felipe Castro",     title: "Head of Treasury Operations",  role: "Influencer",     sentiment: "neutral",    lastTouch: "8d ago",   daysSilent:  8, department: "Finance",     reportsTo: "Patrick Mendez" },
+      { name: "Ben Ito",           title: "Director of FP&A",             role: "Decision Maker", sentiment: "neutral",    lastTouch: "12d ago",  daysSilent: 12, department: "Finance",     reportsTo: "Felipe Castro" },
+      { name: "Mei Chen",          title: "Senior PM · Payments",         role: "Influencer",     sentiment: "supportive", lastTouch: "1d ago",   daysSilent:  1, department: "Product",     reportsTo: "Daniel Reeves" },
+      { name: "Henry Kwon",        title: "Lead Engineer · Platform",     role: "User",           sentiment: "supportive", lastTouch: "today",    daysSilent:  0, department: "Engineering", reportsTo: "Daniel Reeves" },
+      { name: "Yuki Tanaka",       title: "Staff Engineer · Issuing",     role: "User",           sentiment: "supportive", lastTouch: "2d ago",   daysSilent:  2, department: "Engineering", reportsTo: "Daniel Reeves" },
+      { name: "Sarah Liu",         title: "Director of Procurement",      role: "Decision Maker", sentiment: "neutral",    lastTouch: "11d ago",  daysSilent: 11, department: "Finance",     reportsTo: "Ben Ito" },
+      { name: "Roger Jain",        title: "Head of Information Security", role: "Decision Maker", sentiment: "neutral",    lastTouch: "16d ago",  daysSilent: 16, department: "Operations",  reportsTo: "Caleb Brown" },
+      { name: "Lara Schultz",      title: "Senior Compliance Analyst",    role: "User",           sentiment: "supportive", lastTouch: "4d ago",   daysSilent:  4, department: "Operations",  reportsTo: "Anita Iyer" },
+      { name: "Tom Bryant",        title: "VP Sales · Enterprise",        role: "Detractor",      sentiment: "negative",   lastTouch: "26d ago",  daysSilent: 26, department: "Sales",       reportsTo: "Patrick Mendez" },
     ],
     signals: [
-      { id: "s1", category: "Renewal",     tone: "neg",  body: "Economic Buyer dark for 14 days — last 2 threads unanswered.",
+      { id: "s1", category: "Renewal",     tone: "neg",  body: "Economic buyer Ben Ito (FP&A) dark for 12 days — last 2 follow-ups on the security addendum unanswered.",
         ago: "1h", evidence: [
-          { kind: "email", title: "Re: Phase 1 proposal — followup", meta: "sent Apr 16, no reply" },
-          { kind: "email", title: "Re: Q1 budget alignment",          meta: "sent Apr 22, no reply" },
+          { kind: "email", title: "Re: Security addendum — finalising",     meta: "sent Apr 16, no reply" },
+          { kind: "email", title: "Re: Q1 implementation timeline",          meta: "sent Apr 22, no reply" },
         ] },
-      { id: "s2", category: "Expansion",   tone: "pos",  body: "Christine confirmed Q1 budget exists for Phase 2 (Scranton + 2 branches).",
+      { id: "s2", category: "Expansion",   tone: "pos",  body: "Daniel confirmed budget for Issuing + Connect bundle once SOC 2 Type II evidence lands.",
         ago: "2d", evidence: [
-          { kind: "call",       title: "Discovery — Christine + Pam",   meta: "Apr 28, 00:08:42" },
-          { kind: "transcript", title: "Mention: 'budget exists for two more branches'", meta: "00:12:31" },
+          { kind: "call",       title: "Discovery — Daniel + Mei",   meta: "Apr 28, 00:08:42" },
+          { kind: "transcript", title: "Mention: 'we'd close fast if InfoSec was clean'", meta: "00:12:31" },
+        ] },
+      { id: "s3", category: "Hiring & Org", tone: "info", body: "Stripe announced 1,200+ engineering hires across Issuing and Embedded Finance — usage-based product fit strengthens.",
+        ago: "5d", evidence: [
+          { kind: "linkedin", title: "Stripe careers — 312 active reqs in Payments", meta: "May 3" },
+        ] },
+      { id: "s4", category: "Competitive", tone: "warn", body: "Adyen referenced in Tom Bryant's procurement note — competitive overlap on Issuing.",
+        ago: "8d", evidence: [
+          { kind: "internal", title: "Procurement memo — \"evaluate alternatives\"", meta: "Apr 28" },
         ] },
     ],
   }),
   [slugify("Snowflake Inc.")]: baseAccountDetail({
     name: "Snowflake", domain: "snowflake.com", segment: "Enterprise", arr: 480_000, status: "Customer",
     owner: "Brad Allen", ownerInitials: "BA", health: "low", healthScore: 41, renewalDays: 47, nrr: 92,
-    lastQbrDays: 95, hq: "San Francisco, CA", industry: "Software", employees: 900,
+    lastQbrDays: 95, hq: "Bozeman, MT", industry: "Data Cloud · Warehousing", employees: 7300,
     stakeholders: [
-      { name: "Tom Reilly",  title: "VP Eng",          role: "Champion",       sentiment: "neutral",  lastTouch: "24d ago", daysSilent: 24, department: "Engineering" },
-      { name: "Anna Park",   title: "Head of CX",      role: "Decision Maker", sentiment: "negative", lastTouch: "9d ago",  daysSilent:  9, department: "Operations", reportsTo: "Tom Reilly" },
-      { name: "Lukas Becker",title: "Eng Manager",     role: "Influencer",     sentiment: "neutral",  lastTouch: "7d ago",  daysSilent:  7, department: "Engineering", reportsTo: "Tom Reilly" },
+      { name: "Hari Shankar",      title: "CEO",                                role: "Decision Maker", sentiment: "neutral",    lastTouch: "20d ago", daysSilent: 20, department: "Executive" },
+      { name: "Ben Albrecht",      title: "CTO",                                role: "Decision Maker", sentiment: "neutral",    lastTouch: "14d ago", daysSilent: 14, department: "Engineering", reportsTo: "Hari Shankar" },
+      { name: "Tom Reilly",        title: "VP Engineering · Data Cloud",        role: "Champion",       sentiment: "neutral",    lastTouch: "24d ago", daysSilent: 24, department: "Engineering", reportsTo: "Ben Albrecht" },
+      { name: "Logan Reeves",      title: "VP Customer Success",                role: "Champion",       sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Operations",  reportsTo: "Hari Shankar" },
+      { name: "Anna Park",         title: "Head of Data Cloud Operations",      role: "Decision Maker", sentiment: "negative",   lastTouch: "9d ago",  daysSilent:  9, department: "Operations",  reportsTo: "Tom Reilly" },
+      { name: "Natalie Singh",     title: "Director of Solutions Architecture", role: "Influencer",     sentiment: "supportive", lastTouch: "1d ago",  daysSilent:  1, department: "Engineering", reportsTo: "Tom Reilly" },
+      { name: "Marcus Webb",       title: "Head of Data Governance",            role: "Decision Maker", sentiment: "neutral",    lastTouch: "31d ago", daysSilent: 31, department: "Operations",  reportsTo: "Anna Park" },
+      { name: "Ana Velasco",       title: "Principal Architect · Snowpark",     role: "User",           sentiment: "supportive", lastTouch: "2d ago",  daysSilent:  2, department: "Engineering", reportsTo: "Tom Reilly" },
+      { name: "Lukas Becker",      title: "Senior Data Engineer",               role: "User",           sentiment: "neutral",    lastTouch: "7d ago",  daysSilent:  7, department: "Engineering", reportsTo: "Natalie Singh" },
+      { name: "Jin Park",          title: "Director of FP&A",                   role: "Influencer",     sentiment: "neutral",    lastTouch: "11d ago", daysSilent: 11, department: "Finance" },
+      { name: "Adrian Cole",       title: "VP Sales · Enterprise",              role: "Influencer",     sentiment: "supportive", lastTouch: "3d ago",  daysSilent:  3, department: "Sales",       reportsTo: "Hari Shankar" },
+      { name: "Ellen Wright",      title: "Head of Procurement",                role: "Detractor",      sentiment: "negative",   lastTouch: "27d ago", daysSilent: 27, department: "Finance",     reportsTo: "Jin Park" },
+      { name: "Nathan Cole",       title: "Senior Data Engineer · Streaming",   role: "User",           sentiment: "neutral",    lastTouch: "13d ago", daysSilent: 13, department: "Engineering", reportsTo: "Ana Velasco" },
     ],
     signals: [
-      { id: "s1", category: "Renewal", tone: "neg", body: "Champion silent 24 days, renewal in 47 days — high-risk.", ago: "1h",
+      { id: "s1", category: "Renewal", tone: "neg", body: "Champion Tom Reilly silent 24 days; renewal in 47 days — sponsor recovery is the renewal blocker.", ago: "1h",
         evidence: [{ kind: "email", title: "Re: Q2 health check", meta: "no reply 24d" }] },
-      { id: "s2", category: "Usage",   tone: "warn", body: "Active seat count down 18% MoM.", ago: "1d",
+      { id: "s2", category: "Usage",   tone: "warn", body: "Active warehouses down 18% MoM — Snowpark adoption stalling in Anna Park's org.", ago: "1d",
         evidence: [{ kind: "internal", title: "usage dashboard", meta: "Apr 29 snapshot" }] },
       { id: "s3", category: "Champion Change", tone: "neg", body: "James Whitfield (VP Sales Ops) left company — succession recovery needed before renewal.", ago: "2d",
         evidence: [
           { kind: "linkedin", title: "LinkedIn: James Whitfield changed to 'Open to work'", meta: "May 3" },
           { kind: "internal", title: "CRM: contact marked as departed", meta: "May 4" },
         ] },
+      { id: "s4", category: "Competitive", tone: "warn", body: "Databricks listed in last QBR slide as a comparison vendor — needs displacement narrative.", ago: "9d",
+        evidence: [{ kind: "internal", title: "QBR Q1 deck — slide 14", meta: "competitive landscape" }] },
     ],
   }),
   [slugify("Cloudflare, Inc.")]: baseAccountDetail({
@@ -857,10 +955,20 @@ export const accountDetails: Record<string, AccountDetail> = {
     owner: "Brad Allen", ownerInitials: "BA", health: "high", healthScore: 88, renewalDays: 178, nrr: 124,
     lastQbrDays: 14, hq: "Denver, CO", industry: "Cloud Infrastructure", employees: 3400,
     stakeholders: [
-      { name: "Maya Chen",      title: "VP Eng (just promoted)", role: "Champion",       sentiment: "supportive", lastTouch: "today",  daysSilent: 0, department: "Engineering" },
-      { name: "Ricardo Diaz",   title: "Head of Security",       role: "Influencer",     sentiment: "supportive", lastTouch: "5d ago", daysSilent: 5, department: "Operations", reportsTo: "Maya Chen" },
-      { name: "Sandra Lewis",   title: "Director of Networking", role: "Influencer",     sentiment: "supportive", lastTouch: "2d ago", daysSilent: 2, department: "Engineering", reportsTo: "Maya Chen" },
-      { name: "Eric Cartman",   title: "Senior Engineer",        role: "User",           sentiment: "neutral",    lastTouch: "1d ago", daysSilent: 1, department: "Engineering", reportsTo: "Sandra Lewis" },
+      { name: "Maya Chen",        title: "VP Eng (just promoted)",      role: "Champion",       sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering" },
+      { name: "Ricardo Diaz",     title: "Head of Security",            role: "Influencer",     sentiment: "supportive", lastTouch: "5d ago",  daysSilent:  5, department: "Operations",  reportsTo: "Maya Chen" },
+      { name: "Sandra Lewis",     title: "Director of Networking",      role: "Influencer",     sentiment: "supportive", lastTouch: "2d ago",  daysSilent:  2, department: "Engineering", reportsTo: "Maya Chen" },
+      { name: "Eric Cartman",     title: "Senior Engineer",             role: "User",           sentiment: "neutral",    lastTouch: "1d ago",  daysSilent:  1, department: "Engineering", reportsTo: "Sandra Lewis" },
+      { name: "Naomi Walker",     title: "CFO",                         role: "Decision Maker", sentiment: "neutral",    lastTouch: "9d ago",  daysSilent:  9, department: "Finance" },
+      { name: "Priya Sharma",     title: "Director of Procurement",     role: "Decision Maker", sentiment: "neutral",    lastTouch: "11d ago", daysSilent: 11, department: "Finance",      reportsTo: "Naomi Walker" },
+      { name: "Jordan Reed",      title: "Senior Procurement Analyst",  role: "Influencer",     sentiment: "neutral",    lastTouch: "14d ago", daysSilent: 14, department: "Finance",      reportsTo: "Priya Sharma" },
+      { name: "Anders Holm",      title: "VP Product",                  role: "Influencer",     sentiment: "supportive", lastTouch: "3d ago",  daysSilent:  3, department: "Product",     reportsTo: "Maya Chen" },
+      { name: "Lin Park",         title: "Principal SRE",               role: "User",           sentiment: "supportive", lastTouch: "1d ago",  daysSilent:  1, department: "Engineering", reportsTo: "Sandra Lewis" },
+      { name: "Travis Bell",      title: "Staff Software Engineer",     role: "User",           sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Anders Holm" },
+      { name: "Jasmine Okafor",   title: "Senior Marketing Ops",        role: "Influencer",     sentiment: "supportive", lastTouch: "6d ago",  daysSilent:  6, department: "Operations" },
+      { name: "Marcus Vela",      title: "Director of Data Engineering",role: "User",           sentiment: "neutral",    lastTouch: "8d ago",  daysSilent:  8, department: "Engineering", reportsTo: "Anders Holm" },
+      { name: "Rebecca Chu",      title: "VP Sales",                    role: "Detractor",      sentiment: "negative",   lastTouch: "23d ago", daysSilent: 23, department: "Sales",        reportsTo: "Naomi Walker" },
+      { name: "Owen Mitchell",    title: "Head of InfoSec",             role: "Decision Maker", sentiment: "neutral",    lastTouch: "16d ago", daysSilent: 16, department: "Operations",  reportsTo: "Ricardo Diaz" },
     ],
     signals: [
       { id: "s1", category: "Hiring & Org", tone: "pos",  body: "Maya Chen promoted to VP Eng — budget authority expanded into Networking + Security.",
@@ -880,44 +988,86 @@ export const accountDetails: Record<string, AccountDetail> = {
   [slugify("GitLab Inc.")]: baseAccountDetail({
     name: "GitLab Inc.", domain: "gitlab.com", segment: "Enterprise", arr: 280_000, status: "Customer",
     owner: "Sarah Chen", ownerInitials: "SC", health: "medium", healthScore: 64, renewalDays: 64, nrr: 98,
-    lastQbrDays: 92, hq: "Berlin, DE", industry: "Software", employees: 1100,
+    lastQbrDays: 92, hq: "All-remote · HQ San Francisco, CA", industry: "DevOps · Source Control", employees: 2100,
     stakeholders: [
-      { name: "Stefan Becker", title: "CFO",               role: "Decision Maker", sentiment: "neutral",    lastTouch: "21d ago", daysSilent: 21, department: "Executive" },
-      { name: "Molly Müller",  title: "Head of Marketing", role: "Champion",       sentiment: "supportive", lastTouch: "3d ago",  daysSilent:  3, department: "Operations", reportsTo: "Stefan Becker" },
-      { name: "Mandy Moore",   title: "Marketing Lead",    role: "User",           sentiment: "supportive", lastTouch: "2d ago",  daysSilent:  2, department: "Operations", reportsTo: "Molly Müller" },
+      { name: "Sid Whitman",      title: "CEO",                              role: "Decision Maker", sentiment: "neutral",    lastTouch: "26d ago", daysSilent: 26, department: "Executive" },
+      { name: "Eva Lindgren",     title: "CTO",                              role: "Decision Maker", sentiment: "neutral",    lastTouch: "11d ago", daysSilent: 11, department: "Engineering", reportsTo: "Sid Whitman" },
+      { name: "Stefan Becker",    title: "CFO",                              role: "Decision Maker", sentiment: "neutral",    lastTouch: "21d ago", daysSilent: 21, department: "Finance",     reportsTo: "Sid Whitman" },
+      { name: "Molly Müller",     title: "Head of DevOps",                   role: "Champion",       sentiment: "supportive", lastTouch: "3d ago",  daysSilent:  3, department: "Engineering", reportsTo: "Eva Lindgren" },
+      { name: "Alex Rivera",      title: "Director of Sales Enablement",     role: "Influencer",     sentiment: "supportive", lastTouch: "1d ago",  daysSilent:  1, department: "Sales",       reportsTo: "Sid Whitman" },
+      { name: "Naomi Chen",       title: "VP Customer Success",              role: "Influencer",     sentiment: "supportive", lastTouch: "2d ago",  daysSilent:  2, department: "Operations",  reportsTo: "Sid Whitman" },
+      { name: "Alex Petrov",      title: "Director of Application Security", role: "Decision Maker", sentiment: "neutral",    lastTouch: "8d ago",  daysSilent:  8, department: "Operations",  reportsTo: "Eva Lindgren" },
+      { name: "Mandy Moore",      title: "Senior PM · CI/CD",                role: "Influencer",     sentiment: "supportive", lastTouch: "2d ago",  daysSilent:  2, department: "Product",     reportsTo: "Molly Müller" },
+      { name: "Liam Keane",       title: "Senior DevOps Engineer",           role: "User",           sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Molly Müller" },
+      { name: "Yusuf Adebayo",    title: "Staff Engineer · Runner",          role: "User",           sentiment: "supportive", lastTouch: "4d ago",  daysSilent:  4, department: "Engineering", reportsTo: "Molly Müller" },
+      { name: "Clara Mendoza",    title: "Head of FinOps",                   role: "Influencer",     sentiment: "neutral",    lastTouch: "9d ago",  daysSilent:  9, department: "Finance",     reportsTo: "Stefan Becker" },
+      { name: "Riku Tanaka",      title: "Director of Procurement",          role: "Decision Maker", sentiment: "neutral",    lastTouch: "14d ago", daysSilent: 14, department: "Finance",     reportsTo: "Stefan Becker" },
+      { name: "Markus Roth",      title: "Head of IT Operations",            role: "Detractor",      sentiment: "negative",   lastTouch: "33d ago", daysSilent: 33, department: "Operations",  reportsTo: "Eva Lindgren" },
     ],
     signals: [
-      { id: "s1", category: "Usage", tone: "warn", body: "WAU/MAU dropped 0.62 → 0.48 in 14 days. Three teams stopped using AI features.", ago: "1h",
+      { id: "s1", category: "Usage", tone: "warn", body: "WAU/MAU dropped 0.62 → 0.48 in 14 days. Three teams stopped using AI Copilot features.", ago: "1h",
         evidence: [{ kind: "internal", title: "usage dashboard", meta: "Apr 29" }] },
       { id: "s2", category: "Champion Change", tone: "pos", body: "Alex Rivera promoted from Sales Manager to Director of Sales Enablement — AI Copilot aligns with new mandate.", ago: "5d",
         evidence: [
           { kind: "linkedin", title: "LinkedIn: Alex Rivera updated title to Director of Sales Enablement", meta: "Apr 30" },
         ] },
+      { id: "s3", category: "Renewal", tone: "neg", body: "Stefan Becker (CFO) silent 21d — renewal procurement gate in 64 days. Multi-thread Naomi Chen now.", ago: "3d",
+        evidence: [{ kind: "email", title: "Re: 3-year ELA renewal terms", meta: "no reply 21d" }] },
+      { id: "s4", category: "Hiring & Org", tone: "info", body: "GitLab announced layoffs in IT Ops — Markus Roth's mandate may shrink. Reassess detractor status.", ago: "6d",
+        evidence: [{ kind: "linkedin", title: "Press: GitLab restructures IT Ops", meta: "Apr 27" }] },
     ],
   }),
   [slugify("Akamai Technologies")]: baseAccountDetail({
     name: "Akamai", domain: "akamai.com", segment: "Enterprise", arr: 540_000, status: "Customer",
     owner: "Mike Torres", ownerInitials: "MT", health: "high", healthScore: 86, renewalDays: 210, nrr: 118,
-    lastQbrDays: 105, hq: "Atlanta, GA", industry: "Networking", employees: 870,
+    lastQbrDays: 105, hq: "Cambridge, MA", industry: "CDN · Edge Security", employees: 9800,
     stakeholders: [
-      { name: "Jane Foster", title: "VP Eng",                role: "Decision Maker", sentiment: "neutral",    lastTouch: "11d ago", daysSilent: 11, department: "Engineering" },
-      { name: "Ravi Iyer",   title: "Director of Platform",  role: "Champion",       sentiment: "supportive", lastTouch: "2d ago",  daysSilent:  2, department: "Engineering", reportsTo: "Jane Foster" },
-      { name: "Priya Shah",  title: "Platform Engineer",     role: "User",           sentiment: "supportive", lastTouch: "1d ago",  daysSilent:  1, department: "Engineering", reportsTo: "Ravi Iyer" },
+      { name: "Tom Leighton",        title: "CEO",                              role: "Decision Maker", sentiment: "neutral",    lastTouch: "30d ago", daysSilent: 30, department: "Executive" },
+      { name: "Wendy Tao",           title: "CFO",                              role: "Decision Maker", sentiment: "neutral",    lastTouch: "16d ago", daysSilent: 16, department: "Finance",     reportsTo: "Tom Leighton" },
+      { name: "Jane Foster",         title: "VP Engineering · Edge Platform",   role: "Decision Maker", sentiment: "neutral",    lastTouch: "11d ago", daysSilent: 11, department: "Engineering", reportsTo: "Tom Leighton" },
+      { name: "Ravi Iyer",           title: "Director of Platform Engineering", role: "Champion",       sentiment: "supportive", lastTouch: "2d ago",  daysSilent:  2, department: "Engineering", reportsTo: "Jane Foster" },
+      { name: "Connor Wells",        title: "VP Security Products",             role: "Decision Maker", sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Tom Leighton" },
+      { name: "Hana Kim",            title: "Head of CDN Operations",           role: "Influencer",     sentiment: "supportive", lastTouch: "3d ago",  daysSilent:  3, department: "Operations",  reportsTo: "Jane Foster" },
+      { name: "Theo Marchetti",      title: "Director of Site Reliability",     role: "Influencer",     sentiment: "supportive", lastTouch: "1d ago",  daysSilent:  1, department: "Engineering", reportsTo: "Hana Kim" },
+      { name: "Selma Adler",         title: "Director of Cloud Architecture",   role: "Influencer",     sentiment: "neutral",    lastTouch: "7d ago",  daysSilent:  7, department: "Engineering", reportsTo: "Jane Foster" },
+      { name: "Brendan O'Sullivan",  title: "VP Customer Success",              role: "Influencer",     sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Operations",  reportsTo: "Tom Leighton" },
+      { name: "Priya Shah",          title: "Senior Security Engineer",         role: "User",           sentiment: "supportive", lastTouch: "1d ago",  daysSilent:  1, department: "Engineering", reportsTo: "Connor Wells" },
+      { name: "Mateo Reyes",         title: "Senior Network Engineer",          role: "User",           sentiment: "supportive", lastTouch: "4d ago",  daysSilent:  4, department: "Engineering", reportsTo: "Theo Marchetti" },
+      { name: "Linnea Sjogren",      title: "Director of Procurement",          role: "Decision Maker", sentiment: "neutral",    lastTouch: "13d ago", daysSilent: 13, department: "Finance",     reportsTo: "Wendy Tao" },
+      { name: "Owen Hayes",          title: "VP Marketing",                     role: "Detractor",      sentiment: "negative",   lastTouch: "29d ago", daysSilent: 29, department: "Sales",       reportsTo: "Tom Leighton" },
     ],
     signals: [
       { id: "s1", category: "Renewal", tone: "warn", body: "QBR 14 days overdue — Q2 narrative not yet reset.", ago: "yesterday",
         evidence: [{ kind: "internal", title: "QBR cadence tracker", meta: "Last QBR: Jan 14" }] },
+      { id: "s2", category: "Expansion", tone: "pos", body: "Connor Wells (VP Security Products) requested a Bot Manager + Page Shield bundle review — 30-min walkthrough scheduled.",
+        ago: "today", evidence: [
+          { kind: "email", title: "Re: Bundle proposal — Bot Manager + Page Shield", meta: "Apr 30" },
+          { kind: "transcript", title: "Connor: 'we want to consolidate the security stack'", meta: "00:21:14" },
+        ] },
+      { id: "s3", category: "Hiring & Org", tone: "info", body: "Akamai posted 24 reqs across Edge Security — Connor's org expanding. Reference-call timing is ideal.",
+        ago: "4d", evidence: [
+          { kind: "linkedin", title: "Akamai careers — Edge Security org +24 reqs", meta: "Apr 28" },
+        ] },
     ],
   }),
   [slugify("Tableau Software")]: baseAccountDetail({
     name: "Tableau Software", domain: "tableau.com", segment: "Enterprise", arr: 360_000, status: "Customer",
     owner: "Paul Acker", ownerInitials: "PA", health: "high", healthScore: 90, renewalDays: 220, nrr: 134,
-    lastQbrDays: 21, hq: "Austin, TX", industry: "Data & Analytics", employees: 1200,
+    lastQbrDays: 21, hq: "Seattle, WA", industry: "BI · Data Visualisation", employees: 4400,
     stakeholders: [
-      { name: "Owen Patel",      title: "VP Engineering",        role: "Decision Maker", sentiment: "neutral",    lastTouch: "6d ago", daysSilent: 6, department: "Engineering" },
-      { name: "Aria Montgomery", title: "Head of ML",            role: "Champion",       sentiment: "supportive", lastTouch: "today",  daysSilent: 0, department: "Engineering", reportsTo: "Owen Patel" },
-      { name: "Carlos Mendes",   title: "ML Lead",               role: "User",           sentiment: "supportive", lastTouch: "2d ago", daysSilent: 2, department: "Engineering", reportsTo: "Aria Montgomery" },
-      { name: "Hannah Liu",      title: "Senior ML Engineer",    role: "User",           sentiment: "supportive", lastTouch: "1d ago", daysSilent: 1, department: "Engineering", reportsTo: "Aria Montgomery" },
+      { name: "Greta Bauer",          title: "CFO",                              role: "Decision Maker", sentiment: "neutral",    lastTouch: "12d ago", daysSilent: 12, department: "Finance" },
+      { name: "Owen Patel",           title: "VP Engineering · Analytics Cloud", role: "Decision Maker", sentiment: "neutral",    lastTouch: "6d ago",  daysSilent:  6, department: "Engineering" },
+      { name: "Aria Montgomery",      title: "Head of ML & AI",                  role: "Champion",       sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Owen Patel" },
+      { name: "Carlos Mendes",        title: "ML Lead",                          role: "User",           sentiment: "supportive", lastTouch: "2d ago",  daysSilent:  2, department: "Engineering", reportsTo: "Aria Montgomery" },
+      { name: "Hannah Liu",           title: "Senior ML Engineer",               role: "User",           sentiment: "supportive", lastTouch: "1d ago",  daysSilent:  1, department: "Engineering", reportsTo: "Aria Montgomery" },
+      { name: "Lana Petrov",          title: "Head of Customer Insights",        role: "Influencer",     sentiment: "supportive", lastTouch: "3d ago",  daysSilent:  3, department: "Operations" },
+      { name: "Adam Foreman",         title: "Director of BI Solutions",         role: "Influencer",     sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Owen Patel" },
+      { name: "Sienna Walsh",         title: "VP Analytics Cloud",               role: "Decision Maker", sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Owen Patel" },
+      { name: "Ravi Krishnan",        title: "Senior Data Scientist",            role: "User",           sentiment: "supportive", lastTouch: "5d ago",  daysSilent:  5, department: "Engineering", reportsTo: "Carlos Mendes" },
+      { name: "Priya Sharma",         title: "Head of Revenue Operations",       role: "Influencer",     sentiment: "supportive", lastTouch: "8d ago",  daysSilent:  8, department: "Operations" },
+      { name: "Lila Sokolov",         title: "Director of Procurement",          role: "Decision Maker", sentiment: "neutral",    lastTouch: "10d ago", daysSilent: 10, department: "Finance",     reportsTo: "Greta Bauer" },
+      { name: "Antonio Rivera",       title: "VP Marketing",                     role: "Influencer",     sentiment: "supportive", lastTouch: "4d ago",  daysSilent:  4, department: "Sales" },
+      { name: "Eli Chen",             title: "VP Sales · Enterprise",            role: "Detractor",      sentiment: "negative",   lastTouch: "24d ago", daysSilent: 24, department: "Sales" },
     ],
     signals: [
       { id: "s1", category: "Hiring & Org", tone: "pos",  body: "Hiring 4 ML engineers — governance gap flagged in last call.", ago: "yesterday",
@@ -929,6 +1079,402 @@ export const accountDetails: Record<string, AccountDetail> = {
         evidence: [
           { kind: "linkedin", title: "LinkedIn: Priya Sharma started as Head of Revenue Operations at Tableau", meta: "May 2" },
         ] },
+      { id: "s3", category: "Expansion", tone: "pos", body: "Aria expressed interest in adding Pulse + Einstein Discovery to the AI/ML governance bundle. Estimated $90K ARR.",
+        ago: "yesterday", evidence: [
+          { kind: "transcript", title: "Aria: 'we'd want Pulse on top of this'", meta: "00:31:08" },
+        ] },
+      { id: "s4", category: "Usage", tone: "info", body: "Tableau Cloud query volume up 32% MoM — consumption-based pricing tier is approaching its next break-point.",
+        ago: "5d", evidence: [{ kind: "internal", title: "consumption tier dashboard", meta: "Apr 30" }] },
+    ],
+  }),
+
+  // ── DATADOG · Demo stage prospect ─────────────────────────────────
+  [slugify("Datadog, Inc.")]: baseAccountDetail({
+    name: "Datadog", domain: "datadoghq.com", segment: "Enterprise", arr: 0, status: "Prospect",
+    owner: "Paul Acker", ownerInitials: "PA", health: "high", healthScore: 84, renewalDays: 0, nrr: 0,
+    lastQbrDays: 0, hq: "New York, NY", industry: "Observability · APM", employees: 5400,
+    stakeholders: [
+      { name: "Olivia Kerr",     title: "CEO",                                 role: "Decision Maker", sentiment: "neutral",    lastTouch: "12d ago", daysSilent: 12, department: "Executive" },
+      { name: "Kavi Subramanian",title: "CTO",                                 role: "Decision Maker", sentiment: "supportive", lastTouch: "3d ago",  daysSilent:  3, department: "Engineering", reportsTo: "Olivia Kerr" },
+      { name: "Reza Ahmadi",     title: "VP Engineering · Observability",     role: "Champion",       sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Kavi Subramanian" },
+      { name: "Beth Saunders",   title: "Director of SRE",                    role: "Influencer",     sentiment: "supportive", lastTouch: "2d ago",  daysSilent:  2, department: "Engineering", reportsTo: "Reza Ahmadi" },
+      { name: "Diego Vargas",    title: "Senior PM · APM",                    role: "Influencer",     sentiment: "supportive", lastTouch: "1d ago",  daysSilent:  1, department: "Product",     reportsTo: "Reza Ahmadi" },
+      { name: "Hannah Kim",      title: "Staff Engineer · Telemetry",         role: "User",           sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Beth Saunders" },
+      { name: "Tariq Bashir",    title: "Director of Platform Reliability",   role: "Influencer",     sentiment: "neutral",    lastTouch: "5d ago",  daysSilent:  5, department: "Engineering", reportsTo: "Reza Ahmadi" },
+      { name: "Sabrina Cho",     title: "VP Customer Engineering",            role: "Influencer",     sentiment: "supportive", lastTouch: "6d ago",  daysSilent:  6, department: "Operations",  reportsTo: "Olivia Kerr" },
+      { name: "Marcus Whittle",  title: "CFO",                                role: "Decision Maker", sentiment: "neutral",    lastTouch: "9d ago",  daysSilent:  9, department: "Finance" },
+      { name: "Lena Adler",      title: "Head of Procurement",                role: "Decision Maker", sentiment: "neutral",    lastTouch: "11d ago", daysSilent: 11, department: "Finance",     reportsTo: "Marcus Whittle" },
+      { name: "Patrick Boateng", title: "Head of Information Security",       role: "Decision Maker", sentiment: "neutral",    lastTouch: "8d ago",  daysSilent:  8, department: "Operations" },
+      { name: "Dana Ortiz",      title: "VP Sales · Strategic",               role: "Detractor",      sentiment: "negative",   lastTouch: "22d ago", daysSilent: 22, department: "Sales" },
+    ],
+    signals: [
+      { id: "s1", category: "Hiring & Org", tone: "pos", body: "Reza Ahmadi requested a live demo of the cross-funnel attribution module — buying-team review scheduled.", ago: "today",
+        evidence: [{ kind: "email", title: "Re: Demo agenda — APM + attribution", meta: "May 6" }] },
+      { id: "s2", category: "Competitive", tone: "warn", body: "New Relic referenced in last call as the incumbent monitoring stack — displacement story required.", ago: "3d",
+        evidence: [{ kind: "transcript", title: "Reza: 'we already use New Relic for APM'", meta: "00:09:14" }] },
+      { id: "s3", category: "Expansion", tone: "info", body: "Hannah Kim downloaded the ROI calculator — likely modeling spend internally.", ago: "yesterday",
+        evidence: [{ kind: "internal", title: "Marketing automation event log", meta: "May 5, 14:02" }] },
+    ],
+  }),
+
+  // ── SHOPIFY · Negotiation stage prospect ─────────────────────────
+  [slugify("Shopify Inc.")]: baseAccountDetail({
+    name: "Shopify", domain: "shopify.com", segment: "Enterprise", arr: 0, status: "Prospect",
+    owner: "Mike Torres", ownerInitials: "MT", health: "high", healthScore: 88, renewalDays: 0, nrr: 0,
+    lastQbrDays: 0, hq: "Ottawa, CA", industry: "E-commerce Platform", employees: 11600,
+    stakeholders: [
+      { name: "Tobias Lutkowski", title: "CEO",                              role: "Decision Maker", sentiment: "neutral",    lastTouch: "14d ago", daysSilent: 14, department: "Executive" },
+      { name: "Mira Patel",       title: "President · Merchant Services",    role: "Decision Maker", sentiment: "supportive", lastTouch: "6d ago",  daysSilent:  6, department: "Executive", reportsTo: "Tobias Lutkowski" },
+      { name: "Devon Haight",     title: "VP Engineering · Storefront",      role: "Champion",       sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Mira Patel" },
+      { name: "Aria Thompson",    title: "Director of Commerce Platform",    role: "Influencer",     sentiment: "supportive", lastTouch: "1d ago",  daysSilent:  1, department: "Engineering", reportsTo: "Devon Haight" },
+      { name: "Henry Sutton",     title: "VP Revenue Operations",            role: "Champion",       sentiment: "supportive", lastTouch: "2d ago",  daysSilent:  2, department: "Operations" },
+      { name: "Liesl Voss",       title: "Director of Sales Operations",     role: "Influencer",     sentiment: "supportive", lastTouch: "3d ago",  daysSilent:  3, department: "Sales",       reportsTo: "Henry Sutton" },
+      { name: "Rohan Mehta",      title: "VP Finance · Commerce",            role: "Decision Maker", sentiment: "neutral",    lastTouch: "8d ago",  daysSilent:  8, department: "Finance" },
+      { name: "Cassie Zheng",     title: "Director of Procurement",          role: "Decision Maker", sentiment: "neutral",    lastTouch: "5d ago",  daysSilent:  5, department: "Finance",     reportsTo: "Rohan Mehta" },
+      { name: "Yusuf Ali",        title: "Senior Counsel · Commercial",      role: "Influencer",     sentiment: "neutral",    lastTouch: "4d ago",  daysSilent:  4, department: "Operations" },
+      { name: "Leah Connor",      title: "Head of InfoSec",                  role: "Decision Maker", sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Operations" },
+      { name: "Marco Inverno",    title: "Lead Engineer · Checkout",         role: "User",           sentiment: "supportive", lastTouch: "1d ago",  daysSilent:  1, department: "Engineering", reportsTo: "Aria Thompson" },
+      { name: "Priya Iyengar",    title: "VP Customer Experience",           role: "Detractor",      sentiment: "negative",   lastTouch: "21d ago", daysSilent: 21, department: "Operations" },
+    ],
+    signals: [
+      { id: "s1", category: "Renewal", tone: "pos", body: "Yusuf Ali (Counsel) returned MSA redlines yesterday — 3 minor changes, no commercial blockers.",
+        ago: "1d", evidence: [{ kind: "email", title: "Re: MSA · counter-redlines", meta: "May 5" }] },
+      { id: "s2", category: "Renewal", tone: "warn", body: "Cassie Zheng (Procurement) requested final pricing in writing for Steering committee on Monday.",
+        ago: "today", evidence: [{ kind: "email", title: "Re: Final pricing for SteerCo", meta: "May 6" }] },
+      { id: "s3", category: "Expansion", tone: "pos", body: "Henry Sutton confirmed Q3 budget for the Commerce Pro tier — 3-year ELA shape preferred.",
+        ago: "2d", evidence: [{ kind: "call", title: "Commercial alignment — Henry + Mira", meta: "May 4, 00:18:42" }] },
+      { id: "s4", category: "Champion Change", tone: "info", body: "Devon Haight cited \"we'd want this live before BFCM\" — strong implementation-window urgency.",
+        ago: "3d", evidence: [{ kind: "transcript", title: "Devon: 'live before Black Friday'", meta: "00:24:11" }] },
+    ],
+  }),
+
+  // ── LOCKHEED MARTIN · Negotiation stage prospect ──────────────────
+  [slugify("Lockheed Martin")]: baseAccountDetail({
+    name: "Lockheed Martin", domain: "lockheedmartin.com", segment: "Enterprise", arr: 0, status: "Prospect",
+    owner: "Brad Allen", ownerInitials: "BA", health: "high", healthScore: 86, renewalDays: 0, nrr: 0,
+    lastQbrDays: 0, hq: "Bethesda, MD", industry: "Aerospace · Defense", employees: 122000,
+    stakeholders: [
+      { name: "James Calhoun",   title: "CIO",                                role: "Decision Maker", sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Executive" },
+      { name: "Brigit Sandoval", title: "VP Digital Transformation",          role: "Champion",       sentiment: "supportive", lastTouch: "1d ago",  daysSilent:  1, department: "Operations",  reportsTo: "James Calhoun" },
+      { name: "Eric Vasquez",    title: "Director of Mission Systems IT",     role: "Influencer",     sentiment: "supportive", lastTouch: "3d ago",  daysSilent:  3, department: "Engineering", reportsTo: "Brigit Sandoval" },
+      { name: "Tanya Brookings", title: "Head of Cybersecurity Operations",   role: "Decision Maker", sentiment: "neutral",    lastTouch: "today",   daysSilent:  0, department: "Operations",  reportsTo: "James Calhoun" },
+      { name: "Frank Linder",    title: "Director of Procurement · Federal",  role: "Decision Maker", sentiment: "neutral",    lastTouch: "9d ago",  daysSilent:  9, department: "Finance" },
+      { name: "Samira Faroughi", title: "VP Finance · Aeronautics",           role: "Decision Maker", sentiment: "neutral",    lastTouch: "12d ago", daysSilent: 12, department: "Finance" },
+      { name: "Dan Roselli",     title: "Senior Counsel · Government Sales",  role: "Influencer",     sentiment: "neutral",    lastTouch: "5d ago",  daysSilent:  5, department: "Operations" },
+      { name: "Helena Brooks",   title: "Director of Software Engineering",   role: "Influencer",     sentiment: "supportive", lastTouch: "2d ago",  daysSilent:  2, department: "Engineering", reportsTo: "Eric Vasquez" },
+      { name: "Mark Beaumont",   title: "Senior Programs Architect",          role: "User",           sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Helena Brooks" },
+      { name: "Lin Garcia",      title: "Compliance Lead · CMMC",             role: "Decision Maker", sentiment: "neutral",    lastTouch: "6d ago",  daysSilent:  6, department: "Operations",  reportsTo: "Tanya Brookings" },
+      { name: "Adrian Cole",     title: "Director of Financial Planning",     role: "Influencer",     sentiment: "neutral",    lastTouch: "11d ago", daysSilent: 11, department: "Finance",     reportsTo: "Samira Faroughi" },
+      { name: "Roger Klein",     title: "VP Strategic Sourcing",              role: "Detractor",      sentiment: "negative",   lastTouch: "27d ago", daysSilent: 27, department: "Sales" },
+    ],
+    signals: [
+      { id: "s1", category: "Renewal", tone: "pos", body: "FedRAMP High evidence package accepted — Lin Garcia (Compliance) signed off on the final attestation.",
+        ago: "today", evidence: [{ kind: "internal", title: "FedRAMP attestation v3", meta: "May 6" }] },
+      { id: "s2", category: "Renewal", tone: "warn", body: "Frank Linder (Procurement) is in the SteerCo Friday — final commercials must be on the table.",
+        ago: "1d", evidence: [{ kind: "email", title: "Re: SteerCo agenda — May 9", meta: "May 5" }] },
+      { id: "s3", category: "Hiring & Org", tone: "info", body: "Lockheed Martin announced two new defense contracts ($340M) — accelerates digital-transformation budget for Brigit's team.",
+        ago: "4d", evidence: [{ kind: "linkedin", title: "Press: $340M Air Force contract awarded", meta: "May 2" }] },
+    ],
+  }),
+
+  // ── HSBC · Proposal stage prospect ────────────────────────────────
+  [slugify("HSBC Holdings")]: baseAccountDetail({
+    name: "HSBC", domain: "hsbc.com", segment: "Enterprise", arr: 0, status: "Prospect",
+    owner: "Lisa Park", ownerInitials: "LP", health: "high", healthScore: 84, renewalDays: 0, nrr: 0,
+    lastQbrDays: 0, hq: "London, UK", industry: "Banking · Financial Services", employees: 220000,
+    stakeholders: [
+      { name: "Noel Quigley",    title: "Group COO",                          role: "Decision Maker", sentiment: "neutral",    lastTouch: "16d ago", daysSilent: 16, department: "Executive" },
+      { name: "Adetola Bankole", title: "Group CTO",                          role: "Decision Maker", sentiment: "supportive", lastTouch: "5d ago",  daysSilent:  5, department: "Engineering", reportsTo: "Noel Quigley" },
+      { name: "Rashid Al-Sabah", title: "Head of Wholesale Banking Tech",     role: "Champion",       sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Adetola Bankole" },
+      { name: "Kerry Donovan",   title: "Head of Group Risk Tech",            role: "Decision Maker", sentiment: "neutral",    lastTouch: "8d ago",  daysSilent:  8, department: "Operations",  reportsTo: "Adetola Bankole" },
+      { name: "Mira Sharma",     title: "Director of Capital Markets Tech",   role: "Influencer",     sentiment: "supportive", lastTouch: "2d ago",  daysSilent:  2, department: "Engineering", reportsTo: "Rashid Al-Sabah" },
+      { name: "Ben Zhang",       title: "Senior Engineer · Trading Platform", role: "User",           sentiment: "supportive", lastTouch: "1d ago",  daysSilent:  1, department: "Engineering", reportsTo: "Mira Sharma" },
+      { name: "Olivier Renaud",  title: "Group Head of Procurement",          role: "Decision Maker", sentiment: "neutral",    lastTouch: "11d ago", daysSilent: 11, department: "Finance" },
+      { name: "Camille Faraj",   title: "VP Sourcing · Technology",           role: "Decision Maker", sentiment: "neutral",    lastTouch: "13d ago", daysSilent: 13, department: "Finance",     reportsTo: "Olivier Renaud" },
+      { name: "Aisha Greaves",   title: "Director of Information Security",   role: "Decision Maker", sentiment: "neutral",    lastTouch: "9d ago",  daysSilent:  9, department: "Operations" },
+      { name: "Jonathan Park",   title: "Senior Counsel · Tech & Outsourcing",role: "Influencer",     sentiment: "neutral",    lastTouch: "7d ago",  daysSilent:  7, department: "Operations" },
+      { name: "Pramod Iyer",     title: "VP Data Engineering · Risk",         role: "Influencer",     sentiment: "supportive", lastTouch: "4d ago",  daysSilent:  4, department: "Engineering", reportsTo: "Kerry Donovan" },
+      { name: "Greta Lindholm",  title: "VP of Operational Resilience",       role: "Detractor",      sentiment: "negative",   lastTouch: "29d ago", daysSilent: 29, department: "Operations" },
+    ],
+    signals: [
+      { id: "s1", category: "Expansion", tone: "pos", body: "Rashid requested commercial proposal with multi-region (EMEA + APAC) Issuing rollout — TAM doubles to $820K.",
+        ago: "yesterday", evidence: [{ kind: "email", title: "Re: Commercial proposal — multi-region", meta: "May 5" }] },
+      { id: "s2", category: "Renewal", tone: "warn", body: "Greta Lindholm raised operational-resilience concerns in last steering — needs proactive mitigation paper before final.",
+        ago: "3d", evidence: [{ kind: "transcript", title: "Greta: 'we need a clearer DR story'", meta: "00:38:21" }] },
+      { id: "s3", category: "Hiring & Org", tone: "info", body: "HSBC announced a £6B technology modernisation programme — bundles the buying motion under one budget.",
+        ago: "8d", evidence: [{ kind: "linkedin", title: "Press: HSBC £6B tech modernisation", meta: "Apr 28" }] },
+      { id: "s4", category: "Competitive", tone: "warn", body: "Stripe and Marqeta listed as alternatives in Olivier's vendor matrix.",
+        ago: "11d", evidence: [{ kind: "internal", title: "Procurement vendor matrix v2", meta: "Apr 25" }] },
+    ],
+  }),
+
+  // ── ATLASSIAN · Stable customer ──────────────────────────────────
+  [slugify("Atlassian Corporation")]: baseAccountDetail({
+    name: "Atlassian", domain: "atlassian.com", segment: "Enterprise", arr: 410_000, status: "Customer",
+    owner: "Mike Torres", ownerInitials: "MT", health: "high", healthScore: 91, renewalDays: 142, nrr: 121,
+    lastQbrDays: 31, hq: "Sydney, AU", industry: "Collaboration · DevOps", employees: 9500,
+    stakeholders: [
+      { name: "Mike Cannon",       title: "CEO",                                  role: "Decision Maker", sentiment: "neutral",    lastTouch: "21d ago", daysSilent: 21, department: "Executive" },
+      { name: "Sven Grünewald",    title: "CTO",                                  role: "Decision Maker", sentiment: "supportive", lastTouch: "9d ago",  daysSilent:  9, department: "Engineering", reportsTo: "Mike Cannon" },
+      { name: "Tariq Sharif",      title: "VP Engineering · Cloud Platform",     role: "Champion",       sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Sven Grünewald" },
+      { name: "Hannah Mortimer",   title: "Head of Customer Success",            role: "Influencer",     sentiment: "supportive", lastTouch: "2d ago",  daysSilent:  2, department: "Operations" },
+      { name: "Jin Ko",            title: "Senior PM · Confluence",              role: "Influencer",     sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Product",     reportsTo: "Tariq Sharif" },
+      { name: "Lara Vinopalová",   title: "Director of Reliability",             role: "Influencer",     sentiment: "supportive", lastTouch: "1d ago",  daysSilent:  1, department: "Engineering", reportsTo: "Tariq Sharif" },
+      { name: "Akira Shimada",     title: "VP Sales Operations",                 role: "Influencer",     sentiment: "neutral",    lastTouch: "6d ago",  daysSilent:  6, department: "Sales" },
+      { name: "Olivia Hertzberg",  title: "Senior Engineer · Jira Platform",     role: "User",           sentiment: "supportive", lastTouch: "3d ago",  daysSilent:  3, department: "Engineering", reportsTo: "Lara Vinopalová" },
+      { name: "Ben Gallagher",     title: "Director of Procurement",             role: "Decision Maker", sentiment: "neutral",    lastTouch: "11d ago", daysSilent: 11, department: "Finance" },
+      { name: "Noor Ahmed",        title: "VP Finance · Cloud",                  role: "Decision Maker", sentiment: "neutral",    lastTouch: "14d ago", daysSilent: 14, department: "Finance" },
+      { name: "Maxim Sokolov",     title: "Head of Information Security",        role: "Decision Maker", sentiment: "neutral",    lastTouch: "8d ago",  daysSilent:  8, department: "Operations" },
+    ],
+    signals: [
+      { id: "s1", category: "Usage", tone: "pos", body: "Confluence-Cloud query volume up 22% MoM — heavier sustained adoption since Jin Ko's team rolled out Smart Links.",
+        ago: "today", evidence: [{ kind: "internal", title: "consumption dashboard", meta: "May 6 snapshot" }] },
+      { id: "s2", category: "Expansion", tone: "info", body: "Hannah Mortimer flagged interest in Atlas + Compass bundle for the platform team — pre-renewal expansion runway.",
+        ago: "5d", evidence: [{ kind: "transcript", title: "Hannah: 'we'd want one contract for both'", meta: "00:14:27" }] },
+      { id: "s3", category: "Renewal", tone: "pos", body: "Renewal in 142 days — sponsor coverage healthy across CTO, VP Eng, and CS leadership.",
+        ago: "yesterday", evidence: [{ kind: "internal", title: "Sponsor coverage map", meta: "May 5" }] },
+    ],
+  }),
+
+  // ── TWILIO · Stable customer ─────────────────────────────────────
+  [slugify("Twilio Inc.")]: baseAccountDetail({
+    name: "Twilio", domain: "twilio.com", segment: "Enterprise", arr: 380_000, status: "Customer",
+    owner: "Sarah Chen", ownerInitials: "SC", health: "high", healthScore: 87, renewalDays: 96, nrr: 116,
+    lastQbrDays: 23, hq: "San Francisco, CA", industry: "Cloud Communications · CPaaS", employees: 8100,
+    stakeholders: [
+      { name: "Jeff Calderon",    title: "CEO",                                role: "Decision Maker", sentiment: "neutral",    lastTouch: "18d ago", daysSilent: 18, department: "Executive" },
+      { name: "Mira Pflüger",     title: "CTO",                                role: "Decision Maker", sentiment: "supportive", lastTouch: "9d ago",  daysSilent:  9, department: "Engineering", reportsTo: "Jeff Calderon" },
+      { name: "Andre Carvalho",   title: "VP Engineering · Messaging",         role: "Champion",       sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Mira Pflüger" },
+      { name: "Kim Peralta",      title: "Director of Engagement Cloud",       role: "Champion",       sentiment: "supportive", lastTouch: "1d ago",  daysSilent:  1, department: "Engineering", reportsTo: "Andre Carvalho" },
+      { name: "Rohan Banerjee",   title: "Senior PM · Voice",                  role: "Influencer",     sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Product",     reportsTo: "Andre Carvalho" },
+      { name: "Selena Park",      title: "Director of Customer Success",       role: "Influencer",     sentiment: "supportive", lastTouch: "2d ago",  daysSilent:  2, department: "Operations" },
+      { name: "Liam O'Connell",   title: "Staff Engineer · SDK Platform",      role: "User",           sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Kim Peralta" },
+      { name: "Zoe Brennan",      title: "VP Customer Engineering",            role: "Influencer",     sentiment: "supportive", lastTouch: "4d ago",  daysSilent:  4, department: "Operations" },
+      { name: "Julia Fischer",    title: "VP Finance · CPaaS",                 role: "Decision Maker", sentiment: "neutral",    lastTouch: "12d ago", daysSilent: 12, department: "Finance" },
+      { name: "Richard Calderón", title: "Head of Procurement",                role: "Decision Maker", sentiment: "neutral",    lastTouch: "10d ago", daysSilent: 10, department: "Finance" },
+      { name: "Laila Hassan",     title: "Head of Information Security",       role: "Decision Maker", sentiment: "neutral",    lastTouch: "7d ago",  daysSilent:  7, department: "Operations" },
+    ],
+    signals: [
+      { id: "s1", category: "Expansion", tone: "pos", body: "Andre Carvalho confirmed Q3 expansion budget for the Engagement Cloud bundle (Verify + Studio).",
+        ago: "today", evidence: [{ kind: "transcript", title: "Andre: 'we want one contract'", meta: "00:18:21" }] },
+      { id: "s2", category: "Usage", tone: "pos", body: "Messaging API throughput up 28% MoM — running near tier-2 ceiling, expansion conversation timely.",
+        ago: "yesterday", evidence: [{ kind: "internal", title: "API consumption dashboard", meta: "May 5" }] },
+      { id: "s3", category: "Renewal", tone: "info", body: "96 days to renewal — Selena Park requested a pre-renewal value review next sprint.",
+        ago: "3d", evidence: [{ kind: "email", title: "Re: Pre-renewal value review", meta: "May 3" }] },
+    ],
+  }),
+
+  // ── DROPBOX · Adopting customer ──────────────────────────────────
+  [slugify("Dropbox, Inc.")]: baseAccountDetail({
+    name: "Dropbox", domain: "dropbox.com", segment: "Enterprise", arr: 220_000, status: "Customer",
+    owner: "Paul Acker", ownerInitials: "PA", health: "medium", healthScore: 71, renewalDays: 240, nrr: 104,
+    lastQbrDays: 41, hq: "San Francisco, CA", industry: "Cloud Storage · Collaboration", employees: 2400,
+    stakeholders: [
+      { name: "Aaron Schulz",     title: "CEO",                                role: "Decision Maker", sentiment: "neutral",    lastTouch: "30d ago", daysSilent: 30, department: "Executive" },
+      { name: "Hannah Levin",     title: "CTO",                                role: "Decision Maker", sentiment: "neutral",    lastTouch: "14d ago", daysSilent: 14, department: "Engineering", reportsTo: "Aaron Schulz" },
+      { name: "Devon Cho",        title: "VP Engineering · Sync",              role: "Champion",       sentiment: "supportive", lastTouch: "2d ago",  daysSilent:  2, department: "Engineering", reportsTo: "Hannah Levin" },
+      { name: "Ramon Cabrera",    title: "Director of Customer Success",       role: "Champion",       sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Operations" },
+      { name: "Beatrice Sanford", title: "Senior PM · Sync Engine",            role: "Influencer",     sentiment: "supportive", lastTouch: "1d ago",  daysSilent:  1, department: "Product",     reportsTo: "Devon Cho" },
+      { name: "Lucas Bertillon",  title: "Director of Platform Reliability",   role: "Influencer",     sentiment: "supportive", lastTouch: "3d ago",  daysSilent:  3, department: "Engineering", reportsTo: "Devon Cho" },
+      { name: "Hilde Møller",     title: "Senior Engineer · API Platform",     role: "User",           sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Lucas Bertillon" },
+      { name: "Avi Goldstein",    title: "VP Finance · Cloud",                 role: "Decision Maker", sentiment: "neutral",    lastTouch: "11d ago", daysSilent: 11, department: "Finance" },
+      { name: "Sarah Briggs",     title: "Head of Procurement",                role: "Decision Maker", sentiment: "neutral",    lastTouch: "13d ago", daysSilent: 13, department: "Finance",     reportsTo: "Avi Goldstein" },
+      { name: "Dan Whitfield",    title: "Director of IT Operations",          role: "Detractor",      sentiment: "negative",   lastTouch: "26d ago", daysSilent: 26, department: "Operations" },
+    ],
+    signals: [
+      { id: "s1", category: "Usage", tone: "warn", body: "WAU drop 0.71 → 0.62 in 14 days. Two power-user teams paused workflows — onboarding gap surfaced.",
+        ago: "today", evidence: [{ kind: "internal", title: "usage dashboard", meta: "May 6" }] },
+      { id: "s2", category: "Hiring & Org", tone: "info", body: "Ramon Cabrera (CS) escalated for an outcomes re-baseline — onboarding programme behind plan.",
+        ago: "1d", evidence: [{ kind: "email", title: "Re: Onboarding outcomes review", meta: "May 5" }] },
+      { id: "s3", category: "Renewal", tone: "info", body: "240 days to renewal — runway to recover the adoption curve before commercial conversation.",
+        ago: "today", evidence: [{ kind: "internal", title: "Renewal calendar", meta: "May 6" }] },
+    ],
+  }),
+
+  // ── NOTION · Demo stage prospect ─────────────────────────────────
+  [slugify("Notion Labs")]: baseAccountDetail({
+    name: "Notion Labs", domain: "notion.so", segment: "Mid-Market", arr: 0, status: "Prospect",
+    owner: "Sarah Chen", ownerInitials: "SC", health: "high", healthScore: 82, renewalDays: 0, nrr: 0,
+    lastQbrDays: 0, hq: "San Francisco, CA", industry: "Productivity SaaS", employees: 610,
+    stakeholders: [
+      { name: "Ivan Liaw",         title: "CEO",                              role: "Decision Maker", sentiment: "neutral",    lastTouch: "13d ago", daysSilent: 13, department: "Executive" },
+      { name: "Maya Torres",       title: "CTO",                              role: "Decision Maker", sentiment: "supportive", lastTouch: "6d ago",  daysSilent:  6, department: "Engineering", reportsTo: "Ivan Liaw" },
+      { name: "Akhil Saraswat",    title: "VP Engineering · Workspace",       role: "Champion",       sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Maya Torres" },
+      { name: "Naomi Thomson",     title: "Head of Revenue Operations",       role: "Champion",       sentiment: "supportive", lastTouch: "1d ago",  daysSilent:  1, department: "Operations" },
+      { name: "Lance Hughes",      title: "Senior PM · Workspace Search",     role: "Influencer",     sentiment: "supportive", lastTouch: "2d ago",  daysSilent:  2, department: "Product",     reportsTo: "Akhil Saraswat" },
+      { name: "Sara Bekele",       title: "VP Finance",                       role: "Decision Maker", sentiment: "neutral",    lastTouch: "8d ago",  daysSilent:  8, department: "Finance" },
+      { name: "Theo Bordeaux",     title: "Senior Engineer · Realtime",       role: "User",           sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Akhil Saraswat" },
+      { name: "Eliana Park",       title: "Head of People Tech",              role: "Influencer",     sentiment: "neutral",    lastTouch: "9d ago",  daysSilent:  9, department: "Operations" },
+      { name: "Mateo Rivas",       title: "Procurement Lead",                 role: "Decision Maker", sentiment: "neutral",    lastTouch: "5d ago",  daysSilent:  5, department: "Finance",     reportsTo: "Sara Bekele" },
+    ],
+    signals: [
+      { id: "s1", category: "Hiring & Org", tone: "pos", body: "Live demo scheduled this Thursday with Akhil + Naomi — agenda includes attribution + revops integration.",
+        ago: "today", evidence: [{ kind: "email", title: "Demo confirmed for May 8", meta: "May 6" }] },
+      { id: "s2", category: "Expansion", tone: "info", body: "Notion Labs raised a $750M Series E — validation that platform spend will accelerate.",
+        ago: "5d", evidence: [{ kind: "linkedin", title: "Press: Notion $750M Series E", meta: "May 1" }] },
+      { id: "s3", category: "Competitive", tone: "warn", body: "Naomi name-checked Glean and HubSpot Operations Hub — multi-vendor evaluation in flight.",
+        ago: "3d", evidence: [{ kind: "transcript", title: "Naomi: 'we're also looking at Glean'", meta: "00:11:42" }] },
+    ],
+  }),
+
+  // ── FIGMA · Proposal stage prospect ──────────────────────────────
+  [slugify("Figma, Inc.")]: baseAccountDetail({
+    name: "Figma", domain: "figma.com", segment: "Mid-Market", arr: 0, status: "Prospect",
+    owner: "Rachel Kim", ownerInitials: "RK", health: "high", healthScore: 89, renewalDays: 0, nrr: 0,
+    lastQbrDays: 0, hq: "San Francisco, CA", industry: "Design Software", employees: 900,
+    stakeholders: [
+      { name: "Dylan Ogata",    title: "CEO",                                role: "Decision Maker", sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Executive" },
+      { name: "Petra Dorn",     title: "CTO",                                role: "Decision Maker", sentiment: "supportive", lastTouch: "2d ago",  daysSilent:  2, department: "Engineering", reportsTo: "Dylan Ogata" },
+      { name: "Adriano Costa",  title: "VP Engineering · FigJam",            role: "Champion",       sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Petra Dorn" },
+      { name: "Naomi Carter",   title: "VP Revenue Operations",              role: "Champion",       sentiment: "supportive", lastTouch: "1d ago",  daysSilent:  1, department: "Operations" },
+      { name: "Aiden Brooks",   title: "Senior PM · Multiplayer",            role: "Influencer",     sentiment: "supportive", lastTouch: "3d ago",  daysSilent:  3, department: "Product",     reportsTo: "Adriano Costa" },
+      { name: "Hugo Lemaire",   title: "Director of Customer Engineering",   role: "Influencer",     sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Operations" },
+      { name: "Sara Linden",    title: "VP Finance",                         role: "Decision Maker", sentiment: "neutral",    lastTouch: "6d ago",  daysSilent:  6, department: "Finance" },
+      { name: "Ryo Tanaka",     title: "Director of Procurement",            role: "Decision Maker", sentiment: "neutral",    lastTouch: "9d ago",  daysSilent:  9, department: "Finance",     reportsTo: "Sara Linden" },
+      { name: "Mira Saw",       title: "Head of Information Security",       role: "Decision Maker", sentiment: "neutral",    lastTouch: "5d ago",  daysSilent:  5, department: "Operations" },
+      { name: "Cole Patterson", title: "Senior Engineer · Realtime",         role: "User",           sentiment: "supportive", lastTouch: "1d ago",  daysSilent:  1, department: "Engineering", reportsTo: "Aiden Brooks" },
+    ],
+    signals: [
+      { id: "s1", category: "Expansion", tone: "pos", body: "Naomi countersigned the proposal terms — only the security addendum + redlines remain.",
+        ago: "yesterday", evidence: [{ kind: "email", title: "Re: Counter-signed proposal", meta: "May 5" }] },
+      { id: "s2", category: "Renewal", tone: "warn", body: "Mira Saw (InfoSec) requested a SOC 2 Type II evidence walk-through before the Wednesday committee.",
+        ago: "today", evidence: [{ kind: "email", title: "Re: SOC 2 Type II walk-through", meta: "May 6" }] },
+      { id: "s3", category: "Hiring & Org", tone: "info", body: "Adriano confirmed Q3 ARR scope expanded to include FigJam Templates — adds $90K to the deal.",
+        ago: "2d", evidence: [{ kind: "transcript", title: "Adriano: 'add FigJam Templates'", meta: "00:14:51" }] },
+    ],
+  }),
+
+  // ── SERVICENOW · Discovery prospect ──────────────────────────────
+  [slugify("ServiceNow Inc.")]: baseAccountDetail({
+    name: "ServiceNow", domain: "servicenow.com", segment: "Enterprise", arr: 0, status: "Prospect",
+    owner: "Tom Walker", ownerInitials: "TW", health: "high", healthScore: 81, renewalDays: 0, nrr: 0,
+    lastQbrDays: 0, hq: "Santa Clara, CA", industry: "Workflow Automation", employees: 21500,
+    stakeholders: [
+      { name: "Bill McDermott",   title: "CEO",                                  role: "Decision Maker", sentiment: "neutral",    lastTouch: "20d ago", daysSilent: 20, department: "Executive" },
+      { name: "Rosa Vega",        title: "CTO",                                  role: "Decision Maker", sentiment: "supportive", lastTouch: "9d ago",  daysSilent:  9, department: "Engineering", reportsTo: "Bill McDermott" },
+      { name: "Mateusz Jankowski",title: "VP Engineering · Now Platform",       role: "Champion",       sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Rosa Vega" },
+      { name: "Helena Grossman",  title: "Head of Customer Workflows",          role: "Influencer",     sentiment: "supportive", lastTouch: "2d ago",  daysSilent:  2, department: "Engineering", reportsTo: "Mateusz Jankowski" },
+      { name: "Reem Hassoun",     title: "Director of Platform PMM",            role: "Influencer",     sentiment: "supportive", lastTouch: "3d ago",  daysSilent:  3, department: "Sales",       reportsTo: "Bill McDermott" },
+      { name: "Liam Galloway",    title: "Senior Engineer · App Engine",        role: "User",           sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Helena Grossman" },
+      { name: "Talia Berger",     title: "VP Sales Operations · Enterprise",    role: "Influencer",     sentiment: "supportive", lastTouch: "1d ago",  daysSilent:  1, department: "Sales" },
+      { name: "Soren Fischer",    title: "VP Finance",                          role: "Decision Maker", sentiment: "neutral",    lastTouch: "12d ago", daysSilent: 12, department: "Finance" },
+      { name: "Aanya Bhattacharya",title: "Head of Procurement",                role: "Decision Maker", sentiment: "neutral",    lastTouch: "10d ago", daysSilent: 10, department: "Finance",     reportsTo: "Soren Fischer" },
+      { name: "Abdul Rahman",     title: "VP Customer Success",                 role: "Influencer",     sentiment: "neutral",    lastTouch: "7d ago",  daysSilent:  7, department: "Operations" },
+      { name: "Cole Greenwood",   title: "VP IT Operations",                    role: "Detractor",      sentiment: "negative",   lastTouch: "25d ago", daysSilent: 25, department: "Operations" },
+    ],
+    signals: [
+      { id: "s1", category: "Hiring & Org", tone: "pos", body: "First discovery call with Mateusz produced a clear pain map: revops + sales-ops fragmented across 6 systems.",
+        ago: "today", evidence: [{ kind: "transcript", title: "Mateusz: 'we have 6 systems for one job'", meta: "00:08:12" }] },
+      { id: "s2", category: "Champion Change", tone: "info", body: "Helena Grossman started 4 weeks ago — coming from Salesforce CPQ. ICP-textbook champion-promotion fit.",
+        ago: "5d", evidence: [{ kind: "linkedin", title: "Helena Grossman started Head of Customer Workflows", meta: "Apr 30" }] },
+      { id: "s3", category: "Competitive", tone: "warn", body: "Salesforce listed in the technology stack — multi-product overlap evaluation likely.",
+        ago: "8d", evidence: [{ kind: "internal", title: "Stack discovery survey", meta: "Apr 28" }] },
+    ],
+  }),
+
+  // ── WALMART · Negotiation prospect ───────────────────────────────
+  [slugify("Walmart Inc.")]: baseAccountDetail({
+    name: "Walmart", domain: "walmart.com", segment: "Enterprise", arr: 0, status: "Prospect",
+    owner: "Lisa Park", ownerInitials: "LP", health: "medium", healthScore: 78, renewalDays: 0, nrr: 0,
+    lastQbrDays: 0, hq: "Bentonville, AR", industry: "Retail · E-commerce", employees: 21000,
+    stakeholders: [
+      { name: "Doug Tilbury",    title: "EVP Walmart US Tech",              role: "Decision Maker", sentiment: "neutral",    lastTouch: "11d ago", daysSilent: 11, department: "Executive" },
+      { name: "Hema Krishnan",   title: "VP Customer Tech Platform",        role: "Champion",       sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Doug Tilbury" },
+      { name: "Roberta Schulz",  title: "Director of Marketplace Engineering",role: "Influencer",   sentiment: "supportive", lastTouch: "2d ago",  daysSilent:  2, department: "Engineering", reportsTo: "Hema Krishnan" },
+      { name: "Jamal Greene",    title: "Director of Procurement · Tech",   role: "Decision Maker", sentiment: "neutral",    lastTouch: "8d ago",  daysSilent:  8, department: "Finance" },
+      { name: "Shilpa Iyer",     title: "VP Finance · Walmart US",          role: "Decision Maker", sentiment: "neutral",    lastTouch: "13d ago", daysSilent: 13, department: "Finance" },
+      { name: "Adam Frey",       title: "Director of Cyber Risk",           role: "Decision Maker", sentiment: "neutral",    lastTouch: "today",   daysSilent:  0, department: "Operations" },
+      { name: "Camila Reyes",    title: "Senior Counsel · Tech",            role: "Influencer",     sentiment: "neutral",    lastTouch: "5d ago",  daysSilent:  5, department: "Operations" },
+      { name: "Pedro Olazabal",  title: "Senior Engineer · Search",         role: "User",           sentiment: "supportive", lastTouch: "1d ago",  daysSilent:  1, department: "Engineering", reportsTo: "Roberta Schulz" },
+      { name: "Liang Xu",        title: "VP Sourcing · Indirect",           role: "Decision Maker", sentiment: "neutral",    lastTouch: "9d ago",  daysSilent:  9, department: "Finance",     reportsTo: "Shilpa Iyer" },
+      { name: "Theresa Hall",    title: "VP IT · Stores Platform",          role: "Detractor",      sentiment: "negative",   lastTouch: "32d ago", daysSilent: 32, department: "Operations" },
+    ],
+    signals: [
+      { id: "s1", category: "Renewal", tone: "warn", body: "Jamal Greene (Procurement) requires three competitive bids on file before any final award — vendor matrix in motion.",
+        ago: "1d", evidence: [{ kind: "email", title: "Re: Three-bid policy", meta: "May 5" }] },
+      { id: "s2", category: "Renewal", tone: "pos", body: "Adam Frey signed off on the security questionnaire today — no remaining InfoSec blockers.",
+        ago: "today", evidence: [{ kind: "internal", title: "Security questionnaire v3 — Approved", meta: "May 6" }] },
+      { id: "s3", category: "Expansion", tone: "info", body: "Hema Krishnan asked for incremental scope to cover the marketplace + first-party domains — uplift from $300K → $540K.",
+        ago: "3d", evidence: [{ kind: "transcript", title: "Hema: 'one contract for both worlds'", meta: "00:21:08" }] },
+    ],
+  }),
+
+  // ── ANTHROPIC · Discovery prospect ────────────────────────────────
+  [slugify("Anthropic, PBC")]: baseAccountDetail({
+    name: "Anthropic", domain: "anthropic.com", segment: "Mid-Market", arr: 0, status: "Prospect",
+    owner: "Rachel Kim", ownerInitials: "RK", health: "high", healthScore: 88, renewalDays: 0, nrr: 0,
+    lastQbrDays: 0, hq: "San Francisco, CA", industry: "AI · Foundation Models", employees: 1100,
+    stakeholders: [
+      { name: "Daria Amodei",     title: "CEO",                              role: "Decision Maker", sentiment: "neutral",    lastTouch: "10d ago", daysSilent: 10, department: "Executive" },
+      { name: "Tom Schuyler",     title: "CTO",                              role: "Decision Maker", sentiment: "supportive", lastTouch: "4d ago",  daysSilent:  4, department: "Engineering", reportsTo: "Daria Amodei" },
+      { name: "Selina Pereira",   title: "VP Go-To-Market Operations",       role: "Champion",       sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Operations" },
+      { name: "Hiroki Watanabe",  title: "Head of Sales Engineering",        role: "Champion",       sentiment: "supportive", lastTouch: "1d ago",  daysSilent:  1, department: "Sales" },
+      { name: "Alana Greaves",    title: "VP Engineering · Production",      role: "Influencer",     sentiment: "supportive", lastTouch: "2d ago",  daysSilent:  2, department: "Engineering", reportsTo: "Tom Schuyler" },
+      { name: "Pierre Boucher",   title: "Director of Trust & Safety Tech",  role: "Influencer",     sentiment: "supportive", lastTouch: "3d ago",  daysSilent:  3, department: "Operations" },
+      { name: "Mei Lin",          title: "Senior PM · API Platform",         role: "Influencer",     sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Product",     reportsTo: "Alana Greaves" },
+      { name: "Sundeep Kapoor",   title: "Head of Finance",                  role: "Decision Maker", sentiment: "neutral",    lastTouch: "8d ago",  daysSilent:  8, department: "Finance" },
+      { name: "Ife Adebayo",      title: "Senior Counsel · Commercial",      role: "Influencer",     sentiment: "neutral",    lastTouch: "6d ago",  daysSilent:  6, department: "Operations" },
+      { name: "Tom Becker",       title: "Director of Procurement",          role: "Decision Maker", sentiment: "neutral",    lastTouch: "9d ago",  daysSilent:  9, department: "Finance",     reportsTo: "Sundeep Kapoor" },
+    ],
+    signals: [
+      { id: "s1", category: "Hiring & Org", tone: "pos", body: "Selina hosted the discovery call today — flagged need for a unified attribution + RevOps source of truth before next quarter.",
+        ago: "today", evidence: [{ kind: "transcript", title: "Selina: 'one source of truth before Q3'", meta: "00:24:03" }] },
+      { id: "s2", category: "Hiring & Org", tone: "info", body: "Anthropic announced a $4B funding round — accelerates team and tooling spend.",
+        ago: "9d", evidence: [{ kind: "linkedin", title: "Press: Anthropic $4B Series F", meta: "Apr 27" }] },
+      { id: "s3", category: "Competitive", tone: "warn", body: "Hiroki referenced an internal data warehouse exploration before evaluating us — competitive against \"build it ourselves\".",
+        ago: "4d", evidence: [{ kind: "transcript", title: "Hiroki: 'we considered building this internally'", meta: "00:31:22" }] },
+    ],
+  }),
+
+  // ── PFIZER · Qualified prospect ──────────────────────────────────
+  [slugify("Pfizer Inc.")]: baseAccountDetail({
+    name: "Pfizer", domain: "pfizer.com", segment: "Enterprise", arr: 0, status: "Prospect",
+    owner: "Paul Acker", ownerInitials: "PA", health: "medium", healthScore: 72, renewalDays: 0, nrr: 0,
+    lastQbrDays: 0, hq: "New York, NY", industry: "Pharmaceuticals", employees: 14000,
+    stakeholders: [
+      { name: "Albert Boorla",      title: "CEO",                                role: "Decision Maker", sentiment: "neutral",    lastTouch: "24d ago", daysSilent: 24, department: "Executive" },
+      { name: "Lidia Andriesc",     title: "Chief Digital Officer",              role: "Decision Maker", sentiment: "neutral",    lastTouch: "12d ago", daysSilent: 12, department: "Executive", reportsTo: "Albert Boorla" },
+      { name: "Hari Krishnan",      title: "VP Commercial Tech",                 role: "Champion",       sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Lidia Andriesc" },
+      { name: "Beatriz Vega",       title: "Director of HCP Engagement Tech",    role: "Influencer",     sentiment: "supportive", lastTouch: "3d ago",  daysSilent:  3, department: "Engineering", reportsTo: "Hari Krishnan" },
+      { name: "Frank Whitfield",    title: "Director of Regulatory Affairs IT",  role: "Decision Maker", sentiment: "neutral",    lastTouch: "9d ago",  daysSilent:  9, department: "Operations" },
+      { name: "Sahar Karimi",       title: "Senior PM · Patient Access",         role: "Influencer",     sentiment: "supportive", lastTouch: "5d ago",  daysSilent:  5, department: "Product" },
+      { name: "Renee Falkner",      title: "VP Procurement · Indirect",          role: "Decision Maker", sentiment: "neutral",    lastTouch: "14d ago", daysSilent: 14, department: "Finance" },
+      { name: "Joaquim Almeida",    title: "Head of Information Security",       role: "Decision Maker", sentiment: "neutral",    lastTouch: "11d ago", daysSilent: 11, department: "Operations" },
+      { name: "Connor Mulligan",    title: "Senior Engineer · Salesforce Health Cloud", role: "User",   sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Beatriz Vega" },
+    ],
+    signals: [
+      { id: "s1", category: "Hiring & Org", tone: "info", body: "Hari Krishnan asked for a discovery deep-dive on HCP-engagement attribution — first qualified opportunity.",
+        ago: "today", evidence: [{ kind: "email", title: "Re: HCP-engagement deep-dive", meta: "May 6" }] },
+      { id: "s2", category: "Renewal", tone: "warn", body: "Frank Whitfield flagged FDA 21 CFR Part 11 evidence as a hard requirement — adds 2-3 weeks to the cycle.",
+        ago: "4d", evidence: [{ kind: "transcript", title: "Frank: 'we'll need 21 CFR Part 11 evidence'", meta: "00:28:18" }] },
+      { id: "s3", category: "Hiring & Org", tone: "info", body: "Pfizer published a $1.2B commercial-tech overhaul plan — opens budget windows across Lidia's org.",
+        ago: "10d", evidence: [{ kind: "linkedin", title: "Press: Pfizer commercial-tech overhaul", meta: "Apr 26" }] },
+    ],
+  }),
+
+  // ── TOYOTA · Demo prospect ───────────────────────────────────────
+  [slugify("Toyota Motor Corp.")]: baseAccountDetail({
+    name: "Toyota", domain: "toyota.com", segment: "Enterprise", arr: 0, status: "Prospect",
+    owner: "Brad Allen", ownerInitials: "BA", health: "high", healthScore: 84, renewalDays: 0, nrr: 0,
+    lastQbrDays: 0, hq: "Toyota City, JP", industry: "Automotive · Mobility", employees: 18500,
+    stakeholders: [
+      { name: "Akio Sasaki",       title: "Chief Digital Officer",              role: "Decision Maker", sentiment: "neutral",    lastTouch: "16d ago", daysSilent: 16, department: "Executive" },
+      { name: "Hideaki Watanabe",  title: "VP Connected Vehicle Platform",      role: "Champion",       sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Akio Sasaki" },
+      { name: "Yuko Mishima",      title: "Director of Dealer Tech",            role: "Influencer",     sentiment: "supportive", lastTouch: "1d ago",  daysSilent:  1, department: "Engineering", reportsTo: "Hideaki Watanabe" },
+      { name: "Kenji Otsuka",      title: "Senior Engineer · Telematics",       role: "User",           sentiment: "supportive", lastTouch: "today",   daysSilent:  0, department: "Engineering", reportsTo: "Yuko Mishima" },
+      { name: "Stephen Park",      title: "VP Digital Marketing · NA",          role: "Champion",       sentiment: "supportive", lastTouch: "3d ago",  daysSilent:  3, department: "Sales" },
+      { name: "Mariko Saito",      title: "Director of Commercial Strategy",    role: "Influencer",     sentiment: "supportive", lastTouch: "2d ago",  daysSilent:  2, department: "Sales",       reportsTo: "Stephen Park" },
+      { name: "Hiroto Tanaka",     title: "Head of Information Security",       role: "Decision Maker", sentiment: "neutral",    lastTouch: "6d ago",  daysSilent:  6, department: "Operations" },
+      { name: "Nobu Sato",         title: "VP Procurement · Tech",              role: "Decision Maker", sentiment: "neutral",    lastTouch: "10d ago", daysSilent: 10, department: "Finance" },
+      { name: "Linda Mascarenhas", title: "Senior Counsel · Commercial Tech",   role: "Influencer",     sentiment: "neutral",    lastTouch: "8d ago",  daysSilent:  8, department: "Operations" },
+    ],
+    signals: [
+      { id: "s1", category: "Hiring & Org", tone: "pos", body: "Live demo this Wednesday with Hideaki + Stephen — bridging connected-vehicle telemetry with NA marketing attribution.",
+        ago: "today", evidence: [{ kind: "email", title: "Re: Demo agenda — connected + NA marketing", meta: "May 6" }] },
+      { id: "s2", category: "Expansion", tone: "info", body: "Toyota announced a $13B EV platform roadmap — Hideaki's budget grows alongside the platform investment.",
+        ago: "9d", evidence: [{ kind: "linkedin", title: "Press: Toyota $13B EV roadmap", meta: "Apr 27" }] },
+      { id: "s3", category: "Competitive", tone: "warn", body: "Adobe Marketo Engage referenced as the incumbent in NA — displacement story required for Stephen.",
+        ago: "5d", evidence: [{ kind: "internal", title: "NA marketing tech stack survey", meta: "May 1" }] },
     ],
   }),
 };

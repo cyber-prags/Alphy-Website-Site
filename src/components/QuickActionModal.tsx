@@ -5,7 +5,10 @@ import { X, Sparkles, Send, Check, Calendar, Mail, MessageSquare, FileText } fro
 import { Logo } from "./Logo";
 import { useToast } from "./Toast";
 
-export type QuickActionKind = "email" | "case" | "qbr" | "escalation" | "approve" | "drilldown" | "note";
+export type QuickActionKind =
+  | "email" | "case" | "qbr" | "escalation" | "approve" | "drilldown" | "note"
+  // AE-specific kinds — produce deal-flavoured drafts and steps
+  | "questionnaire" | "discovery" | "multithread" | "deal-update";
 
 type Props = {
   open: boolean;
@@ -17,17 +20,23 @@ type Props = {
 };
 
 const TITLE: Record<QuickActionKind, string> = {
-  email:      "Draft re-engagement email",
-  case:       "Build expansion case",
-  qbr:        "Schedule QBR",
-  escalation: "Run escalation playbook",
-  approve:    "Approve & send",
-  drilldown:  "Open usage drill-down",
-  note:       "Add a note",
+  email:         "Draft re-engagement email",
+  case:          "Build expansion case",
+  qbr:           "Schedule QBR",
+  escalation:    "Run escalation playbook",
+  approve:       "Approve & send",
+  drilldown:     "Open usage drill-down",
+  note:          "Add a note",
+  questionnaire: "Send security questionnaire",
+  discovery:     "Schedule discovery call",
+  multithread:   "Multithread into account",
+  "deal-update": "Update deal in CRM",
 };
 
 const ICON: Record<QuickActionKind, typeof Mail> = {
-  email: Mail, case: FileText, qbr: Calendar, escalation: Sparkles, approve: Check, drilldown: MessageSquare, note: FileText,
+  email: Mail, case: FileText, qbr: Calendar, escalation: Sparkles,
+  approve: Check, drilldown: MessageSquare, note: FileText,
+  questionnaire: FileText, discovery: Calendar, multithread: Mail, "deal-update": Check,
 };
 
 export function QuickActionModal({ open, kind, account, context, onClose, onComplete }: Props) {
@@ -219,6 +228,57 @@ Looking forward to working with you.
 
 — Walid`;
   }
+  if (kind === "questionnaire") {
+    return `Hi ${getRecipientFirstName(account)},
+
+Per our last call, attaching our standard SOC 2 / SIG-Lite questionnaire pre-filled with our firmographics and architecture diagrams. Sections marked complete; the few customer-facing items are highlighted.
+
+Quick context to make review easier:
+  · We're SOC 2 Type II + ISO 27001 certified (reports attached)
+  · Data residency is configurable — US, EU, UK regions available
+  · Alphard's auth model integrates with your Okta SSO (whitelist included)
+
+Aiming to keep us moving toward the ${getRenewalDays(account)}-day close target. Happy to do a 20-min walk-through with your security team if helpful.
+
+— Walid`;
+  }
+  if (kind === "discovery") {
+    return `Hi ${getRecipientFirstName(account)},
+
+Following up to lock in our discovery call for next week.
+
+Proposed agenda:
+  · 5 min — context on what we've heard so far
+  · 10 min — your team's current state on expansion ops
+  · 10 min — show you how Alphard would fit
+  · 5 min — agree next steps + decision criteria
+
+Happy to send a Google Calendar invite for any 30-min slot Tuesday or Wednesday afternoon. Who else from your side should be on the call?
+
+— Walid`;
+  }
+  if (kind === "multithread") {
+    return `Hi {{first_name}},
+
+Saw your post on {{recent_topic}} — landed on it through the Alphard work we've been doing with {{champion_name}} on your team. Wanted to introduce myself directly.
+
+If you haven't seen the demo {{champion_name}} put together, here's a 90-second Loom that covers the parts of Alphard most relevant to your scope.
+
+Worth 15 minutes next week to compare notes on how your team's running expansion?
+
+— Walid`;
+  }
+  if (kind === "deal-update") {
+    return `Stage: Demo → Negotiation
+Probability: 60% → 80%
+Close date: confirmed (no change)
+Next steps:
+  · Send security questionnaire (assigned to me)
+  · Schedule final pricing call (this week)
+  · Confirm legal review timeline
+
+MEDDPICC fields auto-synced. Salesforce will reflect changes within 60 seconds.`;
+  }
   return "";
 }
 
@@ -257,46 +317,84 @@ const STEPS_FOR: Record<QuickActionKind, string[]> = {
   note: [
     "Saving note to the account log…",
   ],
+  questionnaire: [
+    "Pulling open security review thread…",
+    "Loading your standard questionnaire template…",
+    "Pre-filling firmographics from CRM…",
+    "Drafting send-with note…",
+  ],
+  discovery: [
+    "Checking calendars (Google Workspace)…",
+    "Pulling LinkedIn intel on attendees…",
+    "Loading discovery agenda template…",
+    "Drafting calendar invite…",
+  ],
+  multithread: [
+    "Mapping the buying committee from CRM + LinkedIn…",
+    "Scoring net-new contacts by buying potential…",
+    "Drafting personalised intro emails…",
+  ],
+  "deal-update": [
+    "Reading current deal record (Salesforce)…",
+    "Validating MEDDPICC checklist…",
+    "Preparing field updates…",
+  ],
 };
 
 const ACTION_LABEL: Record<QuickActionKind, string> = {
-  email:      "Send",
-  case:       "Open business case",
-  qbr:        "Schedule",
-  escalation: "Trigger playbook",
-  approve:    "Approve & send",
-  drilldown:  "Open drill-down",
-  note:       "Save note",
+  email:         "Send",
+  case:          "Open business case",
+  qbr:           "Schedule",
+  escalation:    "Trigger playbook",
+  approve:       "Approve & send",
+  drilldown:     "Open drill-down",
+  note:          "Save note",
+  questionnaire: "Send questionnaire",
+  discovery:     "Send invite",
+  multithread:   "Send intros",
+  "deal-update": "Apply update",
 };
 
 const SUCCESS_LABEL: Record<QuickActionKind, string> = {
-  email:      "Email sent",
-  case:       "Business case opened",
-  qbr:        "QBR scheduled",
-  escalation: "Escalation triggered",
-  approve:    "Email sent",
-  drilldown:  "Drill-down opened",
-  note:       "Note saved",
+  email:         "Email sent",
+  case:          "Business case opened",
+  qbr:           "QBR scheduled",
+  escalation:    "Escalation triggered",
+  approve:       "Email sent",
+  drilldown:     "Drill-down opened",
+  note:          "Note saved",
+  questionnaire: "Questionnaire sent",
+  discovery:     "Discovery call scheduled",
+  multithread:   "Intros sent",
+  "deal-update": "Deal updated in CRM",
 };
 
 const SUCCESS_BODY: Record<QuickActionKind, string> = {
-  email:      "Re-engagement email queued for {account}.",
-  case:       "Business case for {account} added to Decks.",
-  qbr:        "QBR booked for next Tuesday at 2:00 PM with the {account} team.",
-  escalation: "P0 playbook running for {account}. Adriana looped in.",
-  approve:    "Welcome email sent to {account}.",
-  drilldown:  "Usage drill-down for {account} is live.",
-  note:       "Note attached to {account}.",
+  email:         "Re-engagement email queued for {account}.",
+  case:          "Business case for {account} added to Decks.",
+  qbr:           "QBR booked for next Tuesday at 2:00 PM with the {account} team.",
+  escalation:    "P0 playbook running for {account}. Adriana looped in.",
+  approve:       "Welcome email sent to {account}.",
+  drilldown:     "Usage drill-down for {account} is live.",
+  note:          "Note attached to {account}.",
+  questionnaire: "Security questionnaire sent to {account}'s security team. Tracking in Salesforce.",
+  discovery:     "30-min discovery call sent to {account}'s buying committee for next week.",
+  multithread:   "3 intro emails sent to net-new contacts at {account}.",
+  "deal-update": "Stage moved and MEDDPICC fields synced to {account}'s opportunity in Salesforce.",
 };
 
 const SUBJECT_FOR: Record<QuickActionKind, string> = {
-  email:      "Following up — quick chat before renewal",
-  approve:    "Welcome to {account} — getting you set up",
-  case:       "",
-  qbr:        "",
-  escalation: "",
-  drilldown:  "",
-  note:       "",
+  email:         "Following up — quick chat before renewal",
+  approve:       "Welcome to {account} — getting you set up",
+  case:          "",
+  qbr:           "",
+  escalation:    "",
+  drilldown:     "",
+  note:          "",
+  questionnaire: "Security questionnaire — {account} review",
+  discovery:     "Discovery call · {account} × Alphard",
+  multithread:   "Quick intro — Alphard team",
+  "deal-update": "",
 };
 
 function getRecipient(account: string, _kind: QuickActionKind): string {

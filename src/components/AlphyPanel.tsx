@@ -65,12 +65,20 @@ const SUGGESTIONS: Suggestion[] = [
 function generateOutput(prompt: string): Output {
   const p = prompt.toLowerCase();
 
-  // Account name resolution helper
+  // Account name resolution helper.
+  // Strip punctuation (commas, periods, "Inc.") from the account name so
+  // "Cloudflare, Inc." matches a prompt that says "cloudflare".
   const detectAccount = () => {
-    const match = accounts.find((a) =>
-      p.includes(a.name.toLowerCase().split(" ")[0])
-    );
-    return match;
+    return accounts.find((a) => {
+      const root = a.name
+        .toLowerCase()
+        .replace(/(,?\s*inc\.?|,?\s*ltd\.?|,?\s*holdings|,?\s*technologies|software|automotive|energy|group|ag|corporation|paper)$/g, "")
+        .replace(/[.,]/g, "")
+        .trim();
+      const firstWord = root.split(/\s+/)[0];
+      // Match either the cleaned root ("cloudflare") or the first word
+      return p.includes(root) || p.includes(firstWord);
+    });
   };
 
   // 1. Report on a specific account
@@ -609,6 +617,10 @@ export function AlphyPanel({ open, onClose, onExpand }: {
   onClose: () => void;
   onExpand?: () => void;
 }) {
+  // Optional preloaded conversation — set by the AM tour via the
+  // `alphard:alphy-run` event with `{ prompt, artifact }`.
+  const [seed, setSeed] = useState<{ messages: Message[]; key: number } | null>(null);
+
   // Esc to close
   useEffect(() => {
     if (!open) return;
@@ -617,22 +629,74 @@ export function AlphyPanel({ open, onClose, onExpand }: {
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  // Listen for tour-driven artifact requests
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { prompt?: string; artifact?: string } | undefined;
+      if (!detail) return;
+      if (detail.artifact === "expansion-case") {
+        setSeed({
+          key: Date.now(),
+          messages: [
+            { role: "user", text: detail.prompt ?? "Build expansion business case for Cloudflare" },
+            {
+              role: "alphy",
+              status: "done",
+              output: {
+                kind: "report",
+                account: "Cloudflare",
+                sections: [
+                  { label: "Executive Summary",
+                    body: "Cloudflare is at $720K ARR, 124% NRR, renewal in 178 days. Champion Maya Chen was just promoted to VP Engineering — her budget now spans Networking + Security. Bundling the two SKUs into a single 12-month contract maps to her new scope and unlocks $215K expansion before procurement consolidates with another vendor.",
+                    tone: "neutral" },
+                  { label: "ROI Math",
+                    body: "Networking SKU usage up +38% WoW — under-provisioned at current tier. Combined Networking + Security bundle: $215K incremental ARR, 14-month payback. Avoided cost of single-vendor consolidation: $420K over 3 years. Time-to-value for Security: 11 days.",
+                    tone: "pos" },
+                  { label: "Comparable Win — Datadog",
+                    body: "Datadog landed the same combined-tier bundle at comparable scale (3,400 employees, $720K starting ARR) in Q4 2025. Result: 3.2× pipeline visibility and the largest single-quarter NRR contribution that year. Champion was also a newly promoted VP Eng — pattern is a near-mirror.",
+                    tone: "pos" },
+                  { label: "Risks",
+                    body: "InfoSec review with Owen Mitchell still scheduling. Procurement (Priya Sharma) silent 11d. VP Sales Rebecca Chu flagged as detractor — neutralise before steering.",
+                    tone: "warn" },
+                  { label: "Recommended Next Steps",
+                    body: "1) Reply to Maya with this case attached today.  2) Combined-tier walkthrough with Maya + Owen Mitchell by Friday.  3) Avoided-cost story to Naomi Walker (CFO) Monday.  4) Pull Datadog reference call within 7 days.",
+                    tone: "neutral" },
+                ],
+                metrics: [
+                  { label: "Incremental ARR", value: "$215K",   tone: "pos" },
+                  { label: "Payback",          value: "14 mo",  tone: "neutral" },
+                  { label: "TTV",              value: "11 d",   tone: "pos" },
+                  { label: "Confidence",       value: "High",   tone: "pos" },
+                ],
+              },
+            },
+          ],
+        });
+      }
+    };
+    window.addEventListener("alphard:alphy-run", handler);
+    return () => window.removeEventListener("alphard:alphy-run", handler);
+  }, []);
+
   if (!open) return null;
 
   return (
     <>
       <div className="fixed inset-0 bg-ink/30 backdrop-blur-[2px] z-[90] alphy-fade" onClick={onClose} />
       <aside
-        className="fixed top-0 right-0 h-screen w-full md:w-[600px] z-[95] alphy-anim"
+        className="fixed top-3 right-3 bottom-3 w-full md:w-[600px] z-[95] alphy-anim rounded-2xl overflow-hidden"
         style={{
+          maxWidth: "calc(100vw - 24px)",
           background: "var(--bg)",
-          borderLeft: "1px solid var(--line)",
-          boxShadow: "-22px 0 60px -22px rgba(15,18,24,0.18)",
+          border: "1px solid var(--line)",
+          boxShadow: "0 24px 60px -16px rgba(15,18,24,0.30), -22px 0 60px -22px rgba(15,18,24,0.18)",
         }}
       >
         <AlphyChat
+          key={seed?.key ?? "default"}
           variant="panel"
-          onClose={onClose}
+          initialMessages={seed?.messages}
+          onClose={() => { setSeed(null); onClose(); }}
           onExpand={onExpand}
         />
         <style jsx>{`
@@ -884,35 +948,63 @@ function ChartOut({ out }: { out: Extract<Output, { kind: "chart" }> }) {
 
 function BarChart({ series }: { series: Extract<Output, { kind: "chart" }>["series"] }) {
   const max = Math.max(...series.map((s) => s.value));
+  const fmtVal = (v: number) =>
+    v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M`
+    : v >= 1_000   ? `${(v / 1_000).toFixed(0)}K`
+    : `${v}`;
+
   return (
-    <div>
-      <div className="flex items-end gap-2 h-[120px]">
-        {series.map((s, i) => (
-          <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
-            <div className="text-[9.5px] font-mono tnum text-muted-2">
-              {s.value > 1_000_000 ? `${(s.value / 1_000_000).toFixed(1)}M` : s.value > 1000 ? `${(s.value / 1000).toFixed(0)}K` : s.value}
-            </div>
-            <div
-              className="w-full rounded-t-sm transition-all bar-grow"
-              style={{
-                height: `${(s.value / max) * 90}%`,
-                background: s.tone ?? "var(--ink-2)",
-                animationDelay: `${i * 80}ms`,
-              }}
-            />
-          </div>
+    <div className="bar-chart">
+      {/* Plot — fixed-height flex row with full-height columns so bar % resolves correctly */}
+      <div className="relative h-[150px]"
+        style={{ borderBottom: "1px solid var(--line)" }}>
+        {/* Subtle gridlines */}
+        {[0.25, 0.5, 0.75].map((t) => (
+          <div key={t} className="absolute left-0 right-0 pointer-events-none"
+            style={{
+              bottom: `${t * 100}%`,
+              borderTop: "1px dashed var(--line)",
+              opacity: 0.4,
+            }} />
         ))}
+        <div className="flex items-end gap-3 h-full px-1">
+          {series.map((s, i) => {
+            const heightPct = max > 0 ? (s.value / max) * 100 : 0;
+            const tone = s.tone ?? "var(--ink-2)";
+            return (
+              <div key={i} className="flex-1 h-full flex flex-col items-center justify-end gap-1.5 group">
+                <div className="text-[10.5px] font-mono tnum text-ink-2 font-semibold leading-none">
+                  {fmtVal(s.value)}
+                </div>
+                <div
+                  className="w-full rounded-t-md transition-all bar-grow relative overflow-hidden"
+                  style={{
+                    height: `${heightPct}%`,
+                    background: `linear-gradient(180deg, ${tone}, ${tone}dd)`,
+                    boxShadow: `0 1px 0 ${tone}`,
+                    animationDelay: `${i * 90}ms`,
+                  }}
+                >
+                  {/* Soft top sheen */}
+                  <span className="absolute inset-x-0 top-0 h-[40%]"
+                    style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.12), transparent)" }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
-      <div className="flex gap-2 mt-2">
+      {/* X-axis labels */}
+      <div className="flex gap-3 mt-2.5 px-1">
         {series.map((s, i) => (
-          <div key={i} className="flex-1 text-[10px] font-mono uppercase tracking-[0.06em] text-muted-2 text-center">
+          <div key={i} className="flex-1 text-[10px] font-mono uppercase tracking-[0.08em] text-muted-2 text-center">
             {s.label}
           </div>
         ))}
       </div>
       <style jsx>{`
-        @keyframes barGrow { from { height: 0; } to {} }
-        .bar-grow { animation: barGrow 600ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+        @keyframes barGrow { from { height: 0; opacity: 0; } to { opacity: 1; } }
+        .bar-grow { animation: barGrow 700ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
       `}</style>
     </div>
   );

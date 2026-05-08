@@ -287,7 +287,7 @@ export function DraftDeckModal({ open, account, onClose, template = "qbr" }: { o
               {/* Slide reveal preview during build */}
               <div className="grid grid-cols-2 gap-2 mt-4 max-h-[40vh] overflow-y-auto">
                 {slides.map((s, i) => (
-                  <SlidePreview key={i} slide={s} index={i} dim={i > revealed} />
+                  <SlidePreview key={i} slide={s} index={i} dim={i > revealed} brand={account ? brandFor(account.name) : undefined} account={account} template={template} />
                 ))}
               </div>
             </div>
@@ -298,7 +298,7 @@ export function DraftDeckModal({ open, account, onClose, template = "qbr" }: { o
             <>
               <div className="px-5 py-4 overflow-y-auto flex-1">
                 <div className="grid grid-cols-2 gap-3">
-                  {slides.map((s, i) => <SlidePreview key={i} slide={s} index={i} />)}
+                  {slides.map((s, i) => <SlidePreview key={i} slide={s} index={i} brand={account ? brandFor(account.name) : undefined} account={account} template={template} />)}
                 </div>
               </div>
               <div className="px-5 py-3 border-t border-line flex items-center justify-end gap-2">
@@ -324,34 +324,121 @@ export function DraftDeckModal({ open, account, onClose, template = "qbr" }: { o
   );
 }
 
-function SlidePreview({ slide, index, dim }: { slide: Slide; index: number; dim?: boolean }) {
+// Per-account brand palette — Cloudflare orange, Snowflake cyan, etc.
+// Falls back to a deterministic hue from the name's hash if not in the table.
+const BRAND_COLORS: Record<string, { primary: string; tint: string; accent: string }> = {
+  "Cloudflare":      { primary: "#F38020", tint: "rgba(243,128,32,0.10)",  accent: "#FAA755" },
+  "Snowflake":       { primary: "#29B5E8", tint: "rgba(41,181,232,0.10)",  accent: "#5BC9F0" },
+  "Stripe":          { primary: "#635BFF", tint: "rgba(99,91,255,0.10)",   accent: "#8479FF" },
+  "GitLab":          { primary: "#FC6D26", tint: "rgba(252,109,38,0.10)",  accent: "#FFA15A" },
+  "Akamai":          { primary: "#0099CC", tint: "rgba(0,153,204,0.10)",   accent: "#33B0DD" },
+  "Tableau":         { primary: "#1F4E79", tint: "rgba(31,78,121,0.10)",   accent: "#3A70A0" },
+  "Boston Dynamics": { primary: "#0A84FF", tint: "rgba(10,132,255,0.10)",  accent: "#3FA3FF" },
+  "HSBC":            { primary: "#DB0011", tint: "rgba(219,0,17,0.10)",    accent: "#E63647" },
+};
+function brandFor(name: string) {
+  for (const k of Object.keys(BRAND_COLORS)) {
+    if (name.toLowerCase().includes(k.toLowerCase())) return BRAND_COLORS[k];
+  }
+  // Hash → hue fallback so any company gets a stable colour.
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+  return { primary: `hsl(${h}, 65%, 48%)`, tint: `hsla(${h}, 65%, 48%, 0.10)`, accent: `hsl(${h}, 75%, 60%)` };
+}
+
+function SlidePreview({ slide, index, dim, brand, account, template }: {
+  slide: Slide; index: number; dim?: boolean;
+  brand?: { primary: string; tint: string; accent: string };
+  account?: AccountDetail | null;
+  template?: DeckTemplate;
+}) {
+  const b = brand ?? { primary: "var(--accent)", tint: "rgba(38,109,240,0.10)", accent: "var(--accent)" };
+  // The first slide is the cover — give it a more "title-page" treatment
+  const isCover = index === 0;
+  const templateLabel = template ? TEMPLATE_LABEL[template] : "Business Review";
+
   return (
-    <div className="rounded-xl border border-line bg-surface p-3 transition-opacity"
-      style={{ opacity: dim ? 0.35 : 1 }}>
-      <div className="flex items-center gap-1.5 mb-1.5">
-        <span className="text-[9px] font-mono text-muted-2 tracking-[0.06em]">SLIDE {String(index + 1).padStart(2, "0")}</span>
-        {!dim && <Check size={10} strokeWidth={2} style={{ color: "var(--accent-deep)" }} />}
-      </div>
-      <div className="text-[12px] font-semibold text-ink leading-snug">{slide.title}</div>
-      <div className="text-[10.5px] text-muted leading-relaxed mt-1">{slide.body}</div>
-      {slide.bullets && (
-        <ul className="text-[10.5px] text-ink-2 mt-2 list-disc pl-3.5 space-y-0.5">
-          {slide.bullets.slice(0, 2).map((b, i) => <li key={i} className="line-clamp-1">{b}</li>)}
-        </ul>
-      )}
-      {slide.metrics && (
-        <div className="grid grid-cols-3 gap-2 mt-2">
-          {slide.metrics.map((m) => (
-            <div key={m.label} className="recessed p-1.5">
-              <div className="text-[10px] font-semibold tnum"
-                style={{ color: m.tone === "pos" ? "var(--pos)" : m.tone === "neg" ? "var(--neg)" : "var(--ink)" }}>
-                {m.value}
-              </div>
-              <div className="text-[9px] text-muted truncate">{m.label}</div>
-            </div>
-          ))}
+    <div className="rounded-xl overflow-hidden border border-line bg-surface transition-opacity relative"
+      style={{ opacity: dim ? 0.35 : 1, aspectRatio: "16 / 10" }}>
+      {/* Brand top edge */}
+      <div className="absolute top-0 left-0 right-0 h-1"
+        style={{ background: `linear-gradient(90deg, ${b.primary}, ${b.accent})` }} />
+
+      {/* Header strip */}
+      <div className="px-3 pt-2.5 pb-1 flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[9px] font-mono uppercase tracking-[0.16em]"
+            style={{ color: b.primary }}>
+            Slide {String(index + 1).padStart(2, "0")}
+          </span>
+          {!dim && <Check size={10} strokeWidth={2.2} style={{ color: b.primary }} />}
         </div>
-      )}
+        {account && (
+          <div className="flex items-center gap-1.5">
+            <Logo name={account.name} size={12} />
+            <span className="text-[9px] text-muted-2 font-medium tracking-[0.04em]">{account.name}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Body */}
+      <div className="px-3 py-2 flex-1">
+        {isCover ? (
+          <div className="flex flex-col gap-1 mt-2">
+            <div className="text-[9px] font-semibold uppercase tracking-[0.18em]"
+              style={{ color: b.primary }}>
+              {templateLabel}
+            </div>
+            <div className="text-[15px] font-bold text-ink leading-tight"
+              style={{ letterSpacing: "-0.018em" }}>
+              {slide.title}
+            </div>
+            <div className="text-[10.5px] text-muted leading-snug mt-0.5">{slide.body}</div>
+            <div className="mt-auto pt-2">
+              <div className="h-px w-1/3" style={{ background: b.primary, opacity: 0.6 }} />
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="text-[12px] font-bold text-ink leading-snug" style={{ letterSpacing: "-0.012em" }}>
+              {slide.title}
+            </div>
+            <div className="text-[10px] text-muted leading-relaxed mt-1 line-clamp-2">{slide.body}</div>
+            {slide.bullets && (
+              <ul className="text-[10px] text-ink-2 mt-1.5 space-y-0.5">
+                {slide.bullets.slice(0, 2).map((bl, i) => (
+                  <li key={i} className="flex gap-1.5">
+                    <span className="inline-block w-1 h-1 rounded-full mt-[5px] flex-shrink-0"
+                      style={{ background: b.primary }} />
+                    <span className="line-clamp-1 flex-1">{bl}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {slide.metrics && (
+              <div className="grid grid-cols-3 gap-1.5 mt-2">
+                {slide.metrics.map((m) => (
+                  <div key={m.label} className="rounded-md p-1.5"
+                    style={{ background: b.tint, border: `1px solid ${b.primary}22` }}>
+                    <div className="text-[10.5px] font-bold tnum"
+                      style={{ color: m.tone === "pos" ? "var(--pos)" : m.tone === "neg" ? "var(--neg)" : b.primary }}>
+                      {m.value}
+                    </div>
+                    <div className="text-[8.5px] text-muted truncate">{m.label}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="absolute bottom-0 left-0 right-0 px-3 py-1.5 flex items-center justify-between border-t border-line"
+        style={{ background: b.tint }}>
+        <span className="text-[8px] font-mono uppercase tracking-[0.16em] text-muted-2">{templateLabel}</span>
+        <span className="text-[8px] font-mono tnum text-muted-2">{String(index + 1).padStart(2, "0")} / —</span>
+      </div>
     </div>
   );
 }

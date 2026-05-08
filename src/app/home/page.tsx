@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useMemo } from "react";
+import { createContext, useContext, useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import {
   ChevronRight, Sparkles, AlertTriangle, Bell, Target, Plus, CheckCircle2,
@@ -20,6 +20,7 @@ import { ExecutionDrawer, type DrawerConfig, type DrawerFlow } from "@/component
 import { AccountPeek, type PeekConfig, type PeekActivity } from "@/components/AccountPeek";
 import { SignalDetail, type SignalDetailItem } from "@/components/SignalDetail";
 import { PersonAvatar } from "@/components/PersonAvatar";
+import { AmGuidedTour, useAmTourEligible } from "@/components/AmGuidedTour";
 
 // Drawer context — any sub-component can open the animated execution drawer
 const DrawerCtx = createContext<{ open: (cfg: DrawerConfig) => void }>({ open: () => {} });
@@ -166,6 +167,7 @@ function AMHome() {
   const { user } = useUser();
   const [drawerCfg, setDrawerCfg] = useState<DrawerConfig | null>(null);
   const [peekCfg, setPeekCfg] = useState<PeekConfig | null>(null);
+  // AM tour is rendered + managed at the AppShell level; auto-open happens there.
 
   const openPeek: PeekOpener = (accountName, source = "default") => {
     const acct = resolveAccountByName(accountName);
@@ -225,11 +227,17 @@ function AMHome() {
       </header>
 
       {/* ─── Today ───────────────────────────────────────────── */}
-      <SectionHeader label="Today" detail={`${COPILOT_PLAYS.length} plays`} />
-      <FeaturedPlay play={featured} />
-      <div className="mt-2 mb-10">
-        {more.map((p, i) => <PlayRow key={p.id} play={p} isLast={i === more.length - 1} />)}
-      </div>
+      <CollapsibleSection
+        storageKey="am-today"
+        label="Today"
+        detail={`${COPILOT_PLAYS.length} plays`}
+      >
+        <FeaturedPlay play={featured} />
+        <div className="mt-2">
+          {more.map((p, i) => <PlayRow key={p.id} play={p} isLast={i === more.length - 1} />)}
+        </div>
+      </CollapsibleSection>
+      <div className="mb-6" />
 
       {/* ─── Pipeline ────────────────────────────────────────── */}
       <SectionHeader
@@ -308,6 +316,76 @@ function SectionHeader({ label, detail, right }: { label: string; detail?: strin
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// CollapsibleSection — wraps a section's content in a collapsible region.
+// The header chevron rotates and the content slides on toggle.
+// Persists open/closed in localStorage via a per-key flag so the user's
+// preference sticks across reloads.
+// ─────────────────────────────────────────────────────────────────────
+function CollapsibleSection({
+  storageKey, label, detail, right, defaultOpen = true, children,
+}: {
+  storageKey: string;
+  label: string;
+  detail?: string;
+  right?: React.ReactNode;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState<boolean>(defaultOpen);
+  // Hydrate from localStorage on mount
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(`alphard:section:${storageKey}`);
+      if (raw === "open")  setOpen(true);
+      if (raw === "closed") setOpen(false);
+    } catch {}
+  }, [storageKey]);
+  const toggle = () => {
+    setOpen((v) => {
+      const next = !v;
+      try { window.localStorage.setItem(`alphard:section:${storageKey}`, next ? "open" : "closed"); } catch {}
+      return next;
+    });
+  };
+
+  return (
+    <div className="mb-4">
+      <div className="flex items-center justify-between mb-3">
+        <button
+          type="button"
+          onClick={toggle}
+          className="flex items-baseline gap-2.5 group/section"
+        >
+          <ChevronDown
+            size={13}
+            strokeWidth={2}
+            className="text-muted-2 transition-transform shrink-0 mt-1"
+            style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)" }}
+          />
+          <h2 className="text-[14px] font-semibold text-ink group-hover/section:text-ink-2 transition-colors"
+            style={{ letterSpacing: "-0.012em" }}>
+            {label}
+          </h2>
+          {detail && <span className="text-[11.5px] text-muted-2 tnum">{detail}</span>}
+        </button>
+        {right}
+      </div>
+      <div
+        className="grid transition-[grid-template-rows] ease-out"
+        style={{
+          gridTemplateRows: open ? "1fr" : "0fr",
+          transitionDuration: "320ms",
+        }}
+      >
+        <div className="overflow-hidden">
+          <div className="pb-1">{children}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Featured Play — the single most important action today
 // ─────────────────────────────────────────────────────────────────────
 function FeaturedPlay({ play }: { play: CoPilotPlay }) {
@@ -316,7 +394,8 @@ function FeaturedPlay({ play }: { play: CoPilotPlay }) {
   const [open, setOpen] = useState(false);
   const stale = play.staleDays && play.staleDays >= 5;
   return (
-    <div className="rounded-2xl overflow-hidden mb-2"
+    <div data-tour="featured-play"
+      className="rounded-2xl overflow-hidden mb-2"
       style={{
         background: "var(--surface)",
         border: "1px solid var(--line)",
@@ -365,7 +444,8 @@ function FeaturedPlay({ play }: { play: CoPilotPlay }) {
             )}
 
             <div className="flex items-center gap-2 mt-5">
-              <button onClick={() => drawer.open({ flow: "email-draft", account: play.account, person: play.person, title: play.action })}
+              <button data-tour="draft-btn"
+                onClick={() => drawer.open({ flow: "email-draft", account: play.account, person: play.person, title: play.action })}
                 className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-2 rounded-lg text-white"
                 style={{ background: "var(--accent-deep)" }}>
                 <Sparkles size={11} strokeWidth={2.2} /> Draft follow-up
@@ -375,7 +455,8 @@ function FeaturedPlay({ play }: { play: CoPilotPlay }) {
                 style={{ background: "var(--surface)", color: "var(--ink-2)", border: "1px solid var(--line)" }}>
                 Open account <ArrowRight size={11} strokeWidth={2.2} />
               </button>
-              <button onClick={() => setOpen((v) => !v)}
+              <button data-tour="why-now-btn"
+                onClick={() => setOpen((v) => !v)}
                 className="text-[11.5px] text-muted hover:text-ink ml-1 inline-flex items-center gap-1">
                 {open ? "Hide context" : "Why now"} <ChevronDown size={11} strokeWidth={2} className={`transition-transform ${open ? "rotate-180" : ""}`} />
               </button>
@@ -815,9 +896,14 @@ function CSMHome() {
         </header>
 
         {/* ─── Today's Saves ──────────────────────────────────────── */}
-        <SectionHeader label="Today's saves" detail={`${SAVE_PLAYS.length} plays · sorted by ARR at risk`} />
-        <SavesAccordion plays={SAVE_PLAYS} />
-        <div className="mb-10" />
+        <CollapsibleSection
+          storageKey="csm-saves"
+          label="Today's saves"
+          detail={`${SAVE_PLAYS.length} plays · sorted by ARR at risk`}
+        >
+          <SavesAccordion plays={SAVE_PLAYS} />
+        </CollapsibleSection>
+        <div className="mb-6" />
 
         {/* ─── Renewal Runway ─────────────────────────────────────── */}
         <SectionHeader
@@ -1379,13 +1465,18 @@ function ManagerHome() {
         </header>
 
         {/* ─── Today's escalations ─────────────────────────────── */}
-        <SectionHeader label="Today's escalations" detail={`${ESCALATIONS.length} need your attention`} />
-        <EscalationsAccordion
-          items={ESCALATIONS}
-          openId={openEscalationId}
-          onToggle={(id) => setOpenEscalationId(openEscalationId === id ? "" : id)}
-        />
-        <div className="mb-10" />
+        <CollapsibleSection
+          storageKey="manager-escalations"
+          label="Today's escalations"
+          detail={`${ESCALATIONS.length} need your attention`}
+        >
+          <EscalationsAccordion
+            items={ESCALATIONS}
+            openId={openEscalationId}
+            onToggle={(id) => setOpenEscalationId(openEscalationId === id ? "" : id)}
+          />
+        </CollapsibleSection>
+        <div className="mb-6" />
 
         {/* ─── Team workload ───────────────────────────────────── */}
         <SectionHeader
@@ -1746,13 +1837,20 @@ function DefaultHome() {
 
       <MyNumber persona={persona} />
 
-      <div className="grid grid-cols-12 gap-5">
-        <div className="col-span-12 lg:col-span-8"><TodayQueue persona={persona} /></div>
-        <div className="col-span-12 lg:col-span-4 space-y-5">
-          <RisksPanel />
-          <AlertsPanel />
+      <CollapsibleSection
+        storageKey={`${persona}-today-queue`}
+        label="Today · your queue"
+        detail="Highest-leverage actions for the day"
+      >
+        <div className="grid grid-cols-12 gap-5">
+          <div className="col-span-12 lg:col-span-8"><TodayQueue persona={persona} /></div>
+          <div className="col-span-12 lg:col-span-4 space-y-5">
+            {persona === "ae" ? <AeRisksPanel /> : <RisksPanel />}
+            {persona === "ae" ? <AeAlertsPanel /> : <AlertsPanel />}
+          </div>
         </div>
-      </div>
+      </CollapsibleSection>
+      <div className="mb-6" />
 
       <MyTasksSection />
       {persona === "manager" && <CapacitySummary />}
@@ -1821,6 +1919,187 @@ function RisksPanel() {
               </div>
               <span className="text-[9.5px] font-semibold px-2 py-1 rounded-md shrink-0"
                 style={{ background: soft, color: tone }}>{label}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// AE-specific Risks panel — deal slippage, MEDDPICC gaps, stage stalls
+// ─────────────────────────────────────────────────────────────────────
+function AeRisksPanel() {
+  // Deal-shaped risks. Computed from real deals where available, fall back
+  // to deterministic seeds so a fresh demo always has 4–5 items.
+  const aeRisks = [
+    {
+      id: "ar1",
+      account: "Stripe",
+      slug: "stripe-inc",
+      title: "Probability dropped 85% → 78%",
+      reason: "Economic Buyer dark 14 days · Negotiation stage",
+      tone: "neg" as const,
+      label: "Slipping",
+      meta: "$280K · close 24 May",
+    },
+    {
+      id: "ar2",
+      account: "Boston Dynamics",
+      slug: "boston-dynamics",
+      title: "MEDDPICC gap · 4 of 7 missing",
+      reason: "Champion identified, but no Pain, Metrics, or Decision Process",
+      tone: "warn" as const,
+      label: "Missing",
+      meta: "$175K · Discovery",
+    },
+    {
+      id: "ar3",
+      account: "Shopify",
+      slug: "shopify-inc",
+      title: "Stage exit criteria 4/5 not met",
+      reason: "Tech Q&A scheduled but security questionnaire still outstanding",
+      tone: "warn" as const,
+      label: "Blocked",
+      meta: "$350K · Demo",
+    },
+    {
+      id: "ar4",
+      account: "Lockheed Martin",
+      slug: "lockheed-martin",
+      title: "MSA in legal review for 28 days",
+      reason: "Customer counsel hasn't responded — escalate to your sponsor",
+      tone: "neg" as const,
+      label: "Stalled",
+      meta: "$140K · Negotiation",
+    },
+    {
+      id: "ar5",
+      account: "HSBC",
+      slug: "hsbc-holdings",
+      title: "Q3 close in jeopardy",
+      reason: "Phase 1 buy-in secured, but Phase 2 budget approval slipped 2 weeks",
+      tone: "warn" as const,
+      label: "Risk",
+      meta: "$410K · Proposal",
+    },
+  ];
+  return (
+    <div className="card p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg grid place-items-center" style={{ background: "var(--neg-soft)" }}>
+            <AlertTriangle size={13} strokeWidth={1.8} style={{ color: "var(--neg)" }} />
+          </div>
+          <span className="text-[14px] font-semibold text-ink">Deal risks</span>
+          <span className="text-[11px] font-mono text-muted-2 bg-bg-deep px-1.5 py-0.5 rounded">{aeRisks.length}</span>
+        </div>
+        <Link href="/deals" className="text-[11px] text-muted hover:text-ink inline-flex items-center gap-0.5">
+          All <ChevronRight size={11} strokeWidth={1.6} />
+        </Link>
+      </div>
+      <div className="space-y-2">
+        {aeRisks.slice(0, 5).map((r) => {
+          const tone = r.tone === "neg" ? "var(--neg)" : "var(--warn)";
+          const soft = r.tone === "neg" ? "var(--neg-soft)" : "var(--warn-soft)";
+          return (
+            <Link key={r.id} href={`/accounts/${r.slug}`}
+              className="group flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-bg-deep transition-colors"
+              style={{ border: "1px solid var(--line)" }}>
+              <Logo name={r.account} size={24} rounded={6} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <div className="text-[12px] font-semibold text-ink truncate">{r.account}</div>
+                  <span className="text-[9.5px] font-semibold uppercase tracking-[0.08em] px-1.5 py-0.5 rounded shrink-0"
+                    style={{ background: soft, color: tone }}>{r.label}</span>
+                </div>
+                <div className="text-[11px] font-medium text-ink-2 truncate mb-0.5">{r.title}</div>
+                <div className="text-[10.5px] text-muted line-clamp-1">{r.reason}</div>
+                <div className="text-[10px] font-mono tnum text-muted-2 mt-1">{r.meta}</div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// AE-specific Alerts panel — buying-committee + forecast moves
+// ─────────────────────────────────────────────────────────────────────
+function AeAlertsPanel() {
+  const aeAlerts = [
+    { account: "Datadog",      slug: "datadog-inc",       body: "VP Eng accepted meeting for Tue · pre-call brief ready",                               ago: "1h ago",     tone: "pos",  kind: "buying" as const },
+    { account: "Stripe",       slug: "stripe-inc",        body: "Forecast moved Best Case → Commit by manager",                                          ago: "3h ago",     tone: "pos",  kind: "forecast" as const },
+    { account: "Lockheed Martin", slug: "lockheed-martin",body: "New stakeholder added: Chief of Staff (Decision Maker) — multithread now",             ago: "6h ago",     tone: "info", kind: "buying" as const },
+    { account: "Shopify",      slug: "shopify-inc",       body: "Security review complete · ready to advance to Negotiation",                            ago: "Yesterday",  tone: "pos",  kind: "stage" as const },
+    { account: "MongoDB",      slug: "mongodb-inc",       body: "Champion left for Snowflake — succession needed before next call",                      ago: "2d ago",     tone: "neg",  kind: "buying" as const },
+    { account: "HSBC",         slug: "hsbc-holdings",     body: "Procurement requested 12% reduction on multi-year",                                     ago: "3d ago",     tone: "warn", kind: "negotiation" as const },
+  ];
+  const kindLabel: Record<typeof aeAlerts[number]["kind"], string> = {
+    buying: "Buying committee",
+    forecast: "Forecast",
+    stage: "Stage move",
+    negotiation: "Negotiation",
+  };
+  const kindBg: Record<typeof aeAlerts[number]["kind"], string> = {
+    buying: "var(--accent-soft)",
+    forecast: "var(--pos-soft)",
+    stage: "var(--info-soft)",
+    negotiation: "var(--warn-soft)",
+  };
+  const kindFg: Record<typeof aeAlerts[number]["kind"], string> = {
+    buying: "var(--accent-deep)",
+    forecast: "var(--pos)",
+    stage: "var(--info)",
+    negotiation: "var(--warn)",
+  };
+  const [expanded, setExpanded] = useState<number | null>(null);
+  return (
+    <div className="card p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg grid place-items-center" style={{ background: "var(--accent-soft)" }}>
+            <Bell size={13} strokeWidth={1.8} style={{ color: "var(--accent-deep)" }} />
+          </div>
+          <span className="text-[14px] font-semibold text-ink">Pipeline alerts</span>
+          <span className="text-[11px] font-mono text-muted-2 bg-bg-deep px-1.5 py-0.5 rounded">{aeAlerts.length}</span>
+        </div>
+        <span className="text-[10.5px] text-muted">Newest first</span>
+      </div>
+      <div className="space-y-1">
+        {aeAlerts.map((a, i) => {
+          const dot = a.tone === "neg" ? "var(--neg)" : a.tone === "warn" ? "var(--warn)" : a.tone === "pos" ? "var(--pos)" : "var(--info)";
+          const isOpen = expanded === i;
+          return (
+            <div key={i}>
+              <div onClick={() => setExpanded(isOpen ? null : i)}
+                className="flex items-start gap-3 px-3 py-3 rounded-xl hover:bg-bg-deep cursor-pointer transition-colors"
+                style={isOpen ? { background: "var(--bg-deep)" } : undefined}>
+                <span className="w-2 h-2 rounded-full shrink-0 mt-1.5" style={{ background: dot }} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-[12.5px] font-semibold text-ink">{a.account}</span>
+                    <span className="text-[10px] text-muted-2 ml-auto shrink-0">{a.ago}</span>
+                  </div>
+                  <div className={`text-[11.5px] text-muted leading-relaxed ${isOpen ? "" : "line-clamp-2"}`}>{a.body}</div>
+                </div>
+              </div>
+              {isOpen && (
+                <div className="ml-8 px-3 pb-3 flex items-center gap-2">
+                  <Link href={`/accounts/${a.slug}`}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1.5 rounded-lg transition-colors"
+                    style={{ background: "var(--accent-soft)", color: "var(--accent-deep)" }}>
+                    Open deal <ArrowRight size={11} strokeWidth={2} />
+                  </Link>
+                  <span className="text-[10px] font-medium px-2 py-1.5 rounded-lg"
+                    style={{ background: kindBg[a.kind], color: kindFg[a.kind] }}>
+                    {kindLabel[a.kind]}
+                  </span>
+                </div>
+              )}
             </div>
           );
         })}

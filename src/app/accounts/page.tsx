@@ -8,9 +8,10 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import {
-  accounts as initialAccounts, slugify, fmtMoney, type Account, type AIHealth, type Tier, type Watchlist,
+  accounts as initialAccounts, slugify, fmtMoney, type Account, type AIHealth, type Tier, type Watchlist, type LifecycleStage,
   expansionOpportunities, championChanges,
 } from "@/lib/mock";
+import { usePersona } from "@/components/PersonaContext";
 import { Logo } from "@/components/Logo";
 import { MiniTimeline } from "@/components/EventTimeline";
 import { Popover, MenuItem, MenuLabel } from "@/components/Popover";
@@ -48,19 +49,60 @@ const watchChip = (w?: Watchlist) => {
 const healthDot = (h: Account["health"]) =>
   h === "high" ? "var(--pos)" : h === "medium" ? "var(--warn)" : "var(--neg)";
 
+// Stages relevant to each persona — drives the persona-aware filter dropdown
+// AND the default scope of the book of business.
+const STAGES_BY_PERSONA: Record<string, LifecycleStage[]> = {
+  ae:      ["Prospecting", "Qualified", "Discovery", "Demo", "Proposal", "Negotiation", "Closing"],
+  am:      ["Onboarding", "Adopting", "Expanding", "Renewing", "Stable", "Discovery", "Demo", "Proposal", "Negotiation"],
+  csm:     ["Onboarding", "Adopting", "Expanding", "Renewing", "Stable", "At Risk", "Churned"],
+  manager: ["Prospecting","Qualified","Discovery","Demo","Proposal","Negotiation","Closing","Onboarding","Adopting","Expanding","Renewing","Stable","At Risk","Churned"],
+};
+
+const STAGE_TONE: Record<LifecycleStage, { bg: string; ink: string }> = {
+  "Prospecting": { bg: "var(--bg-deep)",       ink: "var(--muted)" },
+  "Qualified":   { bg: "rgba(59,130,246,0.10)", ink: "#3B82F6" },
+  "Discovery":   { bg: "rgba(59,130,246,0.10)", ink: "#3B82F6" },
+  "Demo":        { bg: "rgba(124,58,237,0.10)", ink: "#7C3AED" },
+  "Proposal":    { bg: "rgba(245,158,11,0.10)", ink: "#D97706" },
+  "Negotiation": { bg: "rgba(245,158,11,0.12)", ink: "#B45309" },
+  "Closing":     { bg: "rgba(34,197,94,0.10)",  ink: "#16A34A" },
+  "Onboarding":  { bg: "rgba(38,109,240,0.10)", ink: "var(--accent)" },
+  "Adopting":    { bg: "rgba(34,197,94,0.10)",  ink: "#16A34A" },
+  "Expanding":   { bg: "rgba(168,85,247,0.10)", ink: "#9333EA" },
+  "Renewing":    { bg: "rgba(38,109,240,0.10)", ink: "var(--accent)" },
+  "Stable":      { bg: "rgba(34,197,94,0.08)",  ink: "#16A34A" },
+  "At Risk":     { bg: "rgba(239,68,68,0.10)",  ink: "#EF4444" },
+  "Churned":     { bg: "rgba(107,114,128,0.10)",ink: "var(--muted)" },
+};
+
 export default function AccountsPage() {
   const router = useRouter();
   const toast = useToast();
+  const { persona } = usePersona();
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<Record<string, string[]>>({});
   const [sort, setSort] = useState<SortKey>("arr-desc");
   const [accounts, setAccounts] = useState<Account[]>(initialAccounts);
   const [newOpen, setNewOpen] = useState(false);
 
+  // Persona-aware default scope: which slice of the book this persona owns.
+  // CSMs only see customers, AEs only see prospects, AMs see customers + late-stage,
+  // managers see everything.
+  const personaScope = useMemo(() => {
+    return accounts.filter((a) => {
+      if (persona === "csm")     return a.status === "Customer" || a.status === "Churned";
+      if (persona === "ae")      return a.status === "Prospect";
+      if (persona === "am")      return a.status === "Customer" || (a.status === "Prospect" && a.pipelineValue >= 100_000);
+      return true; // manager
+    });
+  }, [accounts, persona]);
+
+  const stagesForPersona = STAGES_BY_PERSONA[persona] ?? STAGES_BY_PERSONA.manager;
+
   const sorted = useMemo(() => {
     const lc = search.trim().toLowerCase();
-    const filtered = accounts.filter((a) => {
-      if (lc && !`${a.name} ${a.domain} ${a.tier} ${a.signal}`.toLowerCase().includes(lc)) return false;
+    const filtered = personaScope.filter((a) => {
+      if (lc && !`${a.name} ${a.domain} ${a.tier} ${a.signal} ${a.dealStage ?? ""}`.toLowerCase().includes(lc)) return false;
       const tierF = filters.tier ?? [];
       if (tierF.length && !tierF.includes(a.tier)) return false;
       const healthF = filters.health ?? [];
@@ -69,6 +111,8 @@ export default function AccountsPage() {
       if (aiF.length && !aiF.includes(a.aiHealth)) return false;
       const watchF = filters.watch ?? [];
       if (watchF.length && !watchF.includes(a.watchlist ?? "")) return false;
+      const stageF = filters.stage ?? [];
+      if (stageF.length && !stageF.includes(a.dealStage ?? "")) return false;
       return true;
     });
     return [...filtered].sort((a, b) => {
@@ -81,7 +125,7 @@ export default function AccountsPage() {
         case "name-asc":    return a.name.localeCompare(b.name);
       }
     });
-  }, [search, filters, sort]);
+  }, [search, filters, sort, personaScope]);
 
   // Active filter chip strip
   const activeChips: { groupKey: string; value: string }[] = [];
@@ -101,18 +145,44 @@ export default function AccountsPage() {
             Your <span className="italic-emph">book of business</span>
           </h1>
           <div className="flex items-center gap-3 mt-2 text-[11.5px] text-muted">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--pos)" }} />
-              {accounts.filter((a) => a.status === "Customer").length} customers
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--info)" }} />
-              {accounts.filter((a) => a.status === "Prospect").length} prospects
-            </span>
-            <span className="text-muted-2">·</span>
-            <span className="tnum">
-              {fmtMoney(accounts.reduce((sum, a) => sum + (a.arr || 0), 0))} ARR under management
-            </span>
+            {persona === "csm" ? (
+              <>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--pos)" }} />
+                  {personaScope.filter((a) => a.status === "Customer").length} customers
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--neg)" }} />
+                  {personaScope.filter((a) => a.dealStage === "At Risk").length} at risk
+                </span>
+                <span className="text-muted-2">·</span>
+                <span className="tnum">{fmtMoney(personaScope.reduce((sum, a) => sum + (a.arr || 0), 0))} ARR managed</span>
+              </>
+            ) : persona === "ae" ? (
+              <>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--info)" }} />
+                  {personaScope.length} active opportunities
+                </span>
+                <span className="text-muted-2">·</span>
+                <span className="tnum">{fmtMoney(personaScope.reduce((sum, a) => sum + (a.pipelineValue || 0), 0))} pipeline</span>
+              </>
+            ) : (
+              <>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--pos)" }} />
+                  {personaScope.filter((a) => a.status === "Customer").length} customers
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--info)" }} />
+                  {personaScope.filter((a) => a.status === "Prospect").length} {persona === "am" ? "expansion plays" : "prospects"}
+                </span>
+                <span className="text-muted-2">·</span>
+                <span className="tnum">
+                  {fmtMoney(personaScope.reduce((sum, a) => sum + (a.arr || 0), 0))} ARR · {fmtMoney(personaScope.reduce((sum, a) => sum + (a.pipelineValue || 0), 0))} pipe
+                </span>
+              </>
+            )}
           </div>
         </div>
         <button onClick={() => setNewOpen(true)}
@@ -133,6 +203,8 @@ export default function AccountsPage() {
           value={filters}
           onChange={setFilters}
           groups={[
+            { key: "stage",  label: persona === "csm" ? "Lifecycle stage" : persona === "ae" ? "Deal stage" : "Stage",
+              options: stagesForPersona.map((s) => ({ value: s, label: s })) },
             { key: "tier",   label: "Tier",   options: [
               { value: "Strategic",  label: "Strategic"  },
               { value: "Enterprise", label: "Enterprise" },
@@ -143,11 +215,11 @@ export default function AccountsPage() {
               { value: "medium", label: "Watch" },
               { value: "low",    label: "At risk" },
             ]},
-            { key: "ai",     label: "AI usage health", options: [
+            ...(persona === "csm" || persona === "manager" ? [{ key: "ai", label: "Usage health", options: [
               { value: "Healthy",    label: "Healthy" },
               { value: "Concerning", label: "Concerning" },
               { value: "Cold",       label: "Cold" },
-            ]},
+            ]}] : []),
             { key: "watch",  label: "Watchlist", options: [
               { value: "Upsell Likely",  label: "Upsell likely" },
               { value: "Renewal Likely", label: "Renewal likely" },
@@ -200,12 +272,59 @@ export default function AccountsPage() {
         </button>
       </div>
 
+      {/* Quick-filter chip row — instantly filter by stage / scope */}
+      <div className="flex items-center gap-1.5 mb-3 overflow-x-auto pb-1 -mx-1 px-1">
+        {(() => {
+          const activeStages = filters.stage ?? [];
+          const setStage = (s: string | null) => {
+            setFilters((f) => ({ ...f, stage: s ? [s] : [] }));
+          };
+          const counts: Record<string, number> = {};
+          personaScope.forEach((a) => {
+            if (!a.dealStage) return;
+            counts[a.dealStage] = (counts[a.dealStage] ?? 0) + 1;
+          });
+          // Keep only stages that have ≥1 account in the persona's scope
+          const visibleStages = stagesForPersona.filter((s) => counts[s] > 0);
+          return (
+            <>
+              <button onClick={() => setStage(null)}
+                className="text-[11px] font-semibold px-3 py-1.5 rounded-full transition-colors whitespace-nowrap inline-flex items-center gap-1.5"
+                style={{
+                  background: activeStages.length === 0 ? "var(--ink)" : "transparent",
+                  color: activeStages.length === 0 ? "white" : "var(--muted)",
+                  border: `1px solid ${activeStages.length === 0 ? "var(--ink)" : "var(--line)"}`,
+                }}>
+                All
+                <span className="text-[10px] tnum opacity-70">{personaScope.length}</span>
+              </button>
+              {visibleStages.map((s) => {
+                const isActive = activeStages.includes(s);
+                const tone = STAGE_TONE[s];
+                return (
+                  <button key={s} onClick={() => setStage(isActive ? null : s)}
+                    className="text-[11px] font-semibold px-3 py-1.5 rounded-full transition-all whitespace-nowrap inline-flex items-center gap-1.5"
+                    style={{
+                      background: isActive ? tone.ink : tone.bg,
+                      color:      isActive ? "white"   : tone.ink,
+                      border: `1px solid ${isActive ? tone.ink : "transparent"}`,
+                    }}>
+                    {s}
+                    <span className="text-[10px] tnum opacity-80">{counts[s]}</span>
+                  </button>
+                );
+              })}
+            </>
+          );
+        })()}
+      </div>
+
       {/* Subscription strip — horizontal scroll */}
       <div className="card p-5 mb-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
-            <div className="mono-label">Customer subscriptions</div>
-            <span className="text-[10.5px] font-mono text-muted">Showing {sorted.length} of {accounts.length}</span>
+            <div className="mono-label">{persona === "ae" ? "Pipeline overview" : persona === "csm" ? "Customer subscriptions" : "Book of business"}</div>
+            <span className="text-[10.5px] font-mono text-muted">Showing {sorted.length} of {personaScope.length}</span>
           </div>
           <div className="text-[10.5px] font-mono text-muted">
             Sorted by <span className="text-ink font-medium">{SORT_OPTIONS.find((o) => o.key === sort)?.short}</span>
@@ -214,14 +333,27 @@ export default function AccountsPage() {
         <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
           {sorted.map((a) => {
             const watch = watchChip(a.watchlist);
-            // Show ARR for customers, pipeline value for prospects — never show "—"
-            const displayVal   = a.arr > 0 ? fmtMoney(a.arr) : a.pipelineValue > 0 ? fmtMoney(a.pipelineValue) : null;
-            const isPipeline   = a.arr === 0 && a.pipelineValue > 0;
+            const isCustomer = a.status === "Customer";
+            const displayVal = a.arr > 0 ? fmtMoney(a.arr) : a.pipelineValue > 0 ? fmtMoney(a.pipelineValue) : null;
+            const isPipeline = a.arr === 0 && a.pipelineValue > 0;
+            // For non-customers, the heat score replaces the green usage dot.
+            // Pick a colour based on heat: cold/warm/hot.
+            const heat = a.pipelineHeat ?? 50;
+            const heatColor = heat >= 80 ? "var(--neg)" : heat >= 60 ? "var(--warn)" : heat >= 40 ? "var(--accent)" : "var(--muted)";
             return (
               <Link key={a.id} href={`/accounts/${slugify(a.name)}`}
-                className="shrink-0 w-[120px] flex flex-col items-center text-center group">
+                className="shrink-0 w-[124px] flex flex-col items-center text-center group">
                 <div className="flex items-center gap-1 mb-2">
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: healthDot(a.health) }} />
+                  {isCustomer ? (
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: healthDot(a.health) }}
+                      title={`Health · ${a.health}`} />
+                  ) : (
+                    <span className="text-[8.5px] font-bold tnum px-1 py-0.5 rounded leading-none"
+                      style={{ color: heatColor, border: `1px solid ${heatColor}33`, background: `${heatColor}10` }}
+                      title={`Pipeline heat · ${heat}`}>
+                      {heat}°
+                    </span>
+                  )}
                   {displayVal ? (
                     <span className="text-[10.5px] font-mono tnum font-bold text-ink px-1.5 py-0.5 rounded-full border bg-surface leading-none"
                       style={{ borderColor: isPipeline ? "var(--info)" : "var(--line-strong)", color: isPipeline ? "var(--info)" : "var(--ink)" }}>
@@ -238,12 +370,18 @@ export default function AccountsPage() {
                   style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                   {a.name}
                 </div>
-                {watch && (
+                {/* Show stage label for non-customers; watchlist for customers. */}
+                {!isCustomer && a.dealStage ? (
+                  <span className="text-[10px] font-bold uppercase tracking-[0.06em] mt-1 px-1.5 py-0.5 rounded"
+                    style={{ background: STAGE_TONE[a.dealStage].bg, color: STAGE_TONE[a.dealStage].ink }}>
+                    {a.dealStage}
+                  </span>
+                ) : watch ? (
                   <span className="text-[10px] font-semibold uppercase tracking-[0.04em] mt-1 px-1.5 py-0.5 rounded"
                     style={{ background: watch.bg, color: watch.ink }}>
                     {a.watchlist}
                   </span>
-                )}
+                ) : null}
               </Link>
             );
           })}
@@ -271,13 +409,13 @@ export default function AccountsPage() {
             <thead>
               <tr className="text-left">
                 {[
-                  { label: "Account",           w: 230 },
+                  { label: "Account",           w: 260 },
                   { label: "Activity",          w: 170 },
                   { label: "Hottest signal",    w: 240 },
                   { label: "ARR",               w: 110 },
                   { label: "Pipeline",          w: 110 },
                   { label: "Hot signals",       w: 100 },
-                  { label: "Expansion score",   w: 140 },
+                  { label: persona === "ae" ? "Pipeline heat" : persona === "csm" ? "Health score" : "Expansion score",   w: 140 },
                 ].map((c) => (
                   <th key={c.label} style={{ width: c.w }}
                     className="mono-label !text-[10px] font-medium px-4 py-2.5 border-b border-line bg-surface-2/40">
@@ -289,16 +427,20 @@ export default function AccountsPage() {
             <tbody>
               {sorted.map((a) => {
                 const slug = slugify(a.name);
+                const isCustomer = a.status === "Customer";
                 // Expansion-coded derived metrics
                 const accountOpps = expansionOpportunities.filter((o) => o.accountSlug === slug);
                 const oppPipeline = accountOpps.reduce((s, o) => s + o.estimatedArr, 0);
-                // Fall back to the account's CRM pipeline value when no expansion opps exist
-                // (prospects almost always have pipelineValue but no opps)
                 const pipeline    = oppPipeline > 0 ? oppPipeline : (a.pipelineValue || 0);
                 const oppTopScore = accountOpps.reduce((m, o) => Math.max(m, o.score), 0);
-                // For prospects/accounts with no opps, fall back to healthScore as the
-                // "expansion potential" / "fit score" — keeps every row populated.
-                const topScore    = oppTopScore > 0 ? oppTopScore : a.healthScore;
+                // Customers: use expansion / fit score.
+                // Prospects: use the deal-pipeline-heat score (recent activity).
+                const topScore    = isCustomer
+                  ? (oppTopScore > 0 ? oppTopScore : a.healthScore)
+                  : (a.pipelineHeat ?? a.healthScore);
+                const scoreLabel  = isCustomer
+                  ? (oppTopScore > 0 ? "EXP" : "FIT")
+                  : "HEAT";
                 const championCount = championChanges.filter((c) => c.accountSlug === slug).length;
                 const hotSignals  = (accountOpps.filter((o) => o.daysInStage <= 14).length)
                                   + championCount
@@ -308,12 +450,32 @@ export default function AccountsPage() {
                 return (
                   <tr key={a.id} onClick={() => router.push(`/accounts/${slug}`)}
                     className="hover:bg-surface-2 transition-colors group cursor-pointer">
-                    {/* Account */}
+                    {/* Account — with stage badge for non-customers */}
                     <td className="px-4 py-3 border-b border-line">
                       <div className="flex items-center gap-2.5">
                         <Logo name={a.name} size={26} rounded={5} />
-                        <div className="min-w-0">
-                          <div className="text-[12.5px] font-semibold text-ink group-hover:underline truncate">{a.name}</div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[12.5px] font-semibold text-ink group-hover:underline truncate">{a.name}</span>
+                            {a.dealStage && a.status !== "Customer" && (
+                              <span className="text-[9px] font-bold uppercase tracking-[0.10em] px-1.5 py-0.5 rounded shrink-0"
+                                style={{ background: STAGE_TONE[a.dealStage].bg, color: STAGE_TONE[a.dealStage].ink }}>
+                                {a.dealStage}
+                              </span>
+                            )}
+                            {a.dealStage === "At Risk" && a.status === "Customer" && (
+                              <span className="text-[9px] font-bold uppercase tracking-[0.10em] px-1.5 py-0.5 rounded shrink-0"
+                                style={{ background: STAGE_TONE["At Risk"].bg, color: STAGE_TONE["At Risk"].ink }}>
+                                At Risk
+                              </span>
+                            )}
+                            {a.dealStage === "Expanding" && a.status === "Customer" && (
+                              <span className="text-[9px] font-bold uppercase tracking-[0.10em] px-1.5 py-0.5 rounded shrink-0"
+                                style={{ background: STAGE_TONE["Expanding"].bg, color: STAGE_TONE["Expanding"].ink }}>
+                                Expanding
+                              </span>
+                            )}
+                          </div>
                           <div className="text-[10px] font-mono text-muted">{a.tier} · {a.domain}</div>
                         </div>
                       </div>
@@ -370,8 +532,8 @@ export default function AccountsPage() {
                             <div className="h-full rounded-full" style={{ width: `${topScore}%`, background: scoreColor }} />
                           </div>
                           <span className="text-[11px] font-bold tnum" style={{ color: scoreColor }}>{topScore}</span>
-                          {oppTopScore === 0 && (
-                            <span className="text-[8.5px] font-mono uppercase tracking-[0.06em] text-muted-2">FIT</span>
+                          {scoreLabel !== "EXP" && (
+                            <span className="text-[8.5px] font-mono uppercase tracking-[0.06em] text-muted-2">{scoreLabel}</span>
                           )}
                         </div>
                       ) : (
