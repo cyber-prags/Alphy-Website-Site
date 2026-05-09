@@ -148,6 +148,30 @@ function Placeholder({ label }: { label: string }) {
   );
 }
 
+// Small one-line context blurb shown above panels — orients the user
+// before they dive into filters / charts / lists.
+function PanelIntro({ Icon, title, body }: {
+  Icon: React.ComponentType<{ size?: number; strokeWidth?: number; style?: React.CSSProperties }>;
+  title: string; body: string;
+}) {
+  return (
+    <div className="rounded-xl px-4 py-3 flex items-start gap-3"
+      style={{
+        background: "linear-gradient(135deg, rgba(38,109,240,0.05), rgba(124,58,237,0.03))",
+        border: "1px solid rgba(38,109,240,0.16)",
+      }}>
+      <div className="w-7 h-7 rounded-lg grid place-items-center flex-shrink-0"
+        style={{ background: "rgba(38,109,240,0.10)", border: "1px solid rgba(38,109,240,0.20)" }}>
+        <Icon size={12} strokeWidth={2} style={{ color: "var(--accent)" }} />
+      </div>
+      <div className="min-w-0">
+        <div className="text-[12.5px] font-semibold text-ink mb-0.5">{title}</div>
+        <p className="text-[11.5px] text-muted leading-relaxed">{body}</p>
+      </div>
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Header — account chip + score badge
 // ─────────────────────────────────────────────────────────────────────────────
@@ -843,6 +867,7 @@ function JourneyPanel({ account }: { account: AccountDetail }) {
   const [filterOpen, setFilterOpen] = useState(false);
   const allKinds: Touchpoint["kind"][] = ["linkedin", "salesforce", "website", "twitter", "reddit", "sales-email", "marketing-automation", "call"];
   const [enabled, setEnabled] = useState<Set<Touchpoint["kind"]>>(new Set(allKinds));
+  void account;
 
   const filteredTps = useMemo(() => {
     const base = tps.filter((t) => enabled.has(t.kind));
@@ -880,6 +905,12 @@ function JourneyPanel({ account }: { account: AccountDetail }) {
 
   return (
     <div className="space-y-4">
+      {/* Description */}
+      <PanelIntro
+        Icon={Compass}
+        title="Account journey timeline"
+        body="Every touchpoint across the buying committee — from anonymous web visits to calls and emails — stitched together over time. Click the touchpoint filter to slice by channel; hover any pill for the full evidence chain. Toggle Merge Anonymous Users to fold ghost visitors into the company column." />
+
       {/* Filter row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3 relative">
@@ -1097,6 +1128,7 @@ function attractorScore(s: Stakeholder): number {
 
 function PeoplePanel({ stakeholders }: { stakeholders: Stakeholder[] }) {
   const [view, setView] = useState<"list" | "org">("list");
+  void Compass;
   const [search, setSearch] = useState("");
   const [persona, setPersona] = useState<"any" | "decision-maker" | "champion" | "evaluator" | "user">("any");
   const [department, setDepartment] = useState<"any" | NonNullable<Stakeholder["department"]>>("any");
@@ -1126,6 +1158,11 @@ function PeoplePanel({ stakeholders }: { stakeholders: Stakeholder[] }) {
 
   return (
     <div className="space-y-4">
+      <PanelIntro
+        Icon={Users}
+        title="Buying committee · stakeholders"
+        body="Every contact mapped across the account, with engagement temperature, attractor/detractor stance, and champion crowns. Switch to Org Chart to see reporting structure grouped by team. Use the filters to find a specific role, department, or stance — and click any person to open their Relationship Hub." />
+
       {/* Header bar */}
       <div className={`${cardClass} p-4`}>
         <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -1333,11 +1370,29 @@ function OrgChartView({ rows }: { rows: Stakeholder[] }) {
   const [committeeOnly, setCommitteeOnly] = useState(false);
   const [decayOn, setDecayOn] = useState(true);
   const [selected, setSelected] = useState<Stakeholder | null>(null);
+  const [groupByDept, setGroupByDept] = useState(true);
 
   // Filter rows down to buying committee if toggled
   const visible = committeeOnly ? rows.filter((s) => BUYING_COMMITTEE.has(s.name)) : rows;
 
-  // Build adjacency: name → children
+  // Department display order — exec at top, sales/finance/ops, then engineering teams.
+  const DEPT_ORDER: NonNullable<Stakeholder["department"]>[] = ["Executive", "Engineering", "Product", "Operations", "Sales", "Finance", "Other"];
+  const byDept = (() => {
+    const map = new Map<string, Stakeholder[]>();
+    visible.forEach((s) => {
+      const key = s.department ?? "Other";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(s);
+    });
+    // Sort each dept's rows: champions first, then decision makers, then influencers/users, detractors last
+    const rolePriority: Record<Stakeholder["role"], number> = {
+      "Champion": 0, "Decision Maker": 1, "Influencer": 2, "User": 3, "Detractor": 4,
+    };
+    map.forEach((list) => list.sort((a, b) => rolePriority[a.role] - rolePriority[b.role]));
+    return DEPT_ORDER.map((d) => ({ dept: d, members: map.get(d) ?? [] })).filter((g) => g.members.length > 0);
+  })();
+
+  // Build adjacency: name → children (used for the hierarchical view)
   const byManager = new Map<string | undefined, Stakeholder[]>();
   visible.forEach((s) => {
     const key = s.reportsTo && visible.some((r) => r.name === s.reportsTo) ? s.reportsTo : undefined;
@@ -1377,7 +1432,8 @@ function OrgChartView({ rows }: { rows: Stakeholder[] }) {
         <div className={`${cardClass} p-3 flex items-center gap-2 flex-wrap`}>
           <div className="text-[11.5px] text-muted mr-1">View</div>
           <ToolbarToggle on={committeeOnly} onChange={setCommitteeOnly} icon={<Briefcase size={11} strokeWidth={1.8} />} label="Buying committee only" />
-          <ToolbarToggle on={decayOn} onChange={setDecayOn} icon={<Clock size={11} strokeWidth={1.8} />} label="Highlight decay" />
+          <ToolbarToggle on={decayOn}     onChange={setDecayOn}     icon={<Clock     size={11} strokeWidth={1.8} />} label="Highlight decay" />
+          <ToolbarToggle on={groupByDept} onChange={setGroupByDept} icon={<Layers    size={11} strokeWidth={1.8} />} label="Group by team" />
           <span className="flex-1" />
           <button onClick={onSuggest}
             className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg text-white transition-transform hover:scale-[1.02]"
@@ -1412,9 +1468,33 @@ function OrgChartView({ rows }: { rows: Stakeholder[] }) {
           </div>
         )}
 
-        {/* The tree */}
+        {/* The chart — team-grouped OR hierarchical */}
         <div className={`${cardClass} p-6 overflow-x-auto`}>
-          {roots.length === 0 ? (
+          {visible.length === 0 ? (
+            <div className="text-center text-[12.5px] text-muted py-8">No people to chart with the current filters.</div>
+          ) : groupByDept ? (
+            <div className="space-y-6 min-w-fit">
+              {byDept.map(({ dept, members }) => (
+                <div key={dept}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2">{dept}</span>
+                    <span className="text-[10px] font-mono tnum text-muted-2">·</span>
+                    <span className="text-[10px] font-mono tnum text-muted-2">{members.length}</span>
+                    <div className="flex-1 h-px ml-2" style={{ background: "var(--line)" }} />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {members.map((s) => (
+                      <OrgFlatCard key={s.name}
+                        node={s}
+                        selected={selected}
+                        onSelect={setSelected}
+                        decayOn={decayOn} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : roots.length === 0 ? (
             <div className="text-center text-[12.5px] text-muted py-8">No reporting structure to chart with the current filters.</div>
           ) : (
             <div className="space-y-6 min-w-fit">
@@ -1490,6 +1570,63 @@ function ToolbarToggle({ on, onChange, icon, label }: { on: boolean; onChange: (
       }}>
       {icon}
       {label}
+    </button>
+  );
+}
+
+// Flat card variant for the team-grouped view — same node visuals,
+// no parent/child connectors.
+function OrgFlatCard({ node, selected, onSelect, decayOn }: {
+  node: Stakeholder;
+  selected: Stakeholder | null;
+  onSelect: (s: Stakeholder) => void;
+  decayOn: boolean;
+}) {
+  const score = attractorScore(node);
+  const ringColour =
+    score >= 30 ? "rgba(34,197,94,0.5)" :
+    score <= -10 ? "rgba(239,68,68,0.5)" : "var(--line)";
+  const isSelected = selected?.name === node.name;
+  const isDecayed = decayOn && node.daysSilent >= 14;
+  const inCommittee = BUYING_COMMITTEE.has(node.name);
+  const influences = INFLUENCE[node.name] ?? [];
+  return (
+    <button onClick={() => onSelect(node)}
+      className="rounded-xl px-4 py-3 bg-surface flex items-center gap-3 transition-all hover:scale-[1.02] text-left relative"
+      style={{
+        border: `${isSelected ? 2 : 1.5}px solid ${isSelected ? "var(--accent)" : ringColour}`,
+        boxShadow: isSelected ? "0 0 0 4px rgba(38,109,240,0.10)" : undefined,
+      }}>
+      {isDecayed && (
+        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full"
+          title={`Silent for ${node.daysSilent} days`}
+          style={{ background: "#EF4444", boxShadow: "0 0 0 3px var(--bg)" }} />
+      )}
+      <PersonAvatar name={node.name} size={32} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className="text-[12.5px] font-semibold text-ink truncate">{node.name}</span>
+          {node.role === "Champion" && <Crown size={10} className="text-purple-500" strokeWidth={2.2} />}
+          {isCSuite(node) && (
+            <span className="text-[8.5px] font-bold uppercase tracking-[0.12em] px-1 py-px rounded"
+              style={{ background: "rgba(124,58,237,0.10)", color: "#7C3AED", border: "1px solid rgba(124,58,237,0.18)" }}>
+              C-Suite
+            </span>
+          )}
+          {inCommittee && (
+            <span className="text-[8.5px] font-bold uppercase tracking-[0.12em] px-1 py-px rounded"
+              style={{ background: "rgba(38,109,240,0.10)", color: "var(--accent)", border: "1px solid rgba(38,109,240,0.18)" }}>
+              BC
+            </span>
+          )}
+        </div>
+        <div className="text-[10.5px] text-muted truncate">{node.title}</div>
+        {influences.length > 0 && (
+          <div className="text-[9.5px] text-muted-2 mt-0.5 truncate">
+            ↗ influences {influences.join(", ")}
+          </div>
+        )}
+      </div>
     </button>
   );
 }
@@ -1936,6 +2073,7 @@ type AgentStatus = "running" | "queued" | "done" | "needs-approval";
 
 function AgentPanel({ account }: { account: AccountDetail }) {
   const toast = useToast();
+  const [reportOpen, setReportOpen] = useState<{ id: string; title: string; subtitle: string; ts: string } | null>(null);
   // Active agents currently working on this account
   const active: { id: string; name: string; description: string; status: AgentStatus; progress?: number }[] = [
     { id: "a1", name: "Champion Watcher",   description: `Monitoring LinkedIn, calendar, and email for role changes across ${account.stakeholders.length} stakeholders`,            status: "running", progress: 64 },
@@ -2096,7 +2234,7 @@ function AgentPanel({ account }: { account: AccountDetail }) {
           <div className="space-y-2.5">
             {reports.map((r) => (
               <button key={r.id}
-                onClick={() => toast({ tone: "info", title: r.title, body: r.subtitle })}
+                onClick={() => setReportOpen(r)}
                 className={`${subCardClass} p-3.5 flex items-center gap-3 w-full text-left hover:bg-surface transition-colors`}>
                 <div className="w-9 h-9 rounded-lg grid place-items-center flex-shrink-0"
                   style={{ background: "rgba(124,58,237,0.10)", border: "1px solid rgba(124,58,237,0.20)" }}>
@@ -2112,6 +2250,202 @@ function AgentPanel({ account }: { account: AccountDetail }) {
           </div>
         </div>
       </div>
+
+      {reportOpen && (
+        <ReportViewer report={reportOpen} account={account} onClose={() => setReportOpen(null)} />
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// ReportViewer — modal that renders the actual generated report content
+// ─────────────────────────────────────────────────────────────────────
+function ReportViewer({ report, account, onClose }: {
+  report: { id: string; title: string; subtitle: string; ts: string };
+  account: AccountDetail;
+  onClose: () => void;
+}) {
+  const toast = useToast();
+  // Pick content shape based on report type
+  const isExpansion = /Expansion|1-pager/i.test(report.title);
+  const isQbr       = /QBR|Quarterly/i.test(report.title);
+  const isMap       = /Champion Map|buying committee/i.test(report.title);
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6" onClick={onClose}>
+      <div className="absolute inset-0 bg-ink/50 backdrop-blur-sm" />
+      <div className="relative w-full max-w-[820px] max-h-[88vh] rounded-2xl overflow-hidden bg-bg border border-line"
+        style={{ boxShadow: "0 32px 80px -16px rgba(15,18,24,0.45)" }}
+        onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-line flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg grid place-items-center flex-shrink-0"
+            style={{ background: "rgba(124,58,237,0.10)", border: "1px solid rgba(124,58,237,0.20)" }}>
+            <FileText size={14} strokeWidth={1.8} style={{ color: "#7C3AED" }} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-0.5">Generated report · {report.ts}</div>
+            <h2 className="text-[16px] font-bold text-ink leading-tight" style={{ letterSpacing: "-0.014em" }}>{report.title}</h2>
+          </div>
+          <button onClick={() => toast({ tone: "success", title: "Downloading…", body: report.title })}
+            className="text-[11.5px] font-medium px-3 py-1.5 rounded-lg border border-line bg-surface hover:bg-bg-deep inline-flex items-center gap-1.5">
+            <ArrowUpRight size={11} strokeWidth={1.8} /> Download
+          </button>
+          <button onClick={() => toast({ tone: "info", title: "Share link copied", body: "Anyone with the link can view." })}
+            className="text-[11.5px] font-semibold px-3 py-1.5 rounded-lg text-white inline-flex items-center gap-1.5"
+            style={{ background: "var(--ink)" }}>
+            <Mail size={11} strokeWidth={1.8} /> Share
+          </button>
+          <button onClick={onClose}
+            className="text-muted hover:text-ink p-1 rounded transition-colors">
+            <X size={14} strokeWidth={1.8} />
+          </button>
+        </div>
+
+        {/* Body — content varies by report type */}
+        <div className="overflow-y-auto px-7 py-6" style={{ maxHeight: "calc(88vh - 80px)" }}>
+          {isExpansion && <ExpansionReportBody account={account} />}
+          {isQbr       && <QbrReportBody account={account} />}
+          {isMap       && <ChampionMapBody account={account} />}
+          {!isExpansion && !isQbr && !isMap && (
+            <div className="text-[13px] text-muted">{report.subtitle}</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReportSection({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-5">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1.5">{label}</div>
+      <div className="text-[13px] text-ink-2 leading-relaxed">{children}</div>
+    </div>
+  );
+}
+
+function ExpansionReportBody({ account }: { account: AccountDetail }) {
+  const champion = account.stakeholders.find(s => s.role === "Champion");
+  return (
+    <div>
+      <div className="grid grid-cols-4 gap-3 mb-5">
+        {[
+          { label: "Incremental ARR", value: "$215K", tone: "#16A34A" },
+          { label: "Payback",         value: "14 mo", tone: "var(--ink)" },
+          { label: "TTV",             value: "11 d",  tone: "#16A34A" },
+          { label: "Confidence",      value: "High",  tone: "#16A34A" },
+        ].map((m, i) => (
+          <div key={i} className="rounded-xl p-3 border border-line bg-bg-deep">
+            <div className="text-[9.5px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1">{m.label}</div>
+            <div className="text-[18px] font-bold tnum" style={{ color: m.tone, letterSpacing: "-0.018em" }}>{m.value}</div>
+          </div>
+        ))}
+      </div>
+      <ReportSection label="Executive Summary">
+        {account.name} is at {fmtMoney(account.arr)} ARR, {account.nrr}% NRR, renewal in {account.renewalDays} days. Champion {champion?.name ?? "[Champion]"} was just promoted to {champion?.title ?? "VP"} — budget now spans Networking + Security. Bundling the two SKUs into a single 12-month contract maps to the new scope and unlocks a $215K expansion before procurement consolidates with another vendor.
+      </ReportSection>
+      <ReportSection label="ROI Math">
+        <ul className="space-y-1.5 list-disc list-inside">
+          <li>Networking SKU usage up <b className="text-ink">+38% WoW</b> — under-provisioned at current tier.</li>
+          <li>Combined Networking + Security bundle: <b className="text-ink">$215K</b> incremental ARR, 14-month payback.</li>
+          <li>Avoided cost of single-vendor consolidation: <b className="text-ink">$420K</b> over 3 years.</li>
+          <li>Time-to-value for Security module: <b className="text-ink">11 days</b> (existing Networking integration).</li>
+        </ul>
+      </ReportSection>
+      <ReportSection label="Comparable Win — Datadog">
+        Datadog landed the same combined-tier bundle at comparable scale (3,400 employees, $720K starting ARR) in Q4 2025. Result: <b className="text-ink">3.2× pipeline visibility</b> and the largest single-quarter NRR contribution that year. Champion was also a newly promoted VP Eng — the pattern is a near-mirror.
+      </ReportSection>
+      <ReportSection label="Risks">
+        <ul className="space-y-1.5 list-disc list-inside">
+          <li>InfoSec review on Security module — schedule with Owen Mitchell (Head of InfoSec) inside 48h.</li>
+          <li>Procurement (Priya Sharma) is silent for 11 days — multi-thread before they engage a competitor.</li>
+          <li>VP Sales (Rebecca Chu) registered as a detractor — neutralise with a 15-min direct convo.</li>
+        </ul>
+      </ReportSection>
+      <ReportSection label="Recommended Next Steps">
+        <ol className="space-y-1.5 list-decimal list-inside">
+          <li>Reply to {champion?.name.split(" ")[0] ?? "champion"} with this case attached today.</li>
+          <li>Combined-tier walkthrough with {champion?.name.split(" ")[0] ?? "champion"} + Owen Mitchell by Friday.</li>
+          <li>Avoided-cost story to Naomi Walker (CFO) Monday.</li>
+          <li>Pull Datadog reference call within 7 days.</li>
+        </ol>
+      </ReportSection>
+    </div>
+  );
+}
+
+function QbrReportBody({ account }: { account: AccountDetail }) {
+  const slides = [
+    { n: "01", title: `${account.name} · Q3 Business Review`, sub: `Prepared by ${account.owner} · ${account.lastQbrDays}d since last QBR` },
+    { n: "02", title: "Where we are",                          sub: `Health ${account.healthScore}/100 · NRR ${account.nrr}% · ARR ${fmtMoney(account.arr)}` },
+    { n: "03", title: "Outcomes attainment",                   sub: "+38% throughput · 94% inter-rater agreement · 71% adoption" },
+    { n: "04", title: "Expansion opportunity",                 sub: "Pattern matches 3 prior champion-promotion conversions · est. $215K within two quarters" },
+    { n: "05", title: "Open risks",                            sub: "SOC 2 / data residency · sponsor silence on secondary stakeholder" },
+    { n: "06", title: "Asks",                                  sub: "30-min cross-BU intro · reference-logo placement · case study release" },
+    { n: "07", title: "Appendix · what's behind every number", sub: "Sources: call transcripts · product analytics · Hiring & Org events" },
+    { n: "08", title: "Next 90 days",                          sub: "Bundle proposal · InfoSec review · BFCM-aligned go-live" },
+  ];
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {slides.map((s) => (
+        <div key={s.n} className="rounded-xl p-4 border border-line bg-bg-deep aspect-[16/10] flex flex-col">
+          <div className="text-[9.5px] font-semibold uppercase tracking-[0.14em] mb-2"
+            style={{ color: "var(--accent)" }}>Slide {s.n}</div>
+          <div className="text-[14px] font-bold text-ink mb-1.5 leading-tight">{s.title}</div>
+          <div className="text-[11px] text-muted leading-snug flex-1">{s.sub}</div>
+          <div className="mt-auto pt-2 border-t border-line flex items-center justify-between">
+            <span className="text-[8.5px] font-mono uppercase tracking-[0.14em] text-muted-2">QBR · {account.name}</span>
+            <span className="text-[8.5px] font-mono tnum text-muted-2">{s.n} / 08</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ChampionMapBody({ account }: { account: AccountDetail }) {
+  return (
+    <div>
+      <div className="grid grid-cols-3 gap-3 mb-5">
+        {[
+          { label: "Stakeholders mapped", value: String(account.stakeholders.length), tone: "var(--ink)" },
+          { label: "Attractors",          value: String(account.stakeholders.filter(s => s.sentiment === "supportive").length), tone: "#16A34A" },
+          { label: "Detractors",          value: String(account.stakeholders.filter(s => s.role === "Detractor").length), tone: "#EF4444" },
+        ].map((m, i) => (
+          <div key={i} className="rounded-xl p-3 border border-line bg-bg-deep">
+            <div className="text-[9.5px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1">{m.label}</div>
+            <div className="text-[20px] font-bold tnum" style={{ color: m.tone, letterSpacing: "-0.018em" }}>{m.value}</div>
+          </div>
+        ))}
+      </div>
+      <ReportSection label="Buying committee">
+        <div className="grid grid-cols-1 gap-2">
+          {account.stakeholders.slice(0, 12).map((s) => (
+            <div key={s.name} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-line bg-bg-deep">
+              <PersonAvatar name={s.name} size={28} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[12px] font-semibold text-ink truncate">{s.name}</span>
+                  {s.role === "Champion" && (
+                    <span className="text-[8.5px] font-bold uppercase tracking-[0.10em] px-1 py-0.5 rounded"
+                      style={{ background: "rgba(168,85,247,0.10)", color: "#9333EA" }}>Champion</span>
+                  )}
+                  {s.role === "Detractor" && (
+                    <span className="text-[8.5px] font-bold uppercase tracking-[0.10em] px-1 py-0.5 rounded"
+                      style={{ background: "rgba(239,68,68,0.10)", color: "#EF4444" }}>Detractor</span>
+                  )}
+                </div>
+                <div className="text-[10.5px] text-muted truncate">{s.title} · {s.department}</div>
+              </div>
+              <span className="text-[10.5px] text-muted-2 whitespace-nowrap">
+                {s.daysSilent === 0 ? "Active today" : `${s.daysSilent}d silent`}
+              </span>
+            </div>
+          ))}
+        </div>
+      </ReportSection>
     </div>
   );
 }

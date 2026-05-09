@@ -1630,17 +1630,30 @@ function CallRecordingsCard({ account, onOpen }: { account: AccountDetail; onOpe
               onClick={() => onOpen(c)}
               className="w-full text-left flex gap-3 p-2.5 rounded-lg border border-line bg-surface hover:bg-surface-2 hover:border-line-strong transition-colors group"
             >
-              {/* Thumbnail with play icon + duration */}
-              <div className="relative w-24 h-16 rounded-md overflow-hidden shrink-0"
-                style={{ background: `linear-gradient(135deg, ${getBrand(account.name)?.bg ?? "#2A2B27"}, #14140F)` }}>
-                <div className="absolute inset-0 grid place-items-center">
-                  <div className="w-7 h-7 rounded-full grid place-items-center"
-                    style={{ background: "rgba(200,255,61,0.9)" }}>
-                    <span className="ml-0.5 text-[10px]" style={{ color: "#1A1F08" }}>▶</span>
+              {/* Thumbnail — Zoom-style 2x2 face grid + play overlay */}
+              <div className="relative w-24 h-16 rounded-md overflow-hidden shrink-0 bg-bg-deep">
+                <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-px">
+                  {Array.from({ length: 4 }, (_, i) => {
+                    const p = c.participants[i] ?? c.participants[i % c.participants.length];
+                    return (
+                      <div key={i} className="relative overflow-hidden bg-bg-deep">
+                        <div className="absolute inset-0 grid place-items-center"
+                          style={{ transform: "scale(1.5)" }}>
+                          <PersonAvatar name={p.name} size={48} shape="rounded" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Play overlay */}
+                <div className="absolute inset-0 grid place-items-center bg-black/15 group-hover:bg-black/25 transition-colors">
+                  <div className="w-7 h-7 rounded-full grid place-items-center shadow-lg"
+                    style={{ background: "rgba(255,255,255,0.95)" }}>
+                    <Play size={11} strokeWidth={2.4} style={{ color: "#0F1218", marginLeft: 1 }} />
                   </div>
                 </div>
                 <span className="absolute bottom-1 right-1 px-1 rounded text-[8.5px] font-mono tnum text-white"
-                  style={{ background: "rgba(0,0,0,0.65)" }}>
+                  style={{ background: "rgba(0,0,0,0.75)" }}>
                   {c.duration}
                 </span>
               </div>
@@ -1880,20 +1893,24 @@ function VideoPlayer({ call, accountName }: { call: CallRecording; accountName: 
         <div className="absolute inset-4 grid gap-2"
           style={{ gridTemplateColumns: call.participants.length <= 2 ? "1fr 1fr" : "1fr 1fr", gridTemplateRows: call.participants.length <= 2 ? "1fr" : "1fr 1fr" }}>
           {call.participants.slice(0, 4).map((p, i) => (
-            <div key={i} className="relative rounded-lg overflow-hidden"
-              style={{ background: `linear-gradient(145deg, ${p.bg}30, ${p.bg}10)` }}>
-              <div className="absolute inset-0 grid place-items-center">
-                <div className="w-14 h-14 rounded-full grid place-items-center text-white text-[16px] font-bold"
-                  style={{ background: p.bg }}>
-                  {p.initials}
-                </div>
+            <div key={i} className="relative rounded-lg overflow-hidden bg-[#0B0F19]">
+              <div className="absolute inset-0 grid place-items-center"
+                style={{ transform: "scale(1.4)" }}>
+                <PersonAvatar name={p.name} size={140} shape="rounded" />
               </div>
-              <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded text-[9px] font-medium text-white"
-                style={{ background: "rgba(0,0,0,0.6)" }}>
-                {p.name}{p.isHost ? " (Host)" : ""}
+              {/* Subtle dark gradient at bottom for legible label */}
+              <div aria-hidden className="absolute inset-x-0 bottom-0 h-12"
+                style={{ background: "linear-gradient(180deg, transparent, rgba(0,0,0,0.55))" }} />
+              <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded text-[10px] font-medium text-white"
+                style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}>
+                {p.name}{p.isHost ? " (You)" : ""}
               </div>
               {playing && (
-                <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                <div className="absolute top-2 right-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold text-white"
+                  style={{ background: "rgba(239,68,68,0.95)" }}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                  REC
+                </div>
               )}
             </div>
           ))}
@@ -2804,6 +2821,24 @@ function AnalyticsPanel({ account, adoption }: { account: AccountDetail; adoptio
   }
   return (
     <div className="space-y-4">
+      {/* Intro */}
+      <div className="rounded-xl px-4 py-3 flex items-start gap-3"
+        style={{
+          background: "linear-gradient(135deg, rgba(38,109,240,0.05), rgba(124,58,237,0.03))",
+          border: "1px solid rgba(38,109,240,0.16)",
+        }}>
+        <div className="w-7 h-7 rounded-lg grid place-items-center flex-shrink-0"
+          style={{ background: "rgba(38,109,240,0.10)", border: "1px solid rgba(38,109,240,0.20)" }}>
+          <BarChart3 size={12} strokeWidth={2} style={{ color: "var(--accent)" }} />
+        </div>
+        <div className="min-w-0">
+          <div className="text-[12.5px] font-semibold text-ink mb-0.5">Account analytics</div>
+          <p className="text-[11.5px] text-muted leading-relaxed">
+            Three lenses on this account&rsquo;s health: <b className="text-ink-2">Usage</b> shows how the customer&rsquo;s teams adopt the product, <b className="text-ink-2">CSM actions</b> tracks what your team has done for them this quarter, and the <b className="text-ink-2">Adoption breakdown</b> drills into per-team WAU/MAU and at-risk users. Hover any metric tile for the definition.
+          </p>
+        </div>
+      </div>
+
       {/* Userflow-style usage summary at the top */}
       <UsageBlock account={account} adoption={adoption} onSeeMore={() => { /* already on this tab */ }} />
 
