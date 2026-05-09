@@ -277,135 +277,209 @@ function Field({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Persona-aware preview panel — adapts to the role they pick
+// Persona-aware preview panel — adapts to the role the user picks.
+// Hero: big circular-ring metric with the persona's primary KPI, two
+// supporting stat chips, and a live "Alphy is doing..." signal feed.
 // ─────────────────────────────────────────────────────────────────────────────
+
+type PreviewSpec = {
+  hero: { label: string; primary: string; secondary: string; pct: number };
+  stats: { label: string; value: string; tone: string }[];
+  feed: { Icon: React.ComponentType<{ size?: number; strokeWidth?: number; style?: React.CSSProperties }>; ts: string; title: string; sub: string; tone: string }[];
+};
+
 function PreviewPanel({ role, name, company }: { role: RoleOption; name: string; company: string }) {
-  // Tile data adapts per persona
-  const tiles = ((): { Icon: React.ComponentType<{ size?: number; strokeWidth?: number; style?: React.CSSProperties }>; label: string; value: string; sub: string; tone: string }[] => {
-    if (role.id === "am") return [
-      { Icon: Target,    label: "Q4 expansion target", value: "$600K", sub: "$480K achieved · 80%", tone: ACCENT },
-      { Icon: Crown,     label: "Champion promoted",   value: "Maya Chen", sub: "Cloudflare · 14h ago", tone: "#9333EA" },
-      { Icon: TrendingUp,label: "Hottest signal",      value: "+38% WoW",  sub: "Networking SKU usage", tone: "#F59E0B" },
-      { Icon: Network,   label: "Buying committee",    value: "14",        sub: "6 attractors · 1 detractor", tone: "#16A34A" },
-    ];
-    if (role.id === "csm") return [
-      { Icon: ShieldCheck,label: "NRR projection",      value: "112%",     sub: "Q4 trending +2pp",         tone: "#16A34A" },
-      { Icon: Activity,   label: "At risk ARR",         value: "$480K",    sub: "Snowflake · sponsor silent", tone: "#EF4444" },
-      { Icon: Target,     label: "Renewals next 90d",   value: "5",        sub: "$760K at stake",           tone: ACCENT },
-      { Icon: Sparkles,   label: "Save plays in flight",value: "6",        sub: "3 awaiting approval",      tone: "#9333EA" },
-    ];
-    if (role.id === "ae") return [
-      { Icon: Target,     label: "Quota · Q4",          value: "$1.2M",    sub: "$540K closed-won · 45%",   tone: ACCENT },
-      { Icon: Activity,   label: "Pipeline coverage",   value: "1.22×",    sub: "+12% pace vs last Q",      tone: "#16A34A" },
-      { Icon: Flame,      label: "Hottest deal",        value: "Shopify",  sub: "Negotiation · 88° · $350K",tone: "#F59E0B" },
-      { Icon: TrendingUp, label: "Win rate cohort",     value: "32%",      sub: "vs team avg 28%",          tone: "#9333EA" },
-    ];
-    return [
-      { Icon: BarChart3,  label: "Team commit",         value: "$5.30M",   sub: "$9.60M target · 55%",      tone: ACCENT },
-      { Icon: Target,     label: "Forecast variance",   value: "±5%",      sub: "vs ±15% pre-Alphard",      tone: "#16A34A" },
-      { Icon: ShieldCheck,label: "Reps below 70%",      value: "2",        sub: "needs 1:1 air cover",      tone: "#EF4444" },
-      { Icon: TrendingUp, label: "Coverage multiplier", value: "3.0×",     sub: "healthy across segments",  tone: "#9333EA" },
-    ];
+  const spec: PreviewSpec = (() => {
+    if (role.id === "am") return {
+      hero:  { label: "Q4 Expansion attainment", primary: "$480K", secondary: "of $600K target", pct: 80 },
+      stats: [
+        { label: "Plays in motion",  value: "5",       tone: ACCENT },
+        { label: "Hottest account",  value: "Cloudflare",  tone: "#F38020" },
+      ],
+      feed: [
+        { Icon: Crown,      ts: "12m", title: "Champion promoted",       sub: "Maya Chen → VP Eng at Cloudflare",                  tone: "#9333EA" },
+        { Icon: TrendingUp, ts: "1h",  title: "Networking SKU +38% WoW", sub: "Cloudflare · usage spike crossed expansion-trigger", tone: "#F59E0B" },
+        { Icon: Sparkles,   ts: "2h",  title: "Expansion case drafted",  sub: "Cloudflare · $215K bundle · attached to email",     tone: ACCENT },
+        { Icon: Network,    ts: "3h",  title: "Buying committee mapped", sub: "14 stakeholders · 6 attractors · 1 detractor",      tone: "#16A34A" },
+      ],
+    };
+    if (role.id === "csm") return {
+      hero:  { label: "Net Revenue Retention", primary: "112%", secondary: "Q4 projection · +2pp", pct: 91 },
+      stats: [
+        { label: "Renewals · 90d",  value: "5 · $760K",  tone: ACCENT },
+        { label: "Save plays",      value: "6 in flight", tone: "#9333EA" },
+      ],
+      feed: [
+        { Icon: ShieldCheck,ts: "8m", title: "At-risk renewal flagged", sub: "Snowflake · sponsor silent 14d · $480K at stake", tone: "#EF4444" },
+        { Icon: Sparkles,   ts: "1h", title: "Save play drafted",       sub: "Snowflake · 5-step recovery · queued for approval", tone: ACCENT },
+        { Icon: Activity,   ts: "2h", title: "Adoption inflection",     sub: "Cloudflare · WAU/MAU 0.71 → 0.84",                  tone: "#16A34A" },
+        { Icon: Crown,      ts: "3h", title: "New stakeholder added",   sub: "Atlassian · Hannah Mortimer (Head of CS)",          tone: "#9333EA" },
+      ],
+    };
+    if (role.id === "ae") return {
+      hero:  { label: "Q4 Quota attainment", primary: "$540K", secondary: "of $1.2M · 45%", pct: 45 },
+      stats: [
+        { label: "Pipeline coverage", value: "1.22×",   tone: "#16A34A" },
+        { label: "Win rate cohort",   value: "32%",      tone: "#9333EA" },
+      ],
+      feed: [
+        { Icon: Flame,      ts: "9m",  title: "Shopify · Negotiation",     sub: "MSA redlines returned — 3 changes, no blockers",     tone: "#F59E0B" },
+        { Icon: Target,     ts: "1h",  title: "Lockheed · FedRAMP signed", sub: "Compliance accepted final attestation today",       tone: ACCENT },
+        { Icon: Sparkles,   ts: "2h",  title: "Discovery brief built",     sub: "ServiceNow · Mateusz Jankowski · 4-page brief",     tone: "#16A34A" },
+        { Icon: Activity,   ts: "3h",  title: "Next-best-action queued",   sub: "Datadog · multi-thread CFO · awaiting your approval", tone: "#9333EA" },
+      ],
+    };
+    return {
+      hero:  { label: "Team commit · Q4", primary: "$5.30M", secondary: "of $9.60M target · 55%", pct: 55 },
+      stats: [
+        { label: "Forecast variance",  value: "±5%",   tone: "#16A34A" },
+        { label: "Reps below 70%",     value: "2",     tone: "#EF4444" },
+      ],
+      feed: [
+        { Icon: BarChart3,  ts: "20m", title: "Forecast snapshot saved", sub: "Q4 commit submitted · $5.30M · 87% confidence",     tone: ACCENT },
+        { Icon: Activity,   ts: "1h",  title: "Brad Allen · 12 accounts",sub: "Workload score 82 — overloaded · reassign 3 deals", tone: "#EF4444" },
+        { Icon: Sparkles,   ts: "2h",  title: "Coaching brief built",    sub: "Mike Torres 1:1 · 3 deals stuck >14d",              tone: "#9333EA" },
+        { Icon: TrendingUp, ts: "3h",  title: "Pipeline coverage rolled","sub":"Mid-Market 0.9× — pulling discos forward",          tone: "#F59E0B" },
+      ],
+    };
   })();
 
   const co = company.trim() || "your company";
-  const greeting = name.trim() ? name.trim().split(/\s+/)[0] : "—";
+  const greeting = name.trim() ? name.trim().split(/\s+/)[0] : null;
+
+  // Ring math
+  const SIZE = 124;
+  const STROKE = 8;
+  const r = (SIZE - STROKE) / 2;
+  const C = 2 * Math.PI * r;
+  const dashOffset = C - (spec.hero.pct / 100) * C;
 
   return (
-    <div className="rounded-3xl overflow-hidden"
+    <div className="rounded-3xl overflow-hidden relative"
       style={{
-        background: "linear-gradient(180deg, #ffffff 0%, #F4F6FA 100%)",
-        border: "1px solid rgba(15,18,24,0.08)",
-        boxShadow: "0 32px 80px -28px rgba(15,18,24,0.18), 0 4px 12px -4px rgba(15,18,24,0.06)",
+        background: "linear-gradient(180deg, #ffffff 0%, #FAFBFD 100%)",
+        border: "1px solid rgba(15,18,24,0.07)",
+        boxShadow: "0 40px 100px -32px rgba(15,18,24,0.20), 0 4px 12px -4px rgba(15,18,24,0.04)",
       }}>
-      {/* Faux app chrome */}
-      <div className="px-5 py-3 flex items-center gap-2"
-        style={{ borderBottom: "1px solid rgba(15,18,24,0.06)", background: "rgba(255,255,255,0.6)" }}>
-        <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#FF5F57" }} />
-        <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#FFBD2E" }} />
-        <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#28C840" }} />
-        <span className="ml-3 text-[10.5px] font-medium font-mono"
-          style={{ color: "rgba(15,18,24,0.55)" }}>
-          alphard.com / home
-        </span>
-        <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
-          style={{ color: "rgba(15,18,24,0.55)" }}>
-          <span className="w-1.5 h-1.5 rounded-full" style={{ background: ACCENT }} />
-          {role.label}
-        </span>
-      </div>
+      {/* Top accent stripe */}
+      <div aria-hidden style={{
+        height: 3,
+        background: `linear-gradient(90deg, ${ACCENT}, #9333EA, #16A34A)`,
+      }} />
 
-      <div className="p-7 md:p-9">
-        {/* Greeting */}
-        <div className="mb-5">
-          <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] mb-1"
-            style={{ color: "rgba(15,18,24,0.45)" }}>
-            Good morning
-          </div>
-          <h2 className="text-[26px] md:text-[30px] font-semibold leading-[1.05]"
-            style={{ letterSpacing: "-0.022em" }}>
-            {greeting}, here&rsquo;s your {role.id === "ae" ? "pipeline" : role.id === "csm" ? "saves queue" : "book"} at {co}.
-          </h2>
+      <div className="p-7 md:p-8">
+        {/* Header — persona pill + greeting */}
+        <div className="flex items-center justify-between mb-6">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] px-2 py-1 rounded-md"
+            style={{ background: `${ACCENT}10`, color: ACCENT, border: `1px solid ${ACCENT}22` }}>
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: ACCENT }} />
+            {role.label}
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-[10.5px] font-medium"
+            style={{ color: "rgba(15,18,24,0.55)" }}>
+            <span className="relative inline-flex w-1.5 h-1.5">
+              <span className="absolute inset-0 rounded-full animate-ping" style={{ background: "#0FC27B", opacity: 0.4 }} />
+              <span className="relative w-1.5 h-1.5 rounded-full" style={{ background: "#0FC27B" }} />
+            </span>
+            Live preview · {co}
+          </span>
         </div>
 
-        {/* Tiles */}
-        <div className="grid grid-cols-2 gap-3">
-          {tiles.map((t, i) => (
-            <div key={i} className="rounded-xl p-4 transition-all"
-              style={{
-                background: "white",
-                border: "1px solid rgba(15,18,24,0.07)",
-                boxShadow: "0 1px 2px rgba(15,18,24,0.04)",
-              }}>
-              <div className="flex items-center gap-1.5 mb-2">
-                <t.Icon size={11} strokeWidth={1.8} style={{ color: "rgba(15,18,24,0.55)" }} />
-                <span className="text-[10px] font-semibold uppercase tracking-[0.14em]"
-                  style={{ color: "rgba(15,18,24,0.45)" }}>{t.label}</span>
+        {/* Hero — ring + primary metric */}
+        <div className="rounded-2xl p-5 flex items-center gap-5 mb-3"
+          style={{ background: "white", border: "1px solid rgba(15,18,24,0.06)" }}>
+          <div className="relative shrink-0" style={{ width: SIZE, height: SIZE }}>
+            <svg width={SIZE} height={SIZE} style={{ transform: "rotate(-90deg)" }}>
+              <defs>
+                <linearGradient id="ringFill" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%"   stopColor={ACCENT} />
+                  <stop offset="100%" stopColor="#9333EA" />
+                </linearGradient>
+              </defs>
+              <circle cx={SIZE/2} cy={SIZE/2} r={r}
+                stroke="rgba(15,18,24,0.06)" strokeWidth={STROKE} fill="none" />
+              <circle cx={SIZE/2} cy={SIZE/2} r={r}
+                stroke="url(#ringFill)" strokeWidth={STROKE} fill="none"
+                strokeDasharray={C} strokeDashoffset={dashOffset}
+                strokeLinecap="round"
+                style={{ transition: "stroke-dashoffset 800ms cubic-bezier(0.32, 0.72, 0, 1)" }} />
+            </svg>
+            <div className="absolute inset-0 grid place-items-center">
+              <div className="text-[22px] font-bold tnum" style={{ color: "#0F1218", letterSpacing: "-0.022em" }}>
+                {spec.hero.pct}%
               </div>
-              <div className="text-[22px] font-bold tnum"
-                style={{ color: t.tone, letterSpacing: "-0.018em" }}>{t.value}</div>
-              <div className="text-[11px] mt-0.5"
-                style={{ color: "rgba(15,18,24,0.55)" }}>{t.sub}</div>
+            </div>
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] mb-1"
+              style={{ color: "rgba(15,18,24,0.45)" }}>{spec.hero.label}</div>
+            <div className="text-[28px] font-bold tnum mb-0.5"
+              style={{ color: "#0F1218", letterSpacing: "-0.022em" }}>{spec.hero.primary}</div>
+            <div className="text-[12.5px]" style={{ color: "rgba(15,18,24,0.62)" }}>{spec.hero.secondary}</div>
+          </div>
+        </div>
+
+        {/* Two stat chips */}
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          {spec.stats.map((s, i) => (
+            <div key={i} className="rounded-xl px-4 py-3"
+              style={{ background: "white", border: "1px solid rgba(15,18,24,0.06)" }}>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] mb-1"
+                style={{ color: "rgba(15,18,24,0.45)" }}>{s.label}</div>
+              <div className="text-[16px] font-bold tnum" style={{ color: s.tone, letterSpacing: "-0.018em" }}>
+                {s.value}
+              </div>
             </div>
           ))}
         </div>
 
+        {/* Live signal feed */}
+        <div className="rounded-2xl overflow-hidden"
+          style={{ background: "white", border: "1px solid rgba(15,18,24,0.06)" }}>
+          <div className="px-4 py-2.5 flex items-center justify-between"
+            style={{ borderBottom: "1px solid rgba(15,18,24,0.05)", background: "rgba(15,18,24,0.015)" }}>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.14em]"
+              style={{ color: "rgba(15,18,24,0.55)" }}>What Alphy is doing now</span>
+            <span className="text-[10px] font-mono" style={{ color: "rgba(15,18,24,0.45)" }}>{spec.feed.length} events</span>
+          </div>
+          <div className="divide-y" style={{ borderColor: "rgba(15,18,24,0.05)" }}>
+            {spec.feed.map((row, i) => (
+              <div key={i} className="px-4 py-3 flex items-start gap-3 hover:bg-[rgba(15,18,24,0.015)] transition-colors">
+                <div className="w-7 h-7 rounded-lg grid place-items-center flex-shrink-0"
+                  style={{ background: `${row.tone}12`, border: `1px solid ${row.tone}22` }}>
+                  <row.Icon size={11} strokeWidth={2} style={{ color: row.tone }} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[12.5px] font-semibold leading-tight"
+                    style={{ color: "#0F1218" }}>{row.title}</div>
+                  <div className="text-[11px] leading-snug mt-0.5"
+                    style={{ color: "rgba(15,18,24,0.55)" }}>{row.sub}</div>
+                </div>
+                <span className="text-[10px] font-mono tnum flex-shrink-0"
+                  style={{ color: "rgba(15,18,24,0.40)" }}>{row.ts}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Outcome ribbon */}
-        <div className="mt-5 rounded-xl px-4 py-3 flex items-start gap-3"
+        <div className="mt-5 rounded-xl px-4 py-3 flex items-center gap-3"
           style={{
-            background: "linear-gradient(135deg, rgba(38,109,240,0.06), rgba(124,58,237,0.04))",
-            border: "1px solid rgba(38,109,240,0.16)",
+            background: `linear-gradient(135deg, ${ACCENT}0D, rgba(124,58,237,0.05))`,
+            border: `1px solid ${ACCENT}26`,
           }}>
           <div className="w-7 h-7 rounded-lg grid place-items-center flex-shrink-0"
             style={{ background: ACCENT }}>
             <Sparkles size={13} strokeWidth={2.2} color="white" />
           </div>
-          <div className="text-[12px] leading-relaxed"
-            style={{ color: "rgba(15,18,24,0.78)" }}>
-            <span className="font-semibold" style={{ color: "#0F1218" }}>Outcome:</span>{" "}
+          <div className="text-[12px] leading-snug" style={{ color: "rgba(15,18,24,0.78)" }}>
+            <span className="font-semibold" style={{ color: "#0F1218" }}>
+              {greeting ? `${greeting}, you'll` : "You'll"} ship this with Alphard:
+            </span>{" "}
             {role.outcome}
           </div>
         </div>
-
-        {/* Trust strip */}
-        <div className="mt-5 pt-5 grid grid-cols-3 gap-2 text-center"
-          style={{ borderTop: "1px solid rgba(15,18,24,0.06)" }}>
-          <Fact value="500+"   label="Companies onboarded" />
-          <Fact value="3 min"  label="Avg time-to-value" />
-          <Fact value="±5%"    label="Forecast accuracy" />
-        </div>
       </div>
-    </div>
-  );
-}
-
-function Fact({ value, label }: { value: string; label: string }) {
-  return (
-    <div>
-      <div className="text-[15px] font-bold tnum text-ink"
-        style={{ color: "#0F1218", letterSpacing: "-0.018em" }}>{value}</div>
-      <div className="text-[10.5px] mt-0.5"
-        style={{ color: "rgba(15,18,24,0.55)" }}>{label}</div>
     </div>
   );
 }
