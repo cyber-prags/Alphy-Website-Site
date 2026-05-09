@@ -3,14 +3,15 @@
 import { useState } from "react";
 import {
   Grid3X3, ArrowRight, TrendingUp, Target, ChevronRight,
-  Sparkles, X, Zap, AlertTriangle,
+  Sparkles, X, Zap, AlertTriangle, Crown, Users, Mail,
 } from "lucide-react";
 import {
   productCatalog, whiteSpaceData, crossSellRecommendations, fmtMoney,
   type WhiteSpaceAnalysis, type WhiteSpaceCell, type ProductLine, type CrossSellRecommendation,
-  type AccountDetail,
+  type AccountDetail, type Stakeholder,
 } from "@/lib/mock";
 import { useToast } from "@/components/Toast";
+import { PersonAvatar } from "@/components/PersonAvatar";
 
 const ACCENT = "#266DF0";
 
@@ -125,7 +126,7 @@ export function WhiteSpaceMatrix({ account, slug }: { account: AccountDetail; sl
             </thead>
             <tbody>
               {products.map((product) => (
-                <MatrixRow key={product.id} product={product} departments={departments} cellMap={cellMap} />
+                <MatrixRow key={product.id} product={product} departments={departments} cellMap={cellMap} account={account} />
               ))}
             </tbody>
           </table>
@@ -163,12 +164,26 @@ function Kpi({ label, value, tone, mono }: { label: string; value: string; tone:
 // ─────────────────────────────────────────────────────────────────────
 // Matrix row — modernized cells
 // ─────────────────────────────────────────────────────────────────────
+// Map a white-space department label to the closest stakeholder
+// `department` value so we can pull the right people from the org.
+function mapDept(d: string): Stakeholder["department"] | undefined {
+  const lc = d.toLowerCase();
+  if (/eng|platform|sre|infra/.test(lc))      return "Engineering";
+  if (/finance|fp&a|treasury|account/.test(lc)) return "Finance";
+  if (/sales|revenue|gtm/.test(lc))            return "Sales";
+  if (/product|design|pm/.test(lc))            return "Product";
+  if (/exec|ceo|cto|cfo|chief/.test(lc))       return "Executive";
+  if (/ops|operations|security|compliance/.test(lc)) return "Operations";
+  return "Other";
+}
+
 function MatrixRow({
-  product, departments, cellMap,
+  product, departments, cellMap, account,
 }: {
   product: ProductLine;
   departments: string[];
   cellMap: Map<string, WhiteSpaceCell>;
+  account: AccountDetail;
 }) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -199,14 +214,21 @@ function MatrixRow({
             );
           }
           const meta = STATUS_META[cell.status];
-          const isClickable = cell.status === "not-sold" || cell.status === "expansion-target";
+          const isClickable = true; // every cell now opens a drilldown
           const isExpanded = expanded === `${product.id}::${dept}`;
+          // People owners — for tooltip + drilldown
+          const deptKey = mapDept(dept);
+          const owners = account.stakeholders.filter((s) => s.department === deptKey);
+          const champion = owners.find((s) => s.role === "Champion");
+          const detractor = owners.find((s) => s.role === "Detractor");
+          const tooltip = `${cell.status === "active" ? "Active · " : cell.status === "trial" ? "Trial · " : cell.status === "expansion-target" ? "Target · " : "Gap · "}${dept}\n${owners.length} stakeholders${champion ? ` · ${champion.name} (Champion)` : ""}${detractor ? ` · ${detractor.name} (Detractor)` : ""}`;
 
           return (
             <td key={dept} className="px-1 py-1 text-center">
               <button
+                title={tooltip}
                 onClick={() => isClickable ? setExpanded(isExpanded ? null : `${product.id}::${dept}`) : undefined}
-                className={`w-full h-[52px] rounded-lg flex flex-col items-center justify-center gap-0.5 transition-all ${
+                className={`w-full h-[52px] rounded-lg flex flex-col items-center justify-center gap-0.5 transition-all relative ${
                   isClickable ? "cursor-pointer hover:-translate-y-px hover:shadow-sm" : "cursor-default"
                 }`}
                 style={{
@@ -216,6 +238,17 @@ function MatrixRow({
                   boxShadow: isExpanded ? `0 0 0 2px ${meta.ring}` : undefined,
                 }}
               >
+                {/* Tiny owner badge (Champion crown / detractor dot) — overlaid top-right */}
+                {champion && (
+                  <span className="absolute top-1 right-1 inline-flex items-center justify-center"
+                    title={`${champion.name} owns this department`}>
+                    <Crown size={9} strokeWidth={2.4} style={{ color: "#9333EA" }} />
+                  </span>
+                )}
+                {!champion && detractor && (
+                  <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full"
+                    style={{ background: "#EF4444" }} title={`${detractor.name} flagged as detractor`} />
+                )}
                 {cell.status === "active" && cell.arr ? (
                   <>
                     <span className="text-[11.5px] font-bold tnum">{fmtMoney(cell.arr)}</span>
@@ -249,6 +282,7 @@ function MatrixRow({
               cell={cellMap.get(expanded)!}
               product={products_lookup(expanded.split("::")[0])}
               department={expanded.split("::")[1]}
+              account={account}
               onClose={() => setExpanded(null)}
             />
           </td>
@@ -266,11 +300,28 @@ function products_lookup(id: string): ProductLine {
 // Cell detail — modernized opportunity drill-down
 // ─────────────────────────────────────────────────────────────────────
 function CellDetail({
-  cell, product, department, onClose,
+  cell, product, department, account, onClose,
 }: {
-  cell: WhiteSpaceCell; product: ProductLine; department: string; onClose: () => void;
+  cell: WhiteSpaceCell; product: ProductLine; department: string; account: AccountDetail; onClose: () => void;
 }) {
+  const toast = useToast();
   const isTarget = cell.status === "expansion-target";
+  const deptKey = mapDept(department);
+  const deptPeople = account.stakeholders.filter((s) => s.department === deptKey);
+  const champion = deptPeople.find((s) => s.role === "Champion");
+  const detractor = deptPeople.find((s) => s.role === "Detractor");
+  const decisionMakers = deptPeople.filter((s) => s.role === "Decision Maker");
+  const productClean = product.name.replace("Alphard · ", "");
+
+  const onBuildCase = () =>
+    toast({ tone: "success", title: `Building case · ${productClean} → ${department}`,
+      body: `${champion ? `Will be tailored around ${champion.name} as champion. ` : ""}Estimated ${fmtMoney(cell.estimatedArr ?? 0)} · ${cell.confidence ?? "—"}% confidence.` });
+  const onViewComparables = () =>
+    toast({ tone: "info", title: "Comparable wins", body: `${cell.patternMatches ?? 3} prior accounts ran the same play. Datadog landed within 14 weeks at comparable scale.` });
+  const onDraftOutreach = () =>
+    toast({ tone: "info", title: `Drafting outreach · ${champion?.name ?? department}`,
+      body: `Multi-thread plan ready. Anchored to ${decisionMakers[0]?.name ?? "the decision maker"} for commercial signal.` });
+
   return (
     <div className="rounded-xl p-4 my-1.5 mx-1"
       style={{
@@ -286,11 +337,11 @@ function CellDetail({
           <div className="min-w-0">
             <div className="text-[9.5px] font-semibold uppercase tracking-[0.14em] mb-0.5"
               style={{ color: ACCENT }}>
-              {isTarget ? "Expansion target" : "White-space gap"}
+              {isTarget ? "Expansion target" : cell.status === "active" ? "Active footprint" : cell.status === "trial" ? "Live trial" : "White-space gap"}
             </div>
             <div className="text-[13.5px] font-semibold text-ink leading-tight"
               style={{ letterSpacing: "-0.005em" }}>
-              {product.name.replace("Alphard · ", "")} → {department}
+              {productClean} → {department}
             </div>
           </div>
         </div>
@@ -300,9 +351,10 @@ function CellDetail({
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-2.5 mb-3">
+      <div className="grid grid-cols-4 gap-2.5 mb-3">
         {cell.estimatedArr !== undefined && (
-          <DetailStat label="Est. ARR" value={fmtMoney(cell.estimatedArr)} tone="var(--ink)" />
+          <DetailStat label={isTarget || cell.status === "not-sold" ? "Est. ARR" : "Current ARR"}
+            value={fmtMoney(cell.arr ?? cell.estimatedArr)} tone="var(--ink)" />
         )}
         {cell.confidence !== undefined && (
           <DetailStat
@@ -314,20 +366,73 @@ function CellDetail({
         {cell.patternMatches !== undefined && (
           <DetailStat label="Pattern matches" value={String(cell.patternMatches)} tone="var(--ink)" />
         )}
+        <DetailStat label="People in dept" value={String(deptPeople.length)} tone="var(--ink)" />
       </div>
 
-      <div className="flex items-center gap-2">
-        <button
+      {/* People threading — pulled from the org chart */}
+      {deptPeople.length > 0 && (
+        <div className="rounded-lg p-3 mb-3"
+          style={{ background: "var(--surface)", border: "1px solid var(--line)" }}>
+          <div className="flex items-center gap-1.5 mb-2">
+            <Users size={11} strokeWidth={1.8} className="text-muted-2" />
+            <span className="text-[9.5px] font-semibold uppercase tracking-[0.14em] text-muted-2">
+              People in {department} · pull from org chart
+            </span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {deptPeople.slice(0, 5).map((s) => (
+              <div key={s.name} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md"
+                style={{ background: "var(--bg-deep)", border: "1px solid var(--line)" }}>
+                <PersonAvatar name={s.name} size={18} />
+                <div className="leading-tight">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10.5px] font-semibold text-ink">{s.name}</span>
+                    {s.role === "Champion" && <Crown size={9} strokeWidth={2.2} className="text-purple-500" />}
+                    {s.role === "Detractor" && <span className="w-1 h-1 rounded-full" style={{ background: "#EF4444" }} />}
+                  </div>
+                  <div className="text-[9.5px] text-muted-2">{s.title}</div>
+                </div>
+              </div>
+            ))}
+            {deptPeople.length > 5 && (
+              <span className="text-[10px] text-muted-2">+{deptPeople.length - 5} more</span>
+            )}
+          </div>
+          {/* Insight line — derived from the people */}
+          <div className="text-[11px] text-ink-2 mt-2.5 leading-relaxed">
+            {champion ? (
+              <><b className="text-ink">{champion.name}</b> is the natural champion for this play — they already lead the {department} buying centre.</>
+            ) : decisionMakers.length > 0 ? (
+              <>No champion yet — {decisionMakers[0]!.name} ({decisionMakers[0]!.title}) is the highest-authority decision-maker to anchor the conversation around.</>
+            ) : (
+              <>No coverage in {department} yet — adding a contact here is the unlock for this play.</>
+            )}
+            {detractor && (
+              <> <span className="text-[#EF4444] font-semibold">Watch:</span> {detractor.name} flagged as detractor — neutralise before steering.</>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 flex-wrap">
+        <button onClick={onBuildCase}
           className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-3.5 py-2 rounded-lg text-white transition-transform hover:scale-[1.02]"
           style={{ background: "var(--ink)", boxShadow: "0 4px 10px -4px rgba(15,18,24,0.30)" }}>
           <Sparkles size={11} strokeWidth={2.2} /> Build expansion case
           <ArrowRight size={11} strokeWidth={2.2} />
         </button>
-        <button
+        <button onClick={onViewComparables}
           className="inline-flex items-center gap-1.5 text-[11.5px] font-medium px-3 py-2 rounded-lg transition-colors hover:bg-bg-deep"
           style={{ background: "var(--surface)", color: "var(--ink-2)", border: "1px solid var(--line)" }}>
           View comparables
         </button>
+        {champion && (
+          <button onClick={onDraftOutreach}
+            className="inline-flex items-center gap-1.5 text-[11.5px] font-medium px-3 py-2 rounded-lg transition-colors hover:bg-bg-deep"
+            style={{ background: "var(--surface)", color: "var(--ink-2)", border: "1px solid var(--line)" }}>
+            <Mail size={11} strokeWidth={1.8} /> Draft outreach to {champion.name.split(" ")[0]}
+          </button>
+        )}
       </div>
     </div>
   );

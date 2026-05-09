@@ -27,7 +27,7 @@ import {
   Calendar, Target, CheckCircle2, Circle, AlertCircle, Mail,
   ExternalLink, Globe, MessageSquare, FileText, Zap, ArrowUpRight,
   ArrowDownRight, Crown, UserPlus, UserCheck, Network, List, Layers,
-  AtSign, X, Briefcase, Clock, StickyNote, Bell, Wand2,
+  AtSign, X, Briefcase, Clock, StickyNote, Bell, Wand2, Plus,
 } from "lucide-react";
 import { useToast } from "./Toast";
 import type {
@@ -1407,12 +1407,36 @@ function OrgChartView({ rows }: { rows: Stakeholder[] }) {
   const decayed = rows.filter((s) => s.daysSilent >= 14);
   const detractors = rows.filter((s) => attractorScore(s) <= -10);
 
-  const onSuggest = () =>
-    toast({
-      tone: "success",
-      title: "Suggested contact",
-      body: "Connor Wells · Director of Cloud Engineering — reports to Anders Holm. Add to buying committee?",
-    });
+  // ── Suggest next contact — animated reveal (loading → result) ────────
+  const [suggestState, setSuggestState] = useState<"idle" | "loading" | "done">("idle");
+  // Pick a contextual suggestion based on the buying committee + ICP gaps
+  const suggested = useMemo(() => {
+    const present = new Set(rows.map((r) => r.name.toLowerCase()));
+    const dept = ICP_ROLES.find((r) => !rows.some((s) => s.title.toLowerCase().includes(r.toLowerCase()))) ?? "Director of FP&A";
+    // Try to anchor to an existing manager in the chart for the reportsTo
+    const anchor = rows.find((s) => /VP|Chief|Director/i.test(s.title) && !present.has(s.name.toLowerCase().split(" ")[0])) ?? rows[0];
+    return {
+      name: dept === "Head of Cloud" ? "Connor Wells"
+          : dept === "Director of FP&A" ? "Marcus Whittle"
+          : "Helena Grossman",
+      title: dept,
+      reportsTo: anchor?.name ?? "leadership",
+      department: dept.includes("FP&A") ? "Finance" : dept.includes("Cloud") ? "Engineering" : "Sales",
+      why: "Auto-detected ICP gap. Confirmed via 4 of 5 prior wins where this role was a tie-breaker on commercial timing.",
+      confidence: 92,
+    };
+  }, [rows]);
+
+  const onSuggest = () => {
+    if (suggestState === "loading") return;
+    setSuggestState("loading");
+    setTimeout(() => setSuggestState("done"), 1100);
+  };
+  const onAddSuggestion = () => {
+    setSuggestState("idle");
+    toast({ tone: "success", title: `Added · ${suggested.name}`, body: `${suggested.title} now in your buying committee. Drafting an intro request to ${suggested.reportsTo}.` });
+  };
+  const onDismissSuggestion = () => setSuggestState("idle");
 
   const onExport = () =>
     toast({ tone: "info", title: "Export queued", body: "Org chart will download as PNG in a moment." });
@@ -1435,16 +1459,97 @@ function OrgChartView({ rows }: { rows: Stakeholder[] }) {
           <ToolbarToggle on={decayOn}     onChange={setDecayOn}     icon={<Clock     size={11} strokeWidth={1.8} />} label="Highlight decay" />
           <ToolbarToggle on={groupByDept} onChange={setGroupByDept} icon={<Layers    size={11} strokeWidth={1.8} />} label="Group by team" />
           <span className="flex-1" />
-          <button onClick={onSuggest}
-            className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg text-white transition-transform hover:scale-[1.02]"
+          <button onClick={onSuggest} disabled={suggestState === "loading"}
+            className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg text-white transition-transform hover:scale-[1.02] disabled:opacity-80 disabled:cursor-wait"
             style={{ background: "var(--accent)" }}>
-            <Wand2 size={11} strokeWidth={2.2} /> Suggest next contact
+            {suggestState === "loading" ? (
+              <>
+                <span className="inline-block w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                Searching org…
+              </>
+            ) : (
+              <>
+                <Wand2 size={11} strokeWidth={2.2} /> Suggest next contact
+              </>
+            )}
           </button>
           <button onClick={onExport}
             className="inline-flex items-center gap-1.5 text-[11.5px] font-medium px-2.5 py-1.5 rounded-lg border border-line bg-bg-deep hover:bg-surface transition-colors">
             <ArrowUpRight size={11} strokeWidth={1.8} /> Export
           </button>
         </div>
+
+        {/* Suggested contact card — appears after Suggest is clicked */}
+        {(suggestState === "loading" || suggestState === "done") && (
+          <div className={`${cardClass} p-4 suggest-pop`}
+            style={{
+              borderColor: "rgba(38,109,240,0.32)",
+              background: "linear-gradient(135deg, rgba(38,109,240,0.05), rgba(124,58,237,0.04))",
+            }}>
+            {suggestState === "loading" ? (
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full grid place-items-center flex-shrink-0"
+                  style={{ background: "rgba(38,109,240,0.12)", border: "1px solid rgba(38,109,240,0.22)" }}>
+                  <span className="inline-block w-3.5 h-3.5 border-2 border-accent/30 rounded-full animate-spin"
+                    style={{ borderTopColor: "var(--accent)" }} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[12.5px] font-semibold text-ink">Scanning the org for your next-best contact…</div>
+                  <div className="text-[11px] text-muted">Cross-referencing buying committee · ICP playbook · prior wins</div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start gap-3">
+                <div className="relative flex-shrink-0">
+                  <PersonAvatar name={suggested.name} size={42} />
+                  <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center w-5 h-5 rounded-full text-white"
+                    style={{ background: "var(--accent)", boxShadow: "0 0 0 2px var(--bg)" }}>
+                    <Wand2 size={9} strokeWidth={2.4} />
+                  </span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: "var(--accent)" }}>
+                      Suggested addition · {suggested.confidence}% confidence
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                    <span className="text-[14px] font-bold text-ink">{suggested.name}</span>
+                    <span className="text-[11px] text-muted">·</span>
+                    <span className="text-[11.5px] text-ink-2">{suggested.title}</span>
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.10em] px-1.5 py-0.5 rounded ml-1"
+                      style={{ background: "var(--bg-deep)", color: "var(--muted)" }}>{suggested.department}</span>
+                  </div>
+                  <div className="text-[11.5px] text-muted leading-snug mb-2">
+                    <b className="text-ink-2">Reports to {suggested.reportsTo}.</b> {suggested.why}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={onAddSuggestion}
+                      className="text-[11.5px] font-semibold px-3 py-1.5 rounded-lg text-white inline-flex items-center gap-1.5"
+                      style={{ background: "var(--ink)" }}>
+                      <UserPlus size={11} strokeWidth={2.2} /> Add to committee
+                    </button>
+                    <button onClick={onDismissSuggestion}
+                      className="text-[11.5px] font-medium px-3 py-1.5 rounded-lg border border-line bg-bg-deep hover:bg-surface inline-flex items-center gap-1.5">
+                      Dismiss
+                    </button>
+                    <button onClick={onSuggest}
+                      className="text-[11.5px] font-medium text-muted hover:text-ink inline-flex items-center gap-1 ml-auto">
+                      <Wand2 size={10} strokeWidth={2} /> Try again
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            <style jsx>{`
+              @keyframes suggestPop {
+                from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+                to   { opacity: 1; transform: translateY(0) scale(1); }
+              }
+              .suggest-pop { animation: suggestPop 320ms cubic-bezier(0.22, 1, 0.36, 1); }
+            `}</style>
+          </div>
+        )}
 
         {/* White-space callout */}
         {ICP_ROLES.length > 0 && (
@@ -2053,15 +2158,185 @@ function RoiBar({ value }: { value: number }) {
 // ═════════════════════════════════════════════════════════════════════════════
 // TASKS PANEL — flat list of all account tasks (placeholder, simple)
 // ═════════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════════
+// TASKS PANEL — Kanban-style board grouped by status
+// ═════════════════════════════════════════════════════════════════════════════
+type TaskStatus = "todo" | "in-progress" | "blocked" | "done";
+type KanbanTask = {
+  id: string;
+  title: string;
+  due: string;
+  assignee: string;
+  roi: number;
+  status: TaskStatus;
+  tags?: string[];
+};
+
+const ALL_TASKS: KanbanTask[] = [
+  { id: "t1", title: "Send Datadog case study + ROI calculator",                 due: "Apr 8",  assignee: "James Park",     roi: 72, status: "done",        tags: ["sent"] },
+  { id: "t2", title: "Discovery call with VP Engineering + Procurement",         due: "Apr 22", assignee: "Pragyan Dutta",  roi: 88, status: "done",        tags: ["call"] },
+  { id: "t3", title: "Reply with bundling proposal + custom ROI math",           due: "Apr 26", assignee: "Pragyan Dutta",  roi: 95, status: "in-progress", tags: ["urgent"] },
+  { id: "t4", title: "Multi-thread CFO on Networking+Security consolidation",    due: "Apr 30", assignee: "Pragyan Dutta",  roi: 90, status: "todo",        tags: ["multi-thread"] },
+  { id: "t5", title: "Schedule security/compliance review with InfoSec",         due: "May 4",  assignee: "James Park",     roi: 64, status: "todo",        tags: ["infosec"] },
+  { id: "t6", title: "Run usage-and-savings audit (Q1+Q2)",                      due: "May 7",  assignee: "Sarah Williams", roi: 58, status: "blocked",     tags: ["data"] },
+  { id: "t7", title: "Build commercial proposal — 3-year term, multi-product",   due: "May 10", assignee: "Pragyan Dutta",  roi: 92, status: "todo",        tags: ["commercial"] },
+  { id: "t8", title: "Pull Datadog reference call onto Maya's calendar",         due: "May 12", assignee: "Rachel Kim",     roi: 80, status: "in-progress", tags: ["reference"] },
+  { id: "t9", title: "Neutralise Rebecca Chu — coffee-chat opener",              due: "May 14", assignee: "Pragyan Dutta",  roi: 70, status: "todo",        tags: ["detractor"] },
+];
+
+const COLUMN_META: Record<TaskStatus, { label: string; tone: string; tint: string }> = {
+  "todo":        { label: "To Do",        tone: "var(--muted)",   tint: "rgba(107,114,128,0.06)" },
+  "in-progress": { label: "In Progress",  tone: "var(--accent)",  tint: "rgba(38,109,240,0.08)" },
+  "blocked":     { label: "Blocked",      tone: "#EF4444",        tint: "rgba(239,68,68,0.06)" },
+  "done":        { label: "Done",         tone: "#16A34A",        tint: "rgba(34,197,94,0.06)" },
+};
+
 function TasksPanel({ slug }: { slug: string }) {
   void slug;
+  const toast = useToast();
+  const [tasks, setTasks] = useState<KanbanTask[]>(ALL_TASKS);
+  const [search, setSearch] = useState("");
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [overCol, setOverCol]       = useState<TaskStatus | null>(null);
+
+  const filteredTasks = tasks.filter(
+    (t) => !search || t.title.toLowerCase().includes(search.toLowerCase()) || t.assignee.toLowerCase().includes(search.toLowerCase()) || (t.tags ?? []).some((g) => g.toLowerCase().includes(search.toLowerCase())),
+  );
+
+  const cols: TaskStatus[] = ["todo", "in-progress", "blocked", "done"];
+
+  const moveTask = (id: string, to: TaskStatus) => {
+    setTasks((prev) => prev.map((t) => t.id === id ? { ...t, status: to } : t));
+    const t = tasks.find((x) => x.id === id);
+    if (t && t.status !== to) {
+      toast({ tone: "success", title: `Moved to ${COLUMN_META[to].label}`, body: t.title });
+    }
+  };
+
+  const totals = cols.map((c) => filteredTasks.filter((t) => t.status === c).length);
+  const totalRoi = filteredTasks.filter((t) => t.status !== "done").reduce((s, t) => s + t.roi, 0);
+
   return (
-    <div className={`${cardClass} p-6`}>
-      <div className="flex items-center gap-2 mb-3">
-        <ListChecks size={14} strokeWidth={1.8} className="text-muted" />
-        <h3 className="text-[15px] font-semibold text-ink" style={{ letterSpacing: "-0.014em" }}>Tasks</h3>
+    <div className="space-y-4">
+      <PanelIntro
+        Icon={ListChecks}
+        title="Account tasks · Kanban"
+        body="Every task across this account, columned by status. Drag any card across columns to update its state. The number on each card is its ROI score — higher means a bigger lever on the deal." />
+
+      {/* Toolbar */}
+      <div className={`${cardClass} p-3 flex items-center gap-2 flex-wrap`}>
+        <ListChecks size={14} strokeWidth={1.8} className="text-muted ml-1" />
+        <span className="text-[11.5px] font-semibold text-ink-2">{filteredTasks.length}</span>
+        <span className="text-[11.5px] text-muted">tasks · {totalRoi} pts open</span>
+        <span className="flex-1" />
+        <div className="relative">
+          <Search size={11} strokeWidth={1.8} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-2" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search tasks…"
+            className="text-[12px] bg-bg-deep border border-line rounded-lg pl-7 pr-3 py-1.5 w-56 focus:outline-none focus:border-ink/30" />
+        </div>
+        <button onClick={() => toast({ tone: "info", title: "New task", body: "Inline task creator would slide in here." })}
+          className="text-[11.5px] font-semibold px-3 py-1.5 rounded-lg text-white inline-flex items-center gap-1.5"
+          style={{ background: "var(--ink)" }}>
+          <Plus size={11} strokeWidth={2.2} /> New task
+        </button>
       </div>
-      <DealTaskList kind="upcoming" />
+
+      {/* Kanban */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        {cols.map((col, i) => {
+          const meta = COLUMN_META[col];
+          const items = filteredTasks.filter((t) => t.status === col).sort((a, b) => b.roi - a.roi);
+          const isDragOver = overCol === col;
+          return (
+            <div key={col}
+              onDragOver={(e) => { e.preventDefault(); setOverCol(col); }}
+              onDragLeave={() => setOverCol(null)}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (draggingId) moveTask(draggingId, col);
+                setDraggingId(null);
+                setOverCol(null);
+              }}
+              className={`rounded-2xl p-3 border min-h-[280px] transition-all`}
+              style={{
+                background: isDragOver ? meta.tint : "var(--surface)",
+                borderColor: isDragOver ? meta.tone : "var(--line)",
+              }}>
+              <div className="flex items-center justify-between mb-2.5 px-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: meta.tone }} />
+                  <span className="text-[10.5px] font-semibold uppercase tracking-[0.14em]"
+                    style={{ color: meta.tone }}>{meta.label}</span>
+                </div>
+                <span className="text-[10px] font-mono tnum text-muted">{totals[i]}</span>
+              </div>
+              <div className="space-y-2">
+                {items.map((t) => <KanbanCard key={t.id} task={t} onDragStart={() => setDraggingId(t.id)} onMove={moveTask} />)}
+                {items.length === 0 && (
+                  <div className="text-[11px] text-muted-2 italic text-center py-4 border border-dashed border-line rounded-lg">
+                    Drop here
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function KanbanCard({ task, onDragStart, onMove }: {
+  task: KanbanTask;
+  onDragStart: () => void;
+  onMove: (id: string, to: TaskStatus) => void;
+}) {
+  const meta = COLUMN_META[task.status];
+  const roiTone = task.roi >= 80 ? "#16A34A" : task.roi >= 60 ? "var(--accent)" : "#9CA3AF";
+  // Suggested next status — used by the "→" quick-move button
+  const order: TaskStatus[] = ["todo", "in-progress", "blocked", "done"];
+  const nextStatus = task.status === "blocked" ? "in-progress" : order[(order.indexOf(task.status) + 1) % order.length];
+  return (
+    <div
+      draggable
+      onDragStart={onDragStart}
+      className="rounded-xl p-3 cursor-grab active:cursor-grabbing transition-shadow hover:shadow-md group"
+      style={{
+        background: "var(--bg)",
+        border: "1px solid var(--line)",
+        borderLeft: `3px solid ${meta.tone}`,
+      }}>
+      <div className="flex items-start gap-2 mb-2">
+        <div className="text-[12.5px] font-semibold text-ink leading-snug flex-1 min-w-0">{task.title}</div>
+        <div className="flex items-center gap-0.5 flex-shrink-0">
+          <span className="text-[10px] font-mono tnum px-1.5 py-0.5 rounded"
+            style={{ background: `${roiTone}15`, color: roiTone, border: `1px solid ${roiTone}33` }}
+            title={`ROI score · ${task.roi}`}>
+            {task.roi}
+          </span>
+        </div>
+      </div>
+      {(task.tags ?? []).length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2">
+          {task.tags!.slice(0, 2).map((g) => (
+            <span key={g} className="text-[9px] font-semibold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded text-muted-2 bg-bg-deep border border-line">
+              {g}
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="flex items-center gap-2 text-[10.5px]">
+        <PersonAvatar name={task.assignee} size={18} />
+        <span className="text-muted truncate flex-1">{task.assignee}</span>
+        <span className="text-muted-2 tnum">{task.due}</span>
+      </div>
+      {task.status !== "done" && (
+        <button onClick={() => onMove(task.id, nextStatus)}
+          className="mt-2 text-[10.5px] font-medium text-muted hover:text-ink inline-flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          Move to {COLUMN_META[nextStatus].label} <ArrowRight size={10} strokeWidth={2} />
+        </button>
+      )}
     </div>
   );
 }
