@@ -226,6 +226,25 @@ function AMHome() {
         </div>
       </header>
 
+      {/* ─── Pipeline (book-of-business style strip) ─────────── */}
+      <div className="card p-5 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="mono-label">Pipeline</div>
+            <span className="text-[10.5px] font-mono text-muted">
+              {fmtMoney(pipelineArr)} across {ranked.length} plays
+            </span>
+          </div>
+          <Link href="/portfolio"
+            className="text-[11.5px] font-medium text-muted hover:text-ink inline-flex items-center gap-1">
+            View portfolio <ChevronRight size={11} />
+          </Link>
+        </div>
+        <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
+          {ranked.map((opp) => <PipelineTile key={opp.id} opp={opp} />)}
+        </div>
+      </div>
+
       {/* ─── Today ───────────────────────────────────────────── */}
       <CollapsibleSection
         storageKey="am-today"
@@ -237,19 +256,7 @@ function AMHome() {
           {more.map((p, i) => <PlayRow key={p.id} play={p} isLast={i === more.length - 1} />)}
         </div>
       </CollapsibleSection>
-      <div className="mb-6" />
-
-      {/* ─── Pipeline ────────────────────────────────────────── */}
-      <SectionHeader
-        label="Pipeline"
-        detail={`${fmtMoney(pipelineArr)} across ${ranked.length} plays`}
-        right={<Link href="/portfolio" className="text-[11.5px] font-medium text-muted hover:text-ink inline-flex items-center gap-1">View portfolio <ChevronRight size={11} /></Link>}
-      />
-      <div className="mb-10 -mx-2 overflow-x-auto">
-        <div className="flex items-stretch gap-3 px-2 min-w-min">
-          {ranked.map((opp) => <PipelineTile key={opp.id} opp={opp} />)}
-        </div>
-      </div>
+      <div className="mb-10" />
 
       {/* ─── Activity ────────────────────────────────────────── */}
       <SectionHeader
@@ -548,41 +555,46 @@ const STAGE_LABEL_SHORT: Record<string, string> = {
   closed:      "Closed",
 };
 
+// Stage-tinted chip palette for the circular pipeline cards.
+const STAGE_CHIP: Record<string, { bg: string; ink: string }> = {
+  identified:  { bg: "var(--bg-deep)",        ink: "var(--muted)" },
+  qualified:   { bg: "rgba(59,130,246,0.10)", ink: "#3B82F6" },
+  proposal:    { bg: "rgba(245,158,11,0.10)", ink: "#D97706" },
+  negotiation: { bg: "rgba(245,158,11,0.14)", ink: "#B45309" },
+  closed:      { bg: "rgba(34,197,94,0.10)",  ink: "#16A34A" },
+};
+
 function PipelineTile({ opp }: { opp: typeof expansionOpportunities[number] }) {
   const peek = usePeek();
-  const stale = opp.daysInStage >= 14;
-  const scoreTone = opp.score >= 85 ? "var(--pos)" : opp.score >= 70 ? "var(--accent)" : "var(--muted)";
+  const scoreTone = opp.score >= 85 ? "var(--pos)" : opp.score >= 70 ? "var(--accent)" : "var(--warn)";
+  const stageStyle = STAGE_CHIP[opp.stage] ?? STAGE_CHIP.identified;
   return (
     <button
       type="button"
       onClick={() => peek.open(opp.accountName, "default")}
-      className="group rounded-xl p-4 transition-all hover:shadow-sm hover:border-line-strong shrink-0 text-left"
-      style={{
-        width: 200,
-        background: "var(--surface)",
-        border: "1px solid var(--line)",
-      }}>
-      <div className="flex items-center gap-2 mb-3">
-        <Logo name={opp.accountName} size={22} rounded={5} />
-        <div className="min-w-0 flex-1">
-          <div className="text-[12.5px] font-semibold text-ink truncate">{opp.accountName}</div>
-          <div className="text-[10px] text-muted truncate">{opp.productName}</div>
-        </div>
-      </div>
-      <div className="flex items-baseline gap-2 mb-2">
-        <span className="text-[20px] font-bold tnum text-ink leading-none" style={{ letterSpacing: "-0.018em" }}>
-          {fmtMoney(opp.estimatedArr)}
-        </span>
-        <span className="text-[10.5px] font-semibold tnum" style={{ color: scoreTone }}>
+      className="shrink-0 w-[124px] flex flex-col items-center text-center group">
+      <div className="flex items-center gap-1 mb-2">
+        <span className="text-[8.5px] font-bold tnum px-1 py-0.5 rounded leading-none"
+          style={{ color: scoreTone, border: `1px solid ${scoreTone}33`, background: `${scoreTone}10` }}
+          title={`Score · ${opp.score}`}>
           {opp.score}
         </span>
-      </div>
-      <div className="flex items-center justify-between mt-3 pt-3 border-t border-line">
-        <span className="text-[10.5px] font-medium text-ink-2">{STAGE_LABEL_SHORT[opp.stage]}</span>
-        <span className="text-[10px] tnum" style={{ color: stale ? "var(--neg)" : "var(--muted-2)" }}>
-          {opp.daysInStage}d
+        <span className="text-[10.5px] font-mono tnum font-bold text-ink px-1.5 py-0.5 rounded-full border bg-surface leading-none"
+          style={{ borderColor: "var(--line-strong)" }}>
+          {fmtMoney(opp.estimatedArr)}
         </span>
       </div>
+      <div className="rounded-full p-1 bg-surface border border-line group-hover:bg-bg-deep transition-colors">
+        <Logo name={opp.accountName} size={56} rounded={9999} />
+      </div>
+      <div className="text-[11.5px] font-semibold text-ink mt-2 w-full leading-tight"
+        style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+        {opp.accountName}
+      </div>
+      <span className="text-[10px] font-bold uppercase tracking-[0.06em] mt-1 px-1.5 py-0.5 rounded"
+        style={{ background: stageStyle.bg, color: stageStyle.ink }}>
+        {STAGE_LABEL_SHORT[opp.stage]}
+      </span>
     </button>
   );
 }

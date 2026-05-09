@@ -67,6 +67,32 @@ const fmtMoney = (n: number) =>
 // ─────────────────────────────────────────────────────────────────────────────
 type V2Tab = "overview" | "signals" | "journey" | "people" | "deals" | "tasks" | "whitespace" | "analytics" | "docs" | "agent";
 
+// 5 top-level groups → each opens a sub-tab strip below the main row.
+type V2Group = "overview" | "intel" | "people" | "pipeline" | "workspace";
+const GROUPS: { id: V2Group; label: string; tabs: V2Tab[] }[] = [
+  { id: "overview",  label: "Overview",  tabs: ["overview"] },
+  { id: "intel",     label: "Intel",     tabs: ["signals", "journey", "analytics"] },
+  { id: "people",    label: "People",    tabs: ["people"] },
+  { id: "pipeline",  label: "Pipeline",  tabs: ["deals", "tasks", "whitespace"] },
+  { id: "workspace", label: "Workspace", tabs: ["docs", "agent"] },
+];
+const SUB_LABEL: Record<V2Tab, string> = {
+  overview:   "Overview",
+  signals:    "Signals",
+  journey:    "Journey",
+  analytics:  "Analytics",
+  people:     "People",
+  deals:      "Deals",
+  tasks:      "Tasks",
+  whitespace: "White Space",
+  docs:       "Docs",
+  agent:      "Agent",
+};
+function groupForTab(t: V2Tab): V2Group {
+  for (const g of GROUPS) if (g.tabs.includes(t)) return g.id;
+  return "overview";
+}
+
 export function AccountWorkspaceV2({
   account, slug, deals,
   renderCallRecordings,
@@ -155,41 +181,76 @@ function V2Header({ account }: { account: AccountDetail }) {
 function V2Tabs({
   current, onChange, counts,
 }: { current: V2Tab; onChange: (t: V2Tab) => void; counts: { signals: number; people: number; deals: number } }) {
-  const items: { id: V2Tab; label: string; Icon: React.ComponentType<{ size?: number; strokeWidth?: number }>; count?: number; tour?: string }[] = [
-    { id: "overview", label: "Overview", Icon: Layers,    tour: "account-overview-tab" },
-    { id: "signals",  label: "Signals",  Icon: Activity,  count: counts.signals, tour: "account-signals-tab" },
-    { id: "journey",  label: "Journey",  Icon: Compass,   tour: "account-journey-tab" },
-    { id: "people",   label: "People",   Icon: Users,     count: counts.people, tour: "account-people-tab" },
-    { id: "deals",     label: "Deals",       Icon: DollarSign, count: counts.deals, tour: "account-deals-tab" },
-    { id: "tasks",     label: "Tasks",       Icon: ListChecks, tour: "account-tasks-tab" },
-    { id: "whitespace",label: "White Space", Icon: Target,     tour: "account-whitespace-tab" },
-    { id: "analytics", label: "Analytics",   Icon: TrendingUp, tour: "account-analytics-tab" },
-    { id: "docs",      label: "Docs",        Icon: FileText,   tour: "account-docs-tab" },
-    { id: "agent",     label: "Agent",       Icon: Sparkles,   tour: "account-agent-tab" },
-  ];
+  const groupIcon: Record<V2Group, React.ComponentType<{ size?: number; strokeWidth?: number }>> = {
+    overview:  Layers,
+    intel:     Activity,
+    people:    Users,
+    pipeline:  DollarSign,
+    workspace: Sparkles,
+  };
+  const groupCount = (g: V2Group): number | undefined => {
+    if (g === "intel")    return counts.signals;
+    if (g === "people")   return counts.people;
+    if (g === "pipeline") return counts.deals;
+    return undefined;
+  };
+  const activeGroup = groupForTab(current);
+  const activeGroupDef = GROUPS.find((g) => g.id === activeGroup)!;
+
+  const onGroupClick = (g: V2Group) => {
+    if (g === activeGroup) return;
+    const def = GROUPS.find((x) => x.id === g)!;
+    onChange(def.tabs[0]);
+  };
+
   return (
-    <div className="flex items-center gap-1 border-b border-line -mx-1 px-1 overflow-x-auto scrollbar-thin"
-      style={{ scrollbarWidth: "thin" }}>
-      {items.map(({ id, label, Icon, count, tour }) => {
-        const active = current === id;
-        return (
-          <button key={id}
-            data-tour={tour}
-            onClick={() => onChange(id)}
-            className="relative inline-flex items-center gap-1.5 text-[13px] font-medium px-3.5 py-2.5 transition-colors flex-shrink-0 whitespace-nowrap"
-            style={{ color: active ? "var(--ink)" : "var(--muted)" }}>
-            <Icon size={14} strokeWidth={active ? 2 : 1.6} />
-            {label}
-            {count !== undefined && count > 0 && (
-              <span className="text-[10.5px] font-mono tnum" style={{ opacity: 0.6 }}>{count}</span>
-            )}
-            {active && (
-              <span className="absolute left-2 right-2 -bottom-px h-[1.5px] rounded-full"
-                style={{ background: "var(--ink)" }} />
-            )}
-          </button>
-        );
-      })}
+    <div className="space-y-2">
+      {/* Top-level pill row — 5 groups */}
+      <div className="flex items-center gap-1">
+        {GROUPS.map((g) => {
+          const Icon = groupIcon[g.id];
+          const active = g.id === activeGroup;
+          const count = groupCount(g.id);
+          return (
+            <button key={g.id}
+              data-tour={`account-${g.id}-tab`}
+              onClick={() => onGroupClick(g.id)}
+              className="relative inline-flex items-center gap-1.5 text-[13px] font-medium px-3.5 py-2 rounded-lg transition-colors flex-shrink-0 whitespace-nowrap"
+              style={{
+                background: active ? "var(--ink)" : "transparent",
+                color: active ? "white" : "var(--muted)",
+              }}>
+              <Icon size={14} strokeWidth={active ? 2 : 1.6} />
+              {g.label}
+              {count !== undefined && count > 0 && (
+                <span className="text-[10.5px] font-mono tnum"
+                  style={{ opacity: active ? 0.7 : 0.6 }}>{count}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      {/* Sub-tab row — only when the active group has multiple tabs */}
+      {activeGroupDef.tabs.length > 1 && (
+        <div className="flex items-center gap-1 px-1 border-b border-line">
+          {activeGroupDef.tabs.map((sub) => {
+            const subActive = current === sub;
+            return (
+              <button key={sub}
+                data-tour={`account-${sub}-tab`}
+                onClick={() => onChange(sub)}
+                className="relative text-[12px] font-medium px-3 py-2 transition-colors"
+                style={{ color: subActive ? "var(--ink)" : "var(--muted)" }}>
+                {SUB_LABEL[sub]}
+                {subActive && (
+                  <span className="absolute left-2 right-2 -bottom-px h-[1.5px] rounded-full"
+                    style={{ background: "var(--ink)" }} />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

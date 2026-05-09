@@ -7,7 +7,7 @@ import {
   Building2, Calendar, Mail, Phone, Globe, MapPin, Users, ChevronLeft,
   Sparkles, Heart, AlertTriangle, TrendingUp, Activity, Globe2, Video, FileText,
   Plus, Star, Pin, Target, Network, Presentation, Download, ArrowRight, Check, X, Send, Hash,
-  Clock, Zap, DollarSign, BarChart3, Play, Pause, ChevronRight, ExternalLink,
+  Clock, Zap, DollarSign, BarChart3, Play, Pause, ChevronRight, ChevronDown, ChevronUp, ExternalLink,
   MessageSquare, Milestone, Eye, ThumbsUp, ThumbsDown, Handshake, Award, Flag, Shield,
   Crown, CheckCircle2, Circle,
 } from "lucide-react";
@@ -16,6 +16,7 @@ import { Popover, MenuItem } from "@/components/Popover";
 import { DraftDeckModal, type DeckTemplate } from "@/components/DraftDeckModal";
 import { AdoptionPanel } from "@/components/AdoptionPanel";
 import { AccountWorkspaceV2 } from "@/components/AccountWorkspaceV2";
+import { usePersona } from "@/components/PersonaContext";
 import { accountAdoption, expansionOpportunities, championChanges, fmtMoney as fmtMoneyShort, slugify as slugifyMock } from "@/lib/mock";
 import { useUser } from "@/components/UserContext";
 import { ExecutionDrawer, type DrawerConfig, type DrawerFlow } from "@/components/ExecutionDrawer";
@@ -116,6 +117,7 @@ function buildFallback(a: typeof accounts[number]): AccountDetail {
 
 function AccountWorkspace({ account, slug, backHref }: { account: AccountDetail; slug: string; backHref: string }) {
   const toast = useToast();
+  const { persona } = usePersona();
   const [tab, setTab] = useState<TabId>("brief");
   const [pinned, setPinned] = useState(false);
   const [deckOpen, setDeckOpen] = useState(false);
@@ -126,6 +128,9 @@ function AccountWorkspace({ account, slug, backHref }: { account: AccountDetail;
   const [editing, setEditing] = useState<Stakeholder | null>(null);
   // Animated action drawer — opened by any descendant via DrawerCtx
   const [drawerCfg, setDrawerCfg] = useState<DrawerConfig | null>(null);
+  // Call detail drawer state — surfaced at workspace level so the AM
+  // sidebar and the Overview's Call Recordings card share one drawer.
+  const [openCall, setOpenCall] = useState<CallRecording | null>(null);
 
   const accountOutcomes = outcomes.filter((o) => o.account === account.name);
   const accountDeals = deals.filter((d) => d.account === account.name || d.name === account.name);
@@ -163,14 +168,18 @@ function AccountWorkspace({ account, slug, backHref }: { account: AccountDetail;
         onBuildDeck={() => openDeck("qbr")}
       />
 
-      {/* V2 workspace — clean tabs + panels. Renders without its own slim header
-          since we already render the richer NotionAccountHeader above. */}
+      {/* V2 workspace + AM right sidebar.
+          AM persona gets a focused right rail with the day's actions,
+          stakeholder pulse, and drafts in flight. Other personas see a
+          single-column layout. */}
+      <div className={`grid grid-cols-12 gap-5 ${persona === "am" ? "" : "lg:grid-cols-12"}`}>
+        <div className={persona === "am" ? "col-span-12 lg:col-span-9" : "col-span-12"}>
       <AccountWorkspaceV2
         account={liveAccount}
         slug={slug}
         deals={accountDeals}
         showOwnHeader={false}
-        renderCallRecordings={() => <CallRecordingsCard account={liveAccount} onOpen={() => {}} />}
+        renderCallRecordings={() => <CallRecordingsCard account={liveAccount} onOpen={setOpenCall} />}
         renderWhitespace={() => (
           <div className="space-y-5">
             <WhiteSpaceAnalysisCard account={liveAccount} />
@@ -180,6 +189,15 @@ function AccountWorkspace({ account, slug, backHref }: { account: AccountDetail;
         renderAnalytics={() => <AnalyticsPanel account={liveAccount} adoption={adoption} />}
         renderDocs={() => <DocumentsPanel slug={slug} />}
       />
+        </div>
+
+        {/* AM right rail — only for Account Managers */}
+        {persona === "am" && (
+          <aside className="col-span-12 lg:col-span-3 space-y-3">
+            <AMRightSidebar account={liveAccount} slug={slug} onOpenCall={setOpenCall} onBuildDeck={() => openDeck("qbr")} />
+          </aside>
+        )}
+      </div>
 
       {/* Legacy tab system — disabled in favour of V2 */}
       {false && (<>
@@ -235,6 +253,7 @@ function AccountWorkspace({ account, slug, backHref }: { account: AccountDetail;
         existing={editing} onSave={saveStakeholder} onDelete={deleteStakeholder}
         allStakeholders={stakeholders} />
       <ExecutionDrawer config={drawerCfg} onClose={() => setDrawerCfg(null)} />
+      <CallDetailDrawer call={openCall} onClose={() => setOpenCall(null)} account={liveAccount} />
     </AppShell>
     </DrawerCtx.Provider>
   );
@@ -262,6 +281,7 @@ function NotionAccountHeader({
   onBuildDeck: () => void;
 }) {
   const isCustomer = account.status === "Customer";
+  const slug = slugifyMock(account.name);
   const renewalLabel = !isCustomer
     ? "—"
     : account.renewalDays > 0 ? `${account.renewalDays} days`
@@ -272,6 +292,73 @@ function NotionAccountHeader({
     : account.renewalDays > 60 ? "var(--ink)"
     : account.renewalDays > 0 ? "var(--warn)"
     : "var(--neg)";
+
+  // Collapsed state — persists per account so the user's preference sticks.
+  const collapseKey = `alphard:account-header:${slug}:collapsed`;
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(collapseKey) === "1") setCollapsed(true);
+    } catch {}
+  }, [collapseKey]);
+  const toggleCollapsed = () => {
+    setCollapsed((c) => {
+      const next = !c;
+      try { window.localStorage.setItem(collapseKey, next ? "1" : "0"); } catch {}
+      return next;
+    });
+  };
+
+  // ── Compact mode — single horizontal bar with the essentials ────────
+  if (collapsed) {
+    return (
+      <div className="mb-4">
+        <div className="flex items-center gap-1.5 text-[11.5px] text-muted mb-3">
+          <Link href={backHref} className="hover:text-ink inline-flex items-center gap-1">
+            <ChevronLeft size={12} strokeWidth={1.6} />Accounts
+          </Link>
+          <span className="text-muted-2">/</span>
+          <span className="text-ink-2">{account.name}</span>
+        </div>
+        <div className="rounded-xl px-4 py-2.5 flex items-center gap-3"
+          style={{ background: "var(--surface)", border: "1px solid var(--line)" }}>
+          <Logo name={account.name} size={26} rounded={6} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[14px] font-bold text-ink truncate">{account.name}</span>
+              <StatusChip status={account.status} />
+              <span className="text-[10.5px] text-muted-2">·</span>
+              <span className="text-[11px] text-muted">{account.industry}</span>
+            </div>
+          </div>
+          <div className="hidden md:flex items-center gap-4 text-[11px]">
+            <CompactStat label="Health"   value={`${account.healthScore}/100`} tone={healthTone(account.healthScore)} />
+            <CompactStat label="ARR"      value={isCustomer && account.arr ? fmtMoneyShort(account.arr) : "—"} />
+            <CompactStat label="NRR"      value={isCustomer ? `${account.nrr}%` : "—"} tone={isCustomer && account.nrr >= 110 ? "var(--pos)" : undefined} />
+            <CompactStat label="Renewal"  value={renewalLabel} tone={renewalTone} />
+            <CompactStat label="Owner"    value={account.owner} />
+          </div>
+          <div className="flex items-center gap-1.5 ml-2 shrink-0">
+            <button onClick={onBuildDeck}
+              title="Build a deck"
+              className="text-[11.5px] font-medium h-8 px-2 rounded-lg border border-line bg-surface hover:bg-bg-deep inline-flex items-center gap-1">
+              <Presentation size={11} strokeWidth={1.8} />
+            </button>
+            <button onClick={onPin}
+              title={pinned ? "Unpin" : "Pin"}
+              className="text-[11.5px] font-medium h-8 px-2 rounded-lg border border-line bg-surface hover:bg-bg-deep inline-flex items-center gap-1">
+              <Pin size={11} strokeWidth={1.8} fill={pinned ? "currentColor" : "transparent"} />
+            </button>
+            <button onClick={toggleCollapsed}
+              title="Expand"
+              className="text-[11.5px] font-medium h-8 w-8 rounded-lg border border-line bg-surface hover:bg-bg-deep inline-flex items-center justify-center">
+              <ChevronDown size={11} strokeWidth={1.8} />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mb-6">
@@ -308,6 +395,11 @@ function NotionAccountHeader({
             className="text-[11.5px] font-medium inline-flex items-center gap-1 h-8 px-3 rounded-lg border border-line bg-surface hover:bg-bg-deep">
             <Pin size={11} strokeWidth={1.8} fill={pinned ? "currentColor" : "transparent"} />
             {pinned ? "Pinned" : "Pin"}
+          </button>
+          <button onClick={toggleCollapsed}
+            title="Collapse to slim bar"
+            className="text-[11.5px] font-medium inline-flex items-center justify-center h-8 w-8 rounded-lg border border-line bg-surface hover:bg-bg-deep">
+            <ChevronUp size={11} strokeWidth={1.8} />
           </button>
         </div>
       </div>
@@ -816,7 +908,16 @@ type CallRecording = {
   summary: string;       // brief description of what was discussed
   topic: "QBR" | "Renewal" | "Discovery" | "Adoption" | "Expansion" | "Health Check";
   sentiment: "pos" | "neutral" | "warn" | "neg";
-  transcript: { speaker: string; at: string; text: string }[];
+  transcript: { speaker: string; at: string; text: string; tone?: "pos" | "neutral" | "warn" | "neg" }[];
+  /** Per-speaker sentiment summary (0-100, higher = more positive) */
+  speakerSentiment?: { name: string; score: number; quotes: string[] }[];
+  /** AI coaching insights — structured by category */
+  coaching?: {
+    strengths: string[];
+    improvements: string[];
+    nextBestActions: string[];
+    risks: string[];
+  };
 };
 
 const TOPIC_STYLE: Record<CallRecording["topic"], { bg: string; color: string }> = {
@@ -828,68 +929,340 @@ const TOPIC_STYLE: Record<CallRecording["topic"], { bg: string; color: string }>
   "Health Check":{ bg: "var(--bg-deep)",     color: "var(--ink-2)"       },
 };
 
+// Initials helper
+const initOf = (n: string) => n.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join("").toUpperCase();
+
 function callsFor(account: AccountDetail, currentUser: { name: string; initials: string; firstName: string }): CallRecording[] {
-  const isHealthy = account.healthScore >= 75;
-  return [
-    {
+  const me = { name: currentUser.name, initials: currentUser.initials, bg: "#374151", isHost: true } as const;
+  const champion = account.stakeholders.find((s) => s.role === "Champion") ?? account.stakeholders[0];
+  const cfo = account.stakeholders.find((s) => /CFO|Finance/i.test(s.title));
+  const infosec = account.stakeholders.find((s) => /InfoSec|Security/i.test(s.title));
+  const procurement = account.stakeholders.find((s) => /Procurement/i.test(s.title));
+
+  const ch = champion?.name ?? "Maya Chen";
+  const chFirst = ch.split(" ")[0];
+  const co = account.name;
+  const isCustomer = account.status === "Customer";
+
+  // Look up the lifecycle stage from the accounts list (AccountDetail doesn't carry it).
+  const stage = (() => {
+    const a = accounts.find((x) => x.name === account.name);
+    return a?.dealStage ?? (isCustomer ? "Stable" : "Discovery");
+  })();
+
+  // ── CALL 1 — most recent. Topic depends on lifecycle stage ──────────
+  const call1: CallRecording = (() => {
+    if (stage === "Negotiation") return {
       id: "c1",
-      title: isHealthy ? "Q3 expansion budget alignment" : "Sponsor re-engagement call",
-      duration: "32m",
+      title: `${co} · MSA redlines walkthrough`,
+      duration: "38m",
       when: "Yesterday",
-      participants: [
-        { name: currentUser.name, initials: currentUser.initials, bg: "#374151", isHost: true },
-        { name: account.stakeholders[0]?.name ?? "Maya Chen", initials: (account.stakeholders[0]?.name ?? "Maya Chen").split(" ").map(p => p[0]).slice(0,2).join(""), bg: "#3B82F6" },
-      ],
-      summary: isHealthy
-        ? "30-min check-in. Confirmed Q3 expansion budget; Finance Ops meeting set for next week."
-        : "Champion responded after 14d gap. Confirmed renewal still on track but procurement is shifting to legal next week.",
-      topic: isHealthy ? "Expansion" : "Renewal",
-      sentiment: isHealthy ? "pos" : "warn",
-      transcript: [
-        { speaker: currentUser.firstName,     at: "00:00", text: "Thanks for jumping on. Wanted to walk through where we are on the Q3 motion." },
-        { speaker: account.stakeholders[0]?.name ?? "Maya", at: "00:18", text: "Yeah, perfect timing. We just got VP approval to expand into Networking." },
-        { speaker: currentUser.firstName,     at: "01:05", text: "Great. Let me show you a quick proof point from a similar customer..." },
-        { speaker: account.stakeholders[0]?.name ?? "Maya", at: "12:30", text: "Can we get legal looped in on Wednesday? That's our next blocker." },
-      ],
-    },
-    {
-      id: "c2",
-      title: "Quarterly business review",
-      duration: "45m",
-      when: "1w ago",
-      participants: [
-        { name: currentUser.name, initials: currentUser.initials, bg: "#374151", isHost: true },
-        { name: "Marcus Webb",    initials: "MW", bg: "#1E40AF" },
-        { name: account.stakeholders[1]?.name ?? "Lin Park", initials: (account.stakeholders[1]?.name ?? "Lin Park").split(" ").map(p => p[0]).slice(0,2).join(""), bg: "#10B981" },
-      ],
-      summary: "Reviewed adoption gaps, ROI from last quarter, and aligned on success plan for H2. Customer asked for cross-BU reference customers.",
-      topic: "QBR",
+      participants: [me, { name: ch, initials: initOf(ch), bg: "#3B82F6" },
+        ...(infosec ? [{ name: infosec.name, initials: initOf(infosec.name), bg: "#9333EA" }] : []),
+        ...(procurement ? [{ name: procurement.name, initials: initOf(procurement.name), bg: "#F59E0B" }] : [])],
+      summary: `Counter-redlines on the MSA accepted with 3 minor changes. ${procurement?.name ?? "Procurement"} confirmed final pricing requested by Friday for SteerCo on Monday. ${infosec?.name ?? "InfoSec"} signed off on the security questionnaire.`,
+      topic: "Renewal",
       sentiment: "pos",
       transcript: [
-        { speaker: currentUser.firstName, at: "00:00", text: "Welcome everyone. Today we'll cover Q1 outcomes, current health, and the Q2 plan." },
-        { speaker: "Marcus",     at: "02:14", text: "Quick context on expansion — we have three plays open in Networking and Security." },
-        { speaker: "Lin Park",   at: "08:22", text: "Can you share which other customers in our segment are running this pattern?" },
+        { speaker: currentUser.firstName, at: "00:00", text: `Thanks for the time. Want to walk through the three redlines you flagged on the MSA, then close on commercials.`, tone: "neutral" },
+        { speaker: chFirst, at: "00:34", text: `Sounds good. The big one for us is liability cap — we're tracking it at 12 months instead of the 6 you proposed.`, tone: "neutral" },
+        { speaker: currentUser.firstName, at: "01:12", text: `That's a fair ask. We've done that exact structure with Datadog and MongoDB. Let me get a verbal yes from our Counsel today and confirm by EOD.`, tone: "pos" },
+        { speaker: chFirst, at: "01:55", text: `Perfect. The other two are smaller — data residency clause for EMEA and a benchmarking opt-out.`, tone: "neutral" },
+        { speaker: procurement?.name.split(" ")[0] ?? "Cassie", at: "02:31", text: `On commercials — I need final pricing in writing before Friday. SteerCo is Monday at 9.`, tone: "warn" },
+        { speaker: currentUser.firstName, at: "03:02", text: `Got it. We'll send the formal pricing today. Can I get a soft commit on the 3-year ELA shape we discussed?`, tone: "neutral" },
+        { speaker: chFirst, at: "03:38", text: `Yes — 3-year is what we want. The CFO has signed off on the upper-bound. Finance Ops needs to validate forecast impact, but that's a formality.`, tone: "pos" },
+        { speaker: infosec?.name.split(" ")[0] ?? "Owen", at: "05:14", text: `Quick note from my side — security questionnaire was clean. Nothing left from InfoSec.`, tone: "pos" },
+        { speaker: currentUser.firstName, at: "05:41", text: `Great. So timeline: pricing today, redlines back tomorrow, SteerCo Monday — close by Friday next week?`, tone: "pos" },
+        { speaker: chFirst, at: "06:08", text: `That's the plan. We need this live before BFCM — that's the actual deadline.`, tone: "warn" },
+        { speaker: currentUser.firstName, at: "12:40", text: `Quick check — anything outside the contract that would block adoption? Implementation owner, training plan?`, tone: "neutral" },
+        { speaker: chFirst, at: "13:18", text: `Aria from my team will own roll-out. We've already mapped the integration to our stack. Should be 2-week setup.`, tone: "pos" },
+        { speaker: currentUser.firstName, at: "29:02", text: `Last thing — can I get one verbal commitment we'll counter-sign by Friday next week?`, tone: "neutral" },
+        { speaker: chFirst, at: "29:34", text: `Yes. Friday next week. I'll personally make sure procurement doesn't slip it.`, tone: "pos" },
       ],
-    },
-    {
-      id: "c3",
-      title: isHealthy ? "Adoption review · Networking team" : "Health check · sponsor silent",
-      duration: "22m",
-      when: "12d ago",
-      participants: [
-        { name: "Rachel Kim",     initials: "RK", bg: "#7C3AED", isHost: true },
-        { name: account.stakeholders[2]?.name ?? "Tom Reilly", initials: (account.stakeholders[2]?.name ?? "Tom Reilly").split(" ").map(p => p[0]).slice(0,2).join(""), bg: "#F59E0B" },
+      speakerSentiment: [
+        { name: ch,                                 score: 86, quotes: ["The CFO has signed off on the upper-bound", "we need this live before BFCM"] },
+        { name: procurement?.name ?? "Procurement", score: 60, quotes: ["I need final pricing in writing before Friday"] },
+        { name: infosec?.name ?? "InfoSec",         score: 92, quotes: ["security questionnaire was clean"] },
       ],
-      summary: isHealthy
-        ? "Networking team WAU/MAU at 0.81. Reviewed feature breadth and queued up Playbook Runs onboarding session."
-        : "Compliance follow-up on EU data residency. Still waiting on signed addendum — flagged as renewal risk.",
-      topic: isHealthy ? "Adoption" : "Health Check",
-      sentiment: isHealthy ? "pos" : "warn",
+      coaching: {
+        strengths: [
+          "Strong commercial framing — anchored on comparable customer (Datadog, MongoDB) for the liability ask",
+          "Got a verbal soft-commit on 3-year ELA shape and Friday-next-week sign date",
+          "Multi-thread already covered all 4 power roles (Champion, InfoSec, Procurement, Counsel)",
+        ],
+        improvements: [
+          "BFCM deadline surfaced 6 minutes in — should have led with it to anchor urgency",
+          "Did not get explicit confirmation on the EMEA data residency clause — open thread",
+          "Missed the chance to ask for a reference call from a comparable customer",
+        ],
+        nextBestActions: [
+          "Send formal pricing in writing today — Cassie (Procurement) is the gating role",
+          "Secure verbal yes on 12-month liability cap from internal Counsel before EOD",
+          "Schedule a 15-min implementation kickoff with Aria for next week",
+        ],
+        risks: [
+          "Procurement (Cassie) is on the critical path — silent for 11d before this call. Risk of slipping again",
+          "BFCM deadline is real — any 1-week slip means the deal pushes a quarter",
+          "EMEA data residency clause unresolved — could resurface in legal review",
+        ],
+      },
+    };
+
+    if (stage === "Demo") return {
+      id: "c1",
+      title: `${co} · Live demo · APM + attribution`,
+      duration: "45m",
+      when: "Yesterday",
+      participants: [me, { name: ch, initials: initOf(ch), bg: "#3B82F6" },
+        ...account.stakeholders.slice(1, 3).map((s, i) => ({ name: s.name, initials: initOf(s.name), bg: ["#9333EA", "#F59E0B"][i] }))],
+      summary: `${ch} hosted the demo with 3 of their team. Strongest reaction to the cross-funnel attribution module. ${ch} requested a follow-up technical deep-dive next week and a comparable customer reference call.`,
+      topic: "Discovery",
+      sentiment: "pos",
       transcript: [
-        { speaker: "Rachel",     at: "00:00", text: "Wanted to share what we're seeing in the dashboard..." },
+        { speaker: currentUser.firstName, at: "00:00", text: `Thanks for the time. I'll keep slides to 5 minutes then dive into the live workspace using your data.`, tone: "neutral" },
+        { speaker: chFirst, at: "00:32", text: `Perfect — we've seen plenty of pitch decks. What we want to see is whether your attribution actually closes our reporting gap.`, tone: "neutral" },
+        { speaker: currentUser.firstName, at: "01:48", text: `Here's the flow. I've imported a synthetic version of your domain. Watch what happens when I tell it to attribute the last 30 days of pipeline.`, tone: "neutral" },
+        { speaker: chFirst, at: "04:22", text: `That's the cross-funnel view we don't have today. New Relic gives us a piece of that, but only on the APM side.`, tone: "pos" },
+        { speaker: currentUser.firstName, at: "05:14", text: `Right — and this is where the displacement story matters. New Relic was designed for monitoring, not GTM. Let me show you the side-by-side.`, tone: "pos" },
+        { speaker: chFirst, at: "08:48", text: `Okay — that's compelling. ${cfo?.name.split(" ")[0] ?? "Marcus"}, what do you think on the FinOps angle?`, tone: "pos" },
+        { speaker: cfo?.name.split(" ")[0] ?? "Marcus", at: "09:22", text: `The data lineage is interesting. Question on cost — what's the per-seat blended rate at our usage profile?`, tone: "neutral" },
+        { speaker: currentUser.firstName, at: "09:55", text: `Happy to share an ROI calculator with your specific volume baked in. Hannah, I'll route it to you to forward to Marcus.`, tone: "pos" },
+        { speaker: account.stakeholders[2]?.name?.split(" ")[0] ?? "Hannah", at: "10:31", text: `Yes — please send it. I'll loop in the rest of the eng leads as well.`, tone: "pos" },
+        { speaker: chFirst, at: "31:08", text: `Quick wrap — what would help us most is a reference call with a comparable customer who switched from New Relic.`, tone: "pos" },
+        { speaker: currentUser.firstName, at: "31:38", text: `I have two — Datadog (similar APM-to-attribution journey) and MongoDB. I'll get one scheduled within the week.`, tone: "pos" },
+        { speaker: chFirst, at: "39:12", text: `We're also considering "build it ourselves" — our data team has been wanting to roll something. Be honest with me on that comparison.`, tone: "warn" },
+        { speaker: currentUser.firstName, at: "39:48", text: `Fair. The build-vs-buy threshold is roughly 18 months and $1.4M of eng cost based on what we've seen. I'll share the analysis offline.`, tone: "neutral" },
+        { speaker: chFirst, at: "44:02", text: `Appreciate the honesty. Schedule the deep-dive for next Tuesday — let's get the eng leads in.`, tone: "pos" },
+      ],
+      speakerSentiment: [
+        { name: ch,                          score: 84, quotes: ["that's the cross-funnel view we don't have today", "schedule the deep-dive for next Tuesday"] },
+        { name: cfo?.name ?? "CFO",          score: 64, quotes: ["the data lineage is interesting"] },
+      ],
+      coaching: {
+        strengths: [
+          "Strong opening — set expectation early and respected their pre-loaded context",
+          "Got specific commitment: deep-dive Tuesday, reference call within the week, ROI calc to CFO",
+          "Handled build-vs-buy objection with honest data-backed answer rather than dismissing it",
+        ],
+        improvements: [
+          "Demo went 12 mins past the planned 5 min — could have surfaced commercial conversation earlier",
+          "CFO question on cost was answered with a future-promise (ROI calc) rather than a directional anchor",
+          "Did not ask about timeline / decision criteria — opportunity for next call",
+        ],
+        nextBestActions: [
+          `Send ROI calculator to ${cfo?.name ?? "the CFO"} today with their volume baked in`,
+          "Schedule reference call with Datadog (closest analog) within 7 days",
+          "Prep the build-vs-buy analysis as a one-pager — share before the Tuesday deep-dive",
+        ],
+        risks: [
+          "\"Build it ourselves\" is a real competitive — needs explicit displacement narrative",
+          "New Relic is the incumbent — need a clean migration story",
+          `${cfo?.name ?? "CFO"} engagement still tentative — single-thread risk on the economic buyer`,
+        ],
+      },
+    };
+
+    if (stage === "At Risk") return {
+      id: "c1",
+      title: `${co} · Sponsor re-engagement`,
+      duration: "26m",
+      when: "Yesterday",
+      participants: [me, { name: ch, initials: initOf(ch), bg: "#F59E0B" }],
+      summary: `${chFirst} responded after a 24-day gap. Confirmed renewal is still on the table but admitted internal headwinds: a competing vendor (Databricks) was put on the QBR slide. Procurement-led conversation likely.`,
+      topic: "Renewal",
+      sentiment: "warn",
+      transcript: [
+        { speaker: currentUser.firstName, at: "00:00", text: `${chFirst} — thanks for jumping on. I know things are busy. Want to be honest: we noticed a 24-day silence and wanted to surface it before it becomes a renewal risk.`, tone: "neutral" },
+        { speaker: chFirst, at: "00:34", text: `Yeah, fair to surface. Honesty is good. We had a re-org on our side and your renewal got bumped down the priority list.`, tone: "warn" },
+        { speaker: currentUser.firstName, at: "01:08", text: `Got it. What can I do to help you build the internal narrative? I want this to be easy on your side.`, tone: "pos" },
+        { speaker: chFirst, at: "01:42", text: `Honestly, I need a refreshed ROI story. Last quarter's metrics are stale — usage dropped 18% MoM after the re-org and that's the headline that's circulating internally.`, tone: "warn" },
+        { speaker: currentUser.firstName, at: "02:21", text: `Understood. We can refresh the value story with the new org structure. I'll also flag — Databricks was mentioned in your Q1 QBR slide. Are they actively in the conversation?`, tone: "neutral" },
+        { speaker: chFirst, at: "03:08", text: `They are. Not as a replacement, more as a "we should evaluate alternatives" thing from finance. But the threat is real if we can't reset the value story.`, tone: "warn" },
+        { speaker: currentUser.firstName, at: "03:48", text: `Okay. Action items from my side: refreshed ROI deck by Friday, comparable customer reference next week, and a 1:1 with your CFO if you can broker it.`, tone: "pos" },
+        { speaker: chFirst, at: "04:32", text: `That works. CFO intro is harder — let me run that. The other two — yes please.`, tone: "pos" },
+        { speaker: currentUser.firstName, at: "21:14", text: `Let me ask one more thing — if you had to give me a percentage on this renewing, what would it be today?`, tone: "neutral" },
+        { speaker: chFirst, at: "21:48", text: `Honestly? 65%. Six weeks ago it was 90%. The re-org changed the dynamic.`, tone: "warn" },
+        { speaker: currentUser.firstName, at: "22:18", text: `That's helpful. We'll turn this around. Standing weekly while we work the recovery?`, tone: "neutral" },
+        { speaker: chFirst, at: "22:34", text: `Yes. Weekly. Same time, same channel.`, tone: "pos" },
+      ],
+      speakerSentiment: [
+        { name: ch, score: 42, quotes: ["the threat is real if we can't reset the value story", "65% — six weeks ago it was 90%"] },
+      ],
+      coaching: {
+        strengths: [
+          "Led with honesty about the silence — bought back trust without being defensive",
+          "Got a quantified probability (65%) which is a hard signal you can take to forecast",
+          "Locked in a weekly cadence — re-establishing presence is the single most important save move",
+        ],
+        improvements: [
+          "Should have surfaced the Databricks threat earlier — was reactive instead of proactive",
+          "Did not address the WAU drop directly — the headline metric circulating internally",
+          "The CFO ask was made at the end as an aside; should have been the centerpiece",
+        ],
+        nextBestActions: [
+          "Refresh ROI deck with new org structure baked in — by Friday, before next 1:1",
+          "Schedule comparable customer reference (post-re-org NRR success) within the week",
+          "Draft an exec-to-exec note from your VP to their CFO on consolidation savings",
+          "Run the recovery playbook — Save Play pre-flight is auto-loaded for this account",
+        ],
+        risks: [
+          "Procurement-led conversation is the worst-case path; Databricks evaluation is a real threat",
+          "WAU drop 18% MoM is the dominant internal narrative — must counter with a value story",
+          "65% renewal probability — at the inflection point where one bad signal pushes it below 50%",
+        ],
+      },
+    };
+
+    // Default — Stable / Expanding / Adopting customer
+    return {
+      id: "c1",
+      title: `${co} · Q3 expansion budget alignment`,
+      duration: "32m",
+      when: "Yesterday",
+      participants: [me, { name: ch, initials: initOf(ch), bg: "#3B82F6" },
+        ...(cfo ? [{ name: cfo.name, initials: initOf(cfo.name), bg: "#9333EA" }] : [])],
+      summary: `30-min check-in with ${ch}. Confirmed Q3 expansion budget exists for the bundle proposal. ${ch} flagged the new VP role and what that means for buying authority. Finance Ops meeting set for next week.`,
+      topic: "Expansion",
+      sentiment: "pos",
+      transcript: [
+        { speaker: currentUser.firstName, at: "00:00", text: `Thanks for jumping on, ${chFirst}. Wanted to walk through the Q3 motion and confirm budget reality before we get the proposal in front of finance.`, tone: "neutral" },
+        { speaker: chFirst, at: "00:24", text: `Yeah, perfect timing. We just got VP approval to expand into Networking + Security. Budget is real for Q3.`, tone: "pos" },
+        { speaker: currentUser.firstName, at: "01:05", text: `Great. Quick proof point — we ran a similar combined-tier deal at Datadog. Same scale, same lifecycle. Resulted in 3.2x pipeline visibility within a quarter.`, tone: "pos" },
+        { speaker: chFirst, at: "02:18", text: `That's the comparable I want to share internally. Can you send me a one-pager?`, tone: "pos" },
+        { speaker: currentUser.firstName, at: "02:42", text: `Already drafted — Alphy has a one-page case ready. I'll attach it to a follow-up email today. Will include ROI math and exec cover note.`, tone: "pos" },
+        { speaker: chFirst, at: "04:08", text: `Perfect. The bigger conversation is consolidation — procurement wants single-vendor for both SKUs. We have ~12 days before that decision lands.`, tone: "warn" },
+        { speaker: currentUser.firstName, at: "04:48", text: `Tight window. Let's reverse-engineer it: SteerCo on Monday, finance review by Wednesday, signature by Friday next week. Workable?`, tone: "neutral" },
+        { speaker: chFirst, at: "05:24", text: `Workable if your contract terms are clean. I'll get ${cfo?.name.split(" ")[0] ?? "the CFO"} on a 30-min call this week.`, tone: "pos" },
+        { speaker: cfo?.name.split(" ")[0] ?? "CFO", at: "12:14", text: `Quick question on the avoided-cost framing — your 3-year savings number is $420K versus what we'd pay another vendor?`, tone: "neutral" },
+        { speaker: currentUser.firstName, at: "12:48", text: `Correct — that's the avoided cost of the single-vendor consolidation alternative. I'll share the model so your team can validate the math.`, tone: "pos" },
+        { speaker: cfo?.name.split(" ")[0] ?? "CFO", at: "13:42", text: `Helpful. If the math holds, I'm willing to back the bundle. Send me the model and I'll review with FP&A.`, tone: "pos" },
+        { speaker: chFirst, at: "29:02", text: `Quick close — implementation timeline. Can we get to value within 30 days?`, tone: "neutral" },
+        { speaker: currentUser.firstName, at: "29:34", text: `Yes — TTV for Security is 11 days off your existing Networking integration. We've done it 3x in similar accounts.`, tone: "pos" },
+        { speaker: chFirst, at: "30:08", text: `Then this is yours to lose. Let's keep weekly cadence till close.`, tone: "pos" },
+      ],
+      speakerSentiment: [
+        { name: ch, score: 88, quotes: ["Budget is real for Q3", "Then this is yours to lose"] },
+        { name: cfo?.name ?? "CFO", score: 78, quotes: ["If the math holds, I'm willing to back the bundle"] },
+      ],
+      coaching: {
+        strengths: [
+          "Strong opening — confirmed budget reality first, then sequenced the timeline backwards from SteerCo",
+          "Brought the CFO into the conversation organically through ${chFirst} rather than direct outreach",
+          "Anchored on a comparable customer (Datadog) at the right moment — built credibility for the avoided-cost story",
+        ],
+        improvements: [
+          "Could have asked for a 1:1 with the CFO directly during the call rather than going through the champion",
+          "Did not surface the 12-day procurement window earlier — would have anchored urgency upfront",
+          "Missed the chance to ask about decision criteria and competing vendors explicitly",
+        ],
+        nextBestActions: [
+          "Send Cloudflare-tailored one-pager + ROI model to the champion today",
+          "Schedule the CFO 30-min call this week — get a signed model validation by Wednesday",
+          "Pre-stage the SteerCo materials so they land in Monday's pre-read",
+          "Run the expansion playbook — Save Play pre-flight is auto-loaded",
+        ],
+        risks: [
+          "12-day procurement window is the binding constraint — any slip means the deal moves to a competing vendor",
+          "Single-vendor consolidation pressure cuts both ways — could be us or someone else",
+          "CFO engagement is real but warm — needs a hard yes before SteerCo",
+        ],
+      },
+    };
+  })();
+
+  // ── CALL 2 — older Quarterly Business Review (only for customers) ────
+  const call2: CallRecording = {
+    id: "c2",
+    title: isCustomer ? `${co} · Quarterly business review` : `${co} · Multi-thread discovery (CFO + Champion)`,
+    duration: "45m",
+    when: "1w ago",
+    participants: [me,
+      { name: ch, initials: initOf(ch), bg: "#1E40AF" },
+      ...(cfo ? [{ name: cfo.name, initials: initOf(cfo.name), bg: "#10B981" }] : []),
+    ],
+    summary: isCustomer
+      ? `Reviewed Q1 outcomes vs. commitments, current health drivers, and the H2 success plan. ${chFirst} asked for cross-BU reference customers running the same expansion pattern.`
+      : `Multi-thread call with ${chFirst} and ${cfo?.name ?? "CFO"} to validate the technical fit AND the financial framing in parallel. Strong alignment on commercial structure.`,
+    topic: isCustomer ? "QBR" : "Discovery",
+    sentiment: "pos",
+    transcript: [
+      { speaker: currentUser.firstName, at: "00:00", text: `Welcome everyone. Today we'll cover ${isCustomer ? "Q1 outcomes, current health drivers, and the H2 plan" : "the technical fit, commercial structure, and timeline"}.`, tone: "neutral" },
+      { speaker: chFirst, at: "02:14", text: `Quick context on where we are — three plays open in Networking and Security. The expansion play is the priority.`, tone: "pos" },
+      { speaker: cfo?.name.split(" ")[0] ?? "CFO", at: "06:48", text: `What's the comparable customer that got the most lift from this exact pattern?`, tone: "neutral" },
+      { speaker: currentUser.firstName, at: "07:22", text: `Datadog at comparable scale — 3.2x pipeline visibility, 14-month payback. Happy to broker a reference call.`, tone: "pos" },
+      { speaker: chFirst, at: "08:22", text: `Yes — please. Get a reference call on the calendar.`, tone: "pos" },
+      { speaker: cfo?.name.split(" ")[0] ?? "CFO", at: "16:14", text: `On commercials — what's your discount structure for a 3-year ELA?`, tone: "neutral" },
+      { speaker: currentUser.firstName, at: "16:48", text: `Standard step-down: 8% Y1, 12% Y2, 15% Y3, all baked into the ELA.`, tone: "pos" },
+    ],
+    speakerSentiment: [
+      { name: ch, score: 80, quotes: ["The expansion play is the priority", "Get a reference call on the calendar"] },
+      { name: cfo?.name ?? "CFO", score: 70, quotes: ["What's your discount structure"] },
+    ],
+    coaching: {
+      strengths: [
+        "Brought CFO and Champion into the same conversation — multi-threaded organically",
+        "Anchored on Datadog comparable at the right moment to defuse the cost question",
+        "Got a verbal commit on the reference call from the champion in real-time",
+      ],
+      improvements: [
+        "Discount question was answered transactionally — could have linked it to renewal-cycle value",
+        "Did not surface the multi-vendor consolidation framing early enough",
+      ],
+      nextBestActions: [
+        "Schedule the Datadog reference call within 7 days — both stakeholders attended",
+        "Send the 3-year ELA model to the CFO with their volume baked in",
+        "Schedule the next multi-thread checkpoint for 2 weeks out",
+      ],
+      risks: [
+        "CFO is engaged but transactional — risk of price-led decision rather than value-led",
+        "No procurement on the call yet — need to bring them in next round",
       ],
     },
-  ];
+  };
+
+  // ── CALL 3 — older support / adoption call (lighter touch) ────────
+  const call3: CallRecording = {
+    id: "c3",
+    title: isCustomer
+      ? `${co} · Adoption review · ${champion?.department ?? "Engineering"} team`
+      : `${co} · Tech discovery · platform fit`,
+    duration: "22m",
+    when: "12d ago",
+    participants: [
+      { name: "Rachel Kim", initials: "RK", bg: "#7C3AED", isHost: true },
+      ...(account.stakeholders[2] ? [{ name: account.stakeholders[2].name, initials: initOf(account.stakeholders[2].name), bg: "#F59E0B" }] : []),
+    ],
+    summary: isCustomer
+      ? `${champion?.department ?? "Engineering"} team WAU/MAU at 0.81. Reviewed feature breadth and queued up a Playbook Runs onboarding session.`
+      : `Technical discovery call with ${account.stakeholders[2]?.name ?? "the platform lead"}. Validated 3 of 4 integrations on their stack. One open item on SSO/SCIM.`,
+    topic: isCustomer ? "Adoption" : "Discovery",
+    sentiment: "pos",
+    transcript: [
+      { speaker: "Rachel", at: "00:00", text: `Wanted to share what we're seeing in the dashboard — your team's WAU/MAU is at 0.81, which is top-quartile for ${account.industry}.`, tone: "pos" },
+      { speaker: account.stakeholders[2]?.name?.split(" ")[0] ?? "Platform lead", at: "00:34", text: `That tracks. The integration with Salesforce has been smooth.`, tone: "pos" },
+      { speaker: "Rachel", at: "01:48", text: `One area we'd recommend looking at — Playbook Runs. Other customers at this depth get a 22% lift in throughput within a quarter.`, tone: "pos" },
+      { speaker: account.stakeholders[2]?.name?.split(" ")[0] ?? "Platform lead", at: "02:31", text: `Interesting. Send a 30-min walkthrough — I'll have my team in.`, tone: "pos" },
+    ],
+    coaching: {
+      strengths: [
+        "Led with a positive metric (WAU/MAU 0.81 top-quartile) before pitching the upsell",
+        "Used a quantified comparable (22% lift) to anchor the value of the recommendation",
+      ],
+      improvements: [
+        "Call was short (22m) — could have probed for adjacent expansion signals",
+        "Did not capture next-step ownership inside the customer's team",
+      ],
+      nextBestActions: [
+        "Schedule the Playbook Runs walkthrough — confirm attendees from their side",
+        "Identify one specific use case that maps to the 22% lift before the walkthrough",
+      ],
+      risks: [
+        "Single-thread on the platform lead — no executive in the conversation yet",
+      ],
+    },
+  };
+
+  return [call1, call2, call3];
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -897,6 +1270,195 @@ function callsFor(account: AccountDetail, currentUser: { name: string; initials:
 // Sits above the WhiteSpaceMatrix so the user reads the WHY before they
 // see the cell-by-cell visualisation.
 // ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
+// AM Right Sidebar — focused rail for the Account Manager:
+//   · Today's actions on this account
+//   · Stakeholder pulse (who's hot, who's gone silent)
+//   · Drafts in flight (emails Alphy has prepared)
+//   · Next milestones (countdowns)
+// ─────────────────────────────────────────────────────────────────────
+function AMRightSidebar({ account, slug, onOpenCall, onBuildDeck }: {
+  account: AccountDetail;
+  slug: string;
+  onOpenCall: (c: CallRecording) => void;
+  onBuildDeck: () => void;
+}) {
+  void onOpenCall;
+  const toast = useToast();
+  const champion = account.stakeholders.find((s) => s.role === "Champion") ?? account.stakeholders[0];
+  const detractor = account.stakeholders.find((s) => s.role === "Detractor");
+  const stale = account.stakeholders.filter((s) => s.daysSilent >= 14).slice(0, 3);
+  const renewing = account.renewalDays > 0 && account.renewalDays <= 365;
+
+  // Today's actions per account — derived from signals + lifecycle
+  const stage = (() => accounts.find((a) => a.name === account.name)?.dealStage)();
+  const actions: { id: string; label: string; sub: string; tone: string; Icon: React.ComponentType<{ size?: number; strokeWidth?: number; style?: React.CSSProperties; className?: string }> }[] = [];
+  if (champion) {
+    actions.push({
+      id: "follow-up",
+      label: `Follow up with ${champion.name.split(" ")[0]}`,
+      sub: `${champion.daysSilent === 0 ? "Active today" : `${champion.daysSilent}d silent`} · champion`,
+      tone: champion.daysSilent === 0 ? "var(--pos)" : "var(--accent)",
+      Icon: Mail,
+    });
+  }
+  if (stage === "Negotiation" || stage === "Proposal") {
+    actions.push({ id: "send-pricing", label: "Send pricing in writing", sub: "SteerCo Monday — gating", tone: "var(--warn)", Icon: DollarSign });
+  }
+  if (stage === "Expanding" || stage === "Renewing") {
+    actions.push({ id: "build-case",   label: "Build expansion case", sub: "Maps to current quarter target", tone: "var(--accent)", Icon: Sparkles });
+  }
+  if (stale.length > 0) {
+    actions.push({ id: "re-engage", label: `Re-engage ${stale[0].name.split(" ")[0]}`, sub: `${stale[0].daysSilent}d silent`, tone: "var(--neg)", Icon: AlertTriangle });
+  }
+  if (detractor) {
+    actions.push({ id: "neutralise", label: `Neutralise ${detractor.name.split(" ")[0]}`, sub: "Coffee-chat opener", tone: "var(--neg)", Icon: ThumbsDown });
+  }
+
+  return (
+    <>
+      {/* Today's actions */}
+      <div className="rounded-2xl border border-line bg-surface p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Sparkles size={12} strokeWidth={1.8} style={{ color: "var(--accent)" }} />
+          <h3 className="text-[12.5px] font-semibold text-ink uppercase tracking-[0.10em]"
+            style={{ letterSpacing: "0.10em" }}>Today on this account</h3>
+        </div>
+        <div className="space-y-2">
+          {actions.slice(0, 4).map((a) => (
+            <button key={a.id}
+              onClick={() => toast({ tone: "info", title: a.label, body: a.sub })}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border border-line bg-bg-deep hover:bg-surface transition-colors text-left">
+              <div className="w-7 h-7 rounded-lg grid place-items-center flex-shrink-0"
+                style={{ background: `${a.tone}15`, border: `1px solid ${a.tone}33` }}>
+                <a.Icon size={11} strokeWidth={1.8} style={{ color: a.tone }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[11.5px] font-semibold text-ink truncate">{a.label}</div>
+                <div className="text-[10.5px] text-muted truncate">{a.sub}</div>
+              </div>
+              <ArrowRight size={10} strokeWidth={1.8} className="text-muted-2 flex-shrink-0" />
+            </button>
+          ))}
+          {actions.length === 0 && (
+            <div className="text-[11.5px] text-muted py-2">No high-priority actions today.</div>
+          )}
+        </div>
+      </div>
+
+      {/* Stakeholder pulse */}
+      <div className="rounded-2xl border border-line bg-surface p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-[12.5px] font-semibold text-ink uppercase tracking-[0.10em]"
+            style={{ letterSpacing: "0.10em" }}>Stakeholder pulse</h3>
+          <Link href={`/accounts/${slug}#people`}
+            className="text-[10.5px] text-muted hover:text-ink">See all</Link>
+        </div>
+        <div className="space-y-2">
+          {champion && (
+            <PulseRow name={champion.name} title={champion.title} status={champion.daysSilent === 0 ? "On Fire" : champion.daysSilent <= 3 ? "Hot" : "Warm"} tone={champion.daysSilent === 0 ? "#EF4444" : "#F59E0B"} chip="CHAMPION" chipColor="#9333EA" />
+          )}
+          {detractor && (
+            <PulseRow name={detractor.name} title={detractor.title} status={`${detractor.daysSilent}d silent`} tone="#EF4444" chip="DETRACTOR" chipColor="#EF4444" />
+          )}
+          {stale.slice(0, 2).filter((s) => s.name !== champion?.name && s.name !== detractor?.name).map((s) => (
+            <PulseRow key={s.name} name={s.name} title={s.title} status={`${s.daysSilent}d silent`} tone="#94A3B8" chip="" chipColor="" />
+          ))}
+        </div>
+      </div>
+
+      {/* Drafts in flight */}
+      <div className="rounded-2xl border border-line bg-surface p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-[12.5px] font-semibold text-ink uppercase tracking-[0.10em]"
+            style={{ letterSpacing: "0.10em" }}>Drafts in flight</h3>
+          <span className="text-[10.5px] font-mono tnum text-muted-2">3</span>
+        </div>
+        <div className="space-y-2">
+          <DraftRow Icon={Mail}        kind="Email"      title={`Reply to ${champion?.name.split(" ")[0] ?? "champion"}`} sub="Tone match 94% · ready" tone="var(--accent)" />
+          <DraftRow Icon={FileText}    kind="One-pager"  title="Expansion case · 1-page"        sub="ROI math + Datadog comparable" tone="#9333EA" />
+          <DraftRow Icon={Presentation} kind="Deck"      title="Q3 QBR · 8 slides"               sub="Branded · ready to share"    tone="#16A34A" />
+        </div>
+        <button onClick={onBuildDeck}
+          className="w-full mt-3 text-[11.5px] font-semibold inline-flex items-center justify-center gap-1.5 h-8 rounded-lg text-white"
+          style={{ background: "var(--ink)" }}>
+          <Plus size={11} strokeWidth={2.2} /> New draft
+        </button>
+      </div>
+
+      {/* Next milestones */}
+      <div className="rounded-2xl border border-line bg-surface p-4">
+        <h3 className="text-[12.5px] font-semibold text-ink uppercase tracking-[0.10em] mb-3"
+          style={{ letterSpacing: "0.10em" }}>Next milestones</h3>
+        <div className="space-y-2">
+          <MilestoneRow Icon={Calendar} label="Renewal"   value={renewing ? `${account.renewalDays}d` : "—"}   tone={renewing && account.renewalDays <= 60 ? "var(--neg)" : renewing && account.renewalDays <= 120 ? "var(--warn)" : "var(--ink)"} />
+          <MilestoneRow Icon={Video}    label="Last QBR"  value={account.lastQbrDays > 0 ? `${account.lastQbrDays}d ago` : "—"} tone={account.lastQbrDays >= 90 ? "var(--neg)" : "var(--ink)"} />
+          <MilestoneRow Icon={Target}   label="Stage"     value={stage ?? "—"} tone="var(--accent)" />
+        </div>
+      </div>
+    </>
+  );
+}
+
+function PulseRow({ name, title, status, tone, chip, chipColor }: { name: string; title: string; status: string; tone: string; chip: string; chipColor: string }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className="w-7 h-7 rounded-full grid place-items-center text-[10px] font-bold text-white flex-shrink-0"
+        style={{ background: tone }}>
+        {name.split(" ").slice(0, 2).map(p => p[0]).join("")}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[12px] font-semibold text-ink truncate">{name}</span>
+          {chip && (
+            <span className="text-[8.5px] font-bold uppercase tracking-[0.10em] px-1 py-0.5 rounded flex-shrink-0"
+              style={{ color: chipColor, background: `${chipColor}15`, border: `1px solid ${chipColor}33` }}>
+              {chip}
+            </span>
+          )}
+        </div>
+        <div className="text-[10.5px] text-muted truncate">{title}</div>
+      </div>
+      <span className="text-[9.5px] font-semibold uppercase tracking-[0.06em] flex-shrink-0"
+        style={{ color: tone }}>{status}</span>
+    </div>
+  );
+}
+
+function DraftRow({ Icon, kind, title, sub, tone }: {
+  Icon: React.ComponentType<{ size?: number; strokeWidth?: number; style?: React.CSSProperties; className?: string }>;
+  kind: string; title: string; sub: string; tone: string;
+}) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-bg-deep transition-colors">
+      <div className="w-7 h-7 rounded-lg grid place-items-center flex-shrink-0"
+        style={{ background: `${tone}15`, border: `1px solid ${tone}33` }}>
+        <Icon size={11} strokeWidth={1.8} style={{ color: tone }} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[9px] font-bold uppercase tracking-[0.10em] text-muted-2">{kind}</span>
+        </div>
+        <div className="text-[11.5px] font-semibold text-ink truncate">{title}</div>
+        <div className="text-[10px] text-muted truncate">{sub}</div>
+      </div>
+    </div>
+  );
+}
+
+function MilestoneRow({ Icon, label, value, tone }: {
+  Icon: React.ComponentType<{ size?: number; strokeWidth?: number; style?: React.CSSProperties; className?: string }>;
+  label: string; value: string; tone: string;
+}) {
+  return (
+    <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg">
+      <Icon size={11} strokeWidth={1.7} className="text-muted-2 flex-shrink-0" />
+      <span className="text-[11px] text-muted flex-1">{label}</span>
+      <span className="text-[12px] font-bold tnum" style={{ color: tone }}>{value}</span>
+    </div>
+  );
+}
+
 function WhiteSpaceAnalysisCard({ account }: { account: AccountDetail }) {
   const champion = account.stakeholders.find((s) => s.role === "Champion");
   const cfo = account.stakeholders.find((s) => /CFO/i.test(s.title));
@@ -971,6 +1533,51 @@ function WhiteSpaceAnalysisCard({ account }: { account: AccountDetail }) {
           Closing the bundle alone is a <b className="text-ink">{fmtMoneyShort(expansionPipeline)} ARR lift</b> with a 14-month payback. Layering Bot Management and Workers within four quarters takes the account to <b className="text-ink">{fmtMoneyShort(account.arr + expansionPipeline + 180_000)} run-rate</b> — within striking distance of the addressable {fmtMoneyShort(totalAddressable)}.
         </Bullet>
       </ul>
+    </div>
+  );
+}
+
+// Coaching section in the AI Coach tab — colour-toned list with optional numbering
+function CoachSection({ label, tone, Icon, items, numbered }: {
+  label: string; tone: string;
+  Icon: React.ComponentType<{ size?: number; strokeWidth?: number; style?: React.CSSProperties; className?: string }>;
+  items: string[]; numbered?: boolean;
+}) {
+  if (!items || items.length === 0) return null;
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 mb-2.5">
+        <Icon size={11} strokeWidth={1.8} style={{ color: tone }} />
+        <span className="mono-label" style={{ color: tone }}>{label}</span>
+        <span className="text-[10.5px] text-muted-2 ml-auto">{items.length}</span>
+      </div>
+      <ul className="space-y-2">
+        {items.map((s, i) => (
+          <li key={i} className="flex gap-2.5 text-[12.5px] text-ink-2 leading-relaxed">
+            {numbered ? (
+              <span className="w-5 h-5 rounded-full grid place-items-center text-[10px] font-mono tnum flex-shrink-0 mt-px"
+                style={{ background: `${tone}1A`, color: tone, border: `1px solid ${tone}33` }}>
+                {i + 1}
+              </span>
+            ) : (
+              <span className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 mt-[7px]"
+                style={{ background: tone }} />
+            )}
+            <span className="flex-1">{s}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// Slim inline stat used in the collapsed account header bar.
+function CompactStat({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="flex flex-col leading-none">
+      <span className="text-[9.5px] font-mono uppercase tracking-[0.10em] text-muted-2 mb-0.5">{label}</span>
+      <span className="text-[12px] font-semibold tnum"
+        style={{ color: tone ?? "var(--ink)" }}>{value}</span>
     </div>
   );
 }
@@ -1336,7 +1943,7 @@ function VideoPlayer({ call, accountName }: { call: CallRecording; accountName: 
 function CallDetailDrawer({ call, onClose, account }: {
   call: CallRecording | null; onClose: () => void; account: AccountDetail;
 }) {
-  const [tab, setTab] = useState<"overview" | "transcript" | "notes">("overview");
+  const [tab, setTab] = useState<"overview" | "transcript" | "coach" | "notes">("overview");
   const [note, setNote] = useState("");
   const [chat, setChat] = useState<{ q: string; a: string }[]>([]);
   const [q, setQ] = useState("");
@@ -1346,13 +1953,17 @@ function CallDetailDrawer({ call, onClose, account }: {
 
   const ask = (text: string) => {
     if (!text.trim()) return;
-    const a = text.toLowerCase().includes("summary")
-      ? `${call.summary} Key risks: pending procurement step, Q3 timeline alignment. Suggested next step: confirm legal sync on Wednesday.`
-      : text.toLowerCase().includes("next")
-      ? `Suggested next steps for ${account.name}: (1) confirm Wednesday legal sync, (2) share comparable customer references, (3) schedule expansion follow-up after sign-off.`
-      : text.toLowerCase().includes("objection")
-      ? `Top objections from this call: (1) procurement timing, (2) cross-BU reference proof, (3) integration cost. Each has a recommended response in the playbook.`
-      : `Based on the transcript and account history, ${call.title.toLowerCase()} surfaced positive expansion signals. Citations would link to specific transcript timestamps.`;
+    const t = text.toLowerCase();
+    let a: string;
+    if (t.includes("summary"))               a = `${call.summary}\n\nKey risks: ${call.coaching?.risks?.[0] ?? "—"}. Top action: ${call.coaching?.nextBestActions?.[0] ?? "follow up by EOW"}.`;
+    else if (t.includes("next") || t.includes("action")) a = `Next-best-actions ranked by ROI:\n${(call.coaching?.nextBestActions ?? []).map((s, i) => `${i+1}. ${s}`).join("\n")}`;
+    else if (t.includes("risk") || t.includes("blocker"))a = `Open risks from this call:\n${(call.coaching?.risks ?? []).map((s, i) => `• ${s}`).join("\n")}`;
+    else if (t.includes("strength") || t.includes("did well")) a = `What landed well:\n${(call.coaching?.strengths ?? []).map((s) => `• ${s}`).join("\n")}`;
+    else if (t.includes("improve") || t.includes("better")) a = `Coaching opportunities:\n${(call.coaching?.improvements ?? []).map((s) => `• ${s}`).join("\n")}`;
+    else if (t.includes("sentiment") || t.includes("feel"))  a = `Per-speaker sentiment:\n${(call.speakerSentiment ?? []).map(s => `• ${s.name}: ${s.score}/100 — "${s.quotes[0] ?? ""}"`).join("\n")}`;
+    else if (t.includes("price") || t.includes("commercial") || t.includes("budget")) a = `Commercial signal in this call: budget acknowledged by champion; CFO conversation is the gating role. Procurement timeline is the binding constraint.`;
+    else if (t.includes("competitor") || t.includes("competitive")) a = `Competitive references in this call: ${account.signals.find(s => s.category === "Competitive")?.body ?? "no explicit competitor mentions captured"}.`;
+    else                                                  a = `Based on the transcript and ${account.name}'s account history, ${call.title.toLowerCase()} surfaced ${call.sentiment === "pos" ? "strong" : call.sentiment === "warn" ? "mixed" : "concerning"} signals. Try asking about: summary · risks · next actions · sentiment · objections.`;
     setChat((c) => [...c, { q: text, a }]);
     setQ("");
   };
@@ -1402,12 +2013,13 @@ function CallDetailDrawer({ call, onClose, account }: {
           {/* Left — Notion tabs */}
           <div className="flex-1 min-w-0 flex flex-col">
             <div className="px-5 pt-3 border-b border-line flex gap-1">
-              {(["overview", "transcript", "notes"] as const).map((t) => (
+              {(["overview", "transcript", "coach", "notes"] as const).map((t) => (
                 <button key={t} onClick={() => setTab(t)}
-                  className={`text-[12px] font-medium px-3 py-2 -mb-px capitalize ${
+                  className={`text-[12px] font-medium px-3 py-2 -mb-px capitalize inline-flex items-center gap-1.5 ${
                     tab === t ? "text-ink border-b-2 border-ink" : "text-muted hover:text-ink"
                   }`}>
-                  {t === "notes" ? "Personal notes" : t}
+                  {t === "coach" && <Sparkles size={11} strokeWidth={2} />}
+                  {t === "notes" ? "Personal notes" : t === "coach" ? "AI Coach" : t}
                 </button>
               ))}
             </div>
@@ -1453,16 +2065,64 @@ function CallDetailDrawer({ call, onClose, account }: {
               )}
               {tab === "transcript" && (
                 <div className="max-w-2xl space-y-3">
-                  <div className="mono-label mb-2">Full transcript</div>
-                  {call.transcript.map((t, i) => (
-                    <div key={i} className="flex items-start gap-3">
-                      <span className="text-[10px] font-mono tnum text-muted-2 w-12 shrink-0 mt-0.5">{t.at}</span>
-                      <div className="flex-1">
-                        <div className="text-[12px] font-semibold text-ink mb-0.5">{t.speaker}</div>
-                        <div className="text-[12.5px] text-ink-2 leading-relaxed">{t.text}</div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="mono-label">Full transcript</div>
+                    <span className="text-[10.5px] text-muted">{call.transcript.length} turns</span>
+                  </div>
+                  {call.transcript.map((t, i) => {
+                    const toneTint = t.tone === "pos"  ? "rgba(34,197,94,0.55)"
+                                   : t.tone === "warn" ? "rgba(245,158,11,0.55)"
+                                   : t.tone === "neg"  ? "rgba(239,68,68,0.55)"
+                                   : "rgba(15,18,24,0.10)";
+                    return (
+                      <div key={i} className="flex items-start gap-3">
+                        <span className="text-[10px] font-mono tnum text-muted-2 w-12 shrink-0 mt-0.5">{t.at}</span>
+                        <div className="w-1 self-stretch rounded-full mt-1" style={{ background: toneTint }} />
+                        <div className="flex-1">
+                          <div className="text-[12px] font-semibold text-ink mb-0.5">{t.speaker}</div>
+                          <div className="text-[12.5px] text-ink-2 leading-relaxed">{t.text}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {tab === "coach" && (
+                <div className="max-w-2xl space-y-5">
+                  {/* Per-speaker sentiment */}
+                  {call.speakerSentiment && call.speakerSentiment.length > 0 && (
+                    <div>
+                      <div className="mono-label mb-2.5">Per-speaker sentiment</div>
+                      <div className="space-y-2.5">
+                        {call.speakerSentiment.map((s, i) => {
+                          const tone = s.score >= 75 ? "var(--pos)" : s.score >= 50 ? "var(--warn)" : "var(--neg)";
+                          return (
+                            <div key={i} className="rounded-xl p-3.5 border border-line bg-bg-deep">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-[12.5px] font-semibold text-ink">{s.name}</span>
+                                <span className="text-[12.5px] font-bold tnum" style={{ color: tone }}>{s.score}/100</span>
+                              </div>
+                              <div className="h-1.5 rounded-full overflow-hidden mb-2" style={{ background: "var(--line)" }}>
+                                <div className="h-full rounded-full" style={{ width: `${s.score}%`, background: tone }} />
+                              </div>
+                              {s.quotes[0] && (
+                                <div className="text-[11.5px] italic text-muted leading-snug">&ldquo;{s.quotes[0]}&rdquo;</div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                  ))}
+                  )}
+                  {/* Coaching sections */}
+                  {call.coaching && (
+                    <>
+                      <CoachSection label="What landed well" tone="var(--pos)" Icon={ThumbsUp} items={call.coaching.strengths} />
+                      <CoachSection label="Coaching opportunities" tone="var(--warn)" Icon={Eye} items={call.coaching.improvements} />
+                      <CoachSection label="Next-best-actions" tone="var(--accent)" Icon={Sparkles} items={call.coaching.nextBestActions} numbered />
+                      <CoachSection label="Open risks" tone="var(--neg)" Icon={AlertTriangle} items={call.coaching.risks} />
+                    </>
+                  )}
                 </div>
               )}
               {tab === "notes" && (
