@@ -398,40 +398,87 @@ function CollapsibleSection({
 function FeaturedPlay({ play }: { play: CoPilotPlay }) {
   const drawer = useDrawer();
   const peek = usePeek();
-  const [open, setOpen] = useState(false);
+  // Two independent collapse states:
+  //   `expanded` = is the whole play card open (description + actions + details)?
+  //   `whyOpen`  = is the "Why now" detail block visible (only when expanded)
+  const [expanded, setExpanded] = useState(true);
+  const [whyOpen, setWhyOpen] = useState(false);
   const stale = play.staleDays && play.staleDays >= 5;
+
   return (
     <div data-tour="featured-play"
-      className="rounded-2xl overflow-hidden mb-2"
+      className="rounded-2xl overflow-hidden mb-2 relative"
       style={{
         background: "var(--surface)",
         border: "1px solid var(--line)",
         boxShadow: "0 1px 0 rgba(0,0,0,0.02)",
       }}>
-      <div className="grid grid-cols-12 gap-0">
-        {/* Left rail accent */}
-        <div className="col-span-12 lg:col-span-8 p-6 relative">
-          <div className="absolute left-0 top-6 bottom-6 w-[3px] rounded-r-full"
-            style={{ background: "var(--accent-deep)" }} />
-          <div className="pl-2">
-            <div className="flex items-center gap-2 mb-2">
-              <Logo name={play.account} size={16} rounded={4} />
-              <span className="text-[11px] font-semibold text-ink-2">{play.account}</span>
-              {play.arr && (
-                <>
-                  <span className="text-muted-2">·</span>
-                  <span className="text-[11px] font-mono tnum text-muted">{fmtMoney(play.arr)}</span>
-                </>
-              )}
-            </div>
-            <h3 className="text-[20px] font-semibold text-ink leading-tight mb-2.5"
-              style={{ letterSpacing: "-0.018em" }}>
-              {play.action}
-            </h3>
+      {/* Left accent rail */}
+      <div className="absolute left-0 top-5 bottom-5 w-[3px] rounded-r-full"
+        style={{ background: "var(--accent-deep)" }} />
+
+      {/* Header row — always visible. Click anywhere to expand/collapse. */}
+      <button onClick={() => setExpanded((v) => !v)}
+        className="w-full text-left p-5 pl-7 flex items-start gap-4 hover:bg-bg-deep/30 transition-colors">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1.5">
+            <Logo name={play.account} size={16} rounded={4} />
+            <span className="text-[11px] font-semibold text-ink-2">{play.account}</span>
+            {play.arr && (
+              <>
+                <span className="text-muted-2">·</span>
+                <span className="text-[11px] font-mono tnum text-muted">{fmtMoney(play.arr)}</span>
+              </>
+            )}
+          </div>
+          <h3 className="text-[19px] font-semibold text-ink leading-tight"
+            style={{ letterSpacing: "-0.018em" }}>
+            {play.action}
+          </h3>
+          {/* Inline meta strip — surfaces in BOTH collapsed and expanded so the
+              user always sees champion + ARR + recency at a glance. */}
+          <div className="flex items-center gap-3 flex-wrap mt-2 text-[11px] text-muted">
+            <span className="inline-flex items-center gap-1.5">
+              <PersonAvatar name={play.person} size={16} />
+              <span className="text-ink-2 font-medium">{play.person}</span>
+              <span className="text-muted-2">·</span>
+              <span className="text-muted">{play.personTitle}</span>
+            </span>
+            {play.staleDays !== undefined && (
+              <>
+                <span className="text-muted-2">·</span>
+                <span style={{ color: stale ? "var(--neg)" : "var(--muted)" }}>
+                  {play.staleDays === 0 ? "today" : `${play.staleDays}d since you reached out`}
+                </span>
+              </>
+            )}
+            {play.arr && (
+              <>
+                <span className="text-muted-2">·</span>
+                <span className="font-mono tnum text-ink-2"><b>{fmtMoney(play.arr)}</b> est. ARR</span>
+              </>
+            )}
+          </div>
+        </div>
+        {/* Collapse chevron — flips on toggle */}
+        <span className="w-7 h-7 rounded-lg grid place-items-center text-muted-2 hover:text-ink hover:bg-bg-deep transition-all flex-shrink-0 mt-0.5"
+          aria-label={expanded ? "Collapse" : "Expand"}>
+          <ChevronDown size={13} strokeWidth={2}
+            className="transition-transform"
+            style={{ transform: expanded ? "rotate(0deg)" : "rotate(-90deg)" }} />
+        </span>
+      </button>
+
+      {/* Body — only renders when expanded. Animates downward via grid trick. */}
+      <div className="overflow-hidden transition-all"
+        style={{ display: "grid", gridTemplateRows: expanded ? "1fr" : "0fr" }}>
+        <div className="min-h-0">
+          <div className="px-5 pl-7 pb-5 -mt-1 space-y-4">
             <p className="text-[13.5px] text-muted leading-relaxed max-w-2xl">{play.context}</p>
 
-            {open && play.detail && (
-              <div className="mt-4 p-4 rounded-xl"
+            {/* Why now panel — opens BELOW the description (downward) */}
+            {whyOpen && play.detail && (
+              <div className="p-4 rounded-xl"
                 style={{ background: "var(--bg-deep)", border: "1px solid var(--line)" }}>
                 <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1.5">Why now</div>
                 <div className="text-[12.5px] text-ink-2 leading-relaxed mb-3">{play.detail}</div>
@@ -450,57 +497,29 @@ function FeaturedPlay({ play }: { play: CoPilotPlay }) {
               </div>
             )}
 
-            <div className="flex items-center gap-2 mt-5">
+            {/* Action buttons */}
+            <div className="flex items-center gap-2 flex-wrap">
               <button data-tour="draft-btn"
-                onClick={() => drawer.open({ flow: "email-draft", account: play.account, person: play.person, title: play.action })}
+                onClick={(e) => { e.stopPropagation(); drawer.open({ flow: "email-draft", account: play.account, person: play.person, title: play.action }); }}
                 className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-2 rounded-lg text-white"
                 style={{ background: "var(--accent-deep)" }}>
                 <Sparkles size={11} strokeWidth={2.2} /> Draft follow-up
               </button>
-              <button onClick={() => peek.open(play.account, "default")}
+              <button onClick={(e) => { e.stopPropagation(); peek.open(play.account, "default"); }}
                 className="inline-flex items-center gap-1.5 text-[12px] font-medium px-3.5 py-2 rounded-lg transition-colors hover:bg-bg-deep"
                 style={{ background: "var(--surface)", color: "var(--ink-2)", border: "1px solid var(--line)" }}>
                 Open account <ArrowRight size={11} strokeWidth={2.2} />
               </button>
               <button data-tour="why-now-btn"
-                onClick={() => setOpen((v) => !v)}
+                onClick={(e) => { e.stopPropagation(); setWhyOpen((v) => !v); }}
                 className="text-[11.5px] text-muted hover:text-ink ml-1 inline-flex items-center gap-1">
-                {open ? "Hide context" : "Why now"} <ChevronDown size={11} strokeWidth={2} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+                {whyOpen ? "Hide context" : "Why now"}
+                <ChevronDown size={11} strokeWidth={2}
+                  className="transition-transform"
+                  style={{ transform: whyOpen ? "rotate(180deg)" : "rotate(0deg)" }} />
               </button>
             </div>
           </div>
-        </div>
-
-        {/* Right side — meta */}
-        <div className="col-span-12 lg:col-span-4 p-6 lg:border-l border-line lg:bg-bg-deep/40 flex flex-col gap-4">
-          <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1">Champion</div>
-            <div className="flex items-center gap-2">
-              <PersonAvatar name={play.person} size={26} />
-              <div>
-                <div className="text-[12px] font-semibold text-ink">{play.person}</div>
-                <div className="text-[10.5px] text-muted">{play.personTitle}</div>
-              </div>
-            </div>
-          </div>
-          {play.staleDays !== undefined && (
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1">Time elapsed</div>
-              <div className="text-[14px] font-semibold tnum"
-                style={{ color: stale ? "var(--neg)" : "var(--ink)" }}>
-                {play.staleDays} {play.staleDays === 1 ? "day" : "days"}
-              </div>
-              <div className="text-[10.5px] text-muted">since you reached out</div>
-            </div>
-          )}
-          {play.arr && (
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-2 mb-1">Estimated ARR</div>
-              <div className="text-[18px] font-bold tnum text-ink" style={{ letterSpacing: "-0.018em" }}>
-                {fmtMoney(play.arr)}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
